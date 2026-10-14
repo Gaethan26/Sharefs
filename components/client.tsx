@@ -1,31 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useFormStatus } from 'react-dom'
 import { useEffect, useState } from 'react'
-
-export function NavLinks({ pending }: { pending: number }) {
-  const path = usePathname()
-  const links = [
-    { href: '/a-faire', label: 'À faire', badge: pending },
-    { href: '/liste', label: 'Ma galerie' },
-    { href: '/groupes', label: 'Groupes' },
-    { href: '/profil', label: 'Profil' },
-  ]
-  return (
-    <nav className="tabs" aria-label="Navigation principale">
-      {links.map(l => {
-        const active = path === l.href || path.startsWith(l.href + '/') || (l.href === '/groupes' && path.startsWith('/g/'))
-        return (
-          <Link key={l.href} href={l.href} className="tab" aria-current={active ? 'page' : undefined}>
-            {l.label}{l.badge ? <span className="count">{l.badge}</span> : null}
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
 
 export function Submit({ children, className = 'btn', pendingText }: { children: React.ReactNode; className?: string; pendingText?: string }) {
   const { pending } = useFormStatus()

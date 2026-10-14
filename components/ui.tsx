@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { A } from './app/router'
 import { kindOf } from '@/lib/kinds'
 import { daysLeft, fmtDate, starsTxt } from '@/lib/format'
 import type { Challenge, Person, Work } from '@/lib/types'
@@ -64,7 +64,7 @@ export function StatusChip({ c, kind, me, href }: { c: Challenge; kind: string; 
   const label = c.status === 'done' ? k.done : c.status === 'dropped' ? 'Abandon' : late ? 'En retard' : 'En cours'
   const inner = <><Avatar p={c.user} size={22} />{nameOf(c.user, me)} · {label}</>
   const cls = `st ${c.status}${late ? ' late' : ''}`
-  return href ? <Link className={cls} href={href}>{inner}</Link> : <span className={cls}>{inner}</span>
+  return href ? <A className={cls} href={href}>{inner}</A> : <span className={cls}>{inner}</span>
 }
 
 export function Who({ p, me, text, date }: { p: Person | null; me: string; text: string; date?: string }) {

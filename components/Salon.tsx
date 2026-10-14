@@ -8,13 +8,20 @@ import { Avatar, nameOf } from './ui'
 
 type Msg = { id: string; user_id: string; body: string; created_at: string }
 
-export function Salon({ recoId, me, initial, people }: { recoId: string; me: string; initial: Msg[]; people: Record<string, Person> }) {
+export function Salon({ recoId, me, people }: { recoId: string; me: string; people: Record<string, Person> }) {
   const supabase = useMemo(() => supabaseBrowser(), [])
-  const [msgs, setMsgs] = useState(initial)
+  const [msgs, setMsgs] = useState<Msg[]>([])
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let alive = true
+    supabase.from('messages').select('id, user_id, body, created_at').eq('reco_id', recoId).order('created_at').limit(300)
+      .then(({ data }) => { if (alive && data) setMsgs(prev => [...(data as Msg[]), ...prev.filter(m => !data.some((d: Msg) => d.id === m.id))]) })
+    return () => { alive = false }
+  }, [recoId, supabase])
 
   useEffect(() => {
     const ch = supabase.channel(`salon-${recoId}`)

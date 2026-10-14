@@ -1,12 +1,21 @@
-import { getProviders, searchLinks } from '@/lib/catalog'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { searchLinks, type Providers } from '@/lib/links'
 import type { Work } from '@/lib/types'
 
-export async function WhereToFind({ w, link }: { w: Work; link?: string | null }) {
-  const prov = await getProviders(w)
+export function WhereToFind({ w, link }: { w: Work; link?: string | null }) {
+  const [prov, setProv] = useState<Providers | null>(null)
+  useEffect(() => {
+    setProv(null)
+    if (!w.source?.startsWith('tmdb-') || !w.external_id) return
+    let alive = true
+    fetch(`/api/providers?source=${encodeURIComponent(w.source)}&id=${encodeURIComponent(w.external_id)}`)
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (alive) setProv(j) }).catch(() => {})
+    return () => { alive = false }
+  }, [w.source, w.external_id])
   const groups = prov ? [
-    { label: 'En streaming', items: prov.flatrate },
-    { label: 'En location', items: prov.rent },
-    { label: 'À l’achat', items: prov.buy },
+    { label: 'En streaming', items: prov.flatrate }, { label: 'En location', items: prov.rent }, { label: 'À l’achat', items: prov.buy },
   ].filter(g => g.items.length) : []
   return (
     <div>

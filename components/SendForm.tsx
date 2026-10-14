@@ -1,9 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { sendReco } from '@/app/actions'
+import { A, navigate } from './app/router'
+import { useStore } from './app/store'
 import { kindOf, type Kind } from '@/lib/kinds'
 import type { Person, Work, WorkInput } from '@/lib/types'
 import { Avatar, Cover, WorkMeta } from './ui'
@@ -16,7 +15,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
   circles: CircleOpt[]; library: Work[]; preWorkId?: string | null; preCircleId?: string | null
   replyTo?: { id: string; title: string; sender: Person } | null; ai: boolean; catalog: Record<Kind, boolean>
 }) {
-  const router = useRouter()
+  const { sendReco } = useStore()
   const firstFree = circles.find(c => c.id === preCircleId && !c.used)?.id ?? circles.find(c => !c.used)?.id ?? ''
   const [mode, setMode] = useState<'liste' | 'catalogue'>(library.length ? 'liste' : 'catalogue')
   const [workId, setWorkId] = useState(preWorkId && library.some(w => w.id === preWorkId) ? preWorkId : library[0]?.id ?? '')
@@ -33,7 +32,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
     () => (mode === 'liste' ? library.find(w => w.id === workId) ?? null : picked), [mode, library, workId, picked])
 
   if (!replyTo && circles.length === 0) {
-    return <div className="panel empty">Tu n’as pas encore de groupe.<br /><Link className="btn" href="/groupes">Créer ou rejoindre un groupe</Link></div>
+    return <div className="panel empty">Tu n’as pas encore de groupe.<br /><A className="btn" href="/groupes">Créer ou rejoindre un groupe</A></div>
   }
   if (!replyTo && !circles.some(c => !c.used)) {
     return <div className="panel empty">Tu as déjà envoyé ta référence du mois dans tous tes groupes. Rendez-vous le 1er du mois prochain.</div>
@@ -75,7 +74,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
         workId: mode === 'liste' ? workId : undefined, work: mode === 'catalogue' ? picked ?? undefined : undefined,
         recipients: [...recipients], why, pitch, effort, link, rating, bet, replyTo: replyTo?.id ?? null,
       })
-      if (r.error) setErr(r.error); else router.push(`/r/${r.id}`)
+      if (r.error) setErr(r.error); else navigate(`/r/${r.id}`)
     })
   }
 

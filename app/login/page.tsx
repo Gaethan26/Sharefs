@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { LoginForm } from '@/components/LoginForm'
 import { ArtBackdrop, Cartel } from '@/components/Artwork'
+import { ART_PALETTES, paletteVars } from '@/lib/palettes'
 
 export const metadata = { title: 'Connexion' }
 
@@ -8,7 +9,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const sp = await searchParams
   const next = sp.next?.startsWith('/') && !sp.next.startsWith('//') ? sp.next : '/a-faire'
   return (
-    <main className="split">
+    <main className="split" style={paletteVars(ART_PALETTES.lettre)}>
       <div className="split-art">
         <ArtBackdrop k="lettre" width={1280} position="40% 40%" />
         <Cartel k="lettre" />

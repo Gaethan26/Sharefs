@@ -2,14 +2,16 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { supabaseServer } from '@/lib/supabase/server'
 import { Artwork, ArtBackdrop, Cartel } from '@/components/Artwork'
-import type { ArtKey } from '@/lib/art'
 import { PosterWall } from '@/components/PosterWall'
+import { ART_PALETTES, paletteVars } from '@/lib/palettes'
+import type { ArtKey } from '@/lib/art'
 
-const ROOMS: { k: ArtKey; wall: string; title: string; text: string }[] = [
-  { k: 'liseuse', wall: 'garance', title: 'Une œuvre par mois', text: 'Pas un fil sans fin. Une seule recommandation par mois et par groupe : celle qui compte vraiment pour toi, celle qui t’a changé un peu.' },
-  { k: 'lettre', wall: 'outremer', title: 'Des avis scellés', text: 'Comme une lettre qu’on ouvre seul. Tu ne lis ce que les autres en ont pensé qu’après avoir livré ton propre regard.' },
-  { k: 'tricheur', wall: 'vermillon', title: 'Le pari', text: 'Celui qui recommande parie sur ta note. À la fin, on découvre s’il te connaît vraiment, ou s’il s’est trahi.' },
-  { k: 'lune', wall: 'emeraude', title: 'Le salon', text: 'Quand vous avez tous fini, la conversation s’ouvre. Celle qu’on ne peut pas avoir sans tout dévoiler.' },
+/* Chaque salle prend les couleurs de son propre tableau */
+const ROOMS: { k: Exclude<ArtKey, 'orrery'>; tone: 'light' | 'dark'; title: string; text: string }[] = [
+  { k: 'liseuse', tone: 'light', title: 'Une œuvre par mois', text: 'Pas un fil sans fin. Une seule recommandation par mois et par groupe : celle qui compte vraiment pour toi.' },
+  { k: 'lettre', tone: 'light', title: 'Des avis scellés', text: 'Comme une lettre qu’on ouvre seul. Tu ne lis ce que les autres en ont pensé qu’après avoir livré ton propre regard.' },
+  { k: 'tricheur', tone: 'dark', title: 'Le pari', text: 'Celui qui recommande parie sur ta note. À la fin, on découvre s’il te connaît vraiment.' },
+  { k: 'lune', tone: 'dark', title: 'Le salon', text: 'Quand vous avez tous fini, la conversation s’ouvre. Celle qu’on ne peut pas avoir sans tout dévoiler.' },
 ]
 
 export default async function Home() {
@@ -18,7 +20,7 @@ export default async function Home() {
   if (user) redirect('/a-faire')
   return (
     <main className="landing">
-      <section className="hero">
+      <section className="hero" style={paletteVars(ART_PALETTES.orrery)}>
         <ArtBackdrop k="orrery" width={1920} />
         <div className="hero-top">
           <span className="brand">Tu verras…</span>
@@ -41,22 +43,20 @@ export default async function Home() {
         <cite>Marcel Proust, Le Temps retrouvé</cite>
       </section>
 
-      <div className="rooms">
-        {ROOMS.map((r, i) => (
-          <section key={r.k} className="wall-band">
-            <div className={`room${i % 2 ? ' flip' : ''}`}>
-              <Artwork k={r.k} width={1280} />
-              <div>
-                <h2>{r.title}</h2>
-                <p>{r.text}</p>
-              </div>
+      {ROOMS.map((r, i) => (
+        <section key={r.k} className={`wall-band ${r.tone}`} style={paletteVars(ART_PALETTES[r.k])}>
+          <div className={`room${i % 2 ? ' flip' : ''}`}>
+            <Artwork k={r.k} width={1280} />
+            <div>
+              <h2>{r.title}</h2>
+              <p>{r.text}</p>
             </div>
-          </section>
-        ))}
-      </div>
+          </div>
+        </section>
+      ))}
 
       <section className="coda">
-        <h2>Ta première veillée commence quand tu veux.</h2>
+        <h2>Ta première recommandation commence quand tu veux.</h2>
         <Link className="btn" href="/login">Créer mon compte</Link>
       </section>
       <p className="credits">Tableaux du domaine public via Wikimedia Commons. Affiches : TMDB. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>

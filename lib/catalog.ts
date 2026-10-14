@@ -1,6 +1,7 @@
 import 'server-only'
 import type { Kind } from './kinds'
 import type { Work, WorkInput } from './types'
+import type { Providers } from './links'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p/'
 
@@ -85,9 +86,6 @@ export async function classicPosters(): Promise<Poster[]> {
   return found.filter((p): p is Poster => !!p)
 }
 
-export type Providers = { link: string | null; flatrate: P[]; rent: P[]; buy: P[] }
-type P = { name: string; logo: string }
-
 /** Disponibilités en France (données JustWatch via TMDB) */
 export async function getProviders(w: Work): Promise<Providers | null> {
   if (!w.source?.startsWith('tmdb-') || !w.external_id) return null
@@ -97,21 +95,4 @@ export async function getProviders(w: Work): Promise<Providers | null> {
   const fr = j.results?.FR
   const map = (a?: any[]) => (a ?? []).map(p => ({ name: p.provider_name, logo: TMDB_IMG + 'w92' + p.logo_path }))
   return { link: fr?.link ?? null, flatrate: map(fr?.flatrate), rent: map(fr?.rent), buy: map(fr?.buy) }
-}
-
-export function searchLinks(w: Pick<Work, 'kind' | 'title' | 'creator'>) {
-  const qt = encodeURIComponent(w.title)
-  const q = encodeURIComponent([w.title, w.creator].filter(Boolean).join(' '))
-  if (w.kind === 'film' || w.kind === 'serie') return [
-    { label: 'JustWatch', url: `https://www.justwatch.com/fr/recherche?q=${qt}` },
-    { label: 'Bande-annonce', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(w.title + ' bande annonce VF')}` },
-  ]
-  if (w.kind === 'livre') return [
-    { label: 'Chez un libraire', url: `https://www.leslibraires.fr/recherche/?q=${q}` },
-    { label: 'Extrait', url: `https://www.google.com/search?tbm=bks&q=${q}` },
-  ]
-  return [
-    { label: 'Steam', url: `https://store.steampowered.com/search/?term=${qt}` },
-    { label: 'Durée de jeu', url: `https://howlongtobeat.com/?q=${qt}` },
-  ]
 }
