@@ -89,7 +89,7 @@ export default async function Profil({ searchParams }: { searchParams: Promise<{
             </div>
             <div className="meta">{a ? <><strong style={{ color: 'var(--ink)' }}>{a.pct} %</strong> sur {a.n}</> : null}</div>
           </Link>
-        )) : <p className="meta">Rejoins un cercle pour mesurer tes affinités.</p>}
+        )) : <p className="meta">Rejoins un groupe pour mesurer tes affinités.</p>}
       </section>
 
       <form action={updateProfile} className="panel">

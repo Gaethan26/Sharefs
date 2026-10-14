@@ -16,7 +16,7 @@ async function me() {
   return { supabase, user }
 }
 
-const clean = (m?: string) => (m ? m.replace(/^.*?:\s*(?=[A-ZÀ-Ý])/, '') : 'Action impossible pour le moment.')
+const clean = (m?: string) => (m ? m.replace(/^.*?:\s*(?=[A-ZÀ-Ý])/, '').replace(/cercle/g, 'groupe') : 'Action impossible pour le moment.')
 
 async function ensureWork(supabase: Sb, w: WorkInput) {
   if (!w.title?.trim()) throw new Error('Indique un titre.')
@@ -107,15 +107,15 @@ export async function joinChallengeAction(recoId: string) {
   await rpcThenBack('join_challenge', { p_reco: recoId }, recoId)
 }
 
-/* ---------- Cercles ---------- */
+/* ---------- Groupes ---------- */
 export async function createCircle(fd: FormData) {
   const { supabase } = await me()
   const name = String(fd.get('name') ?? '').trim()
-  if (!name) redirect('/cercles?err=' + encodeURIComponent('Donne un nom au cercle.'))
+  if (!name) redirect('/groupes?err=' + encodeURIComponent('Donne un nom au groupe.'))
   const { data, error } = await supabase.rpc('create_circle', { p_name: name.slice(0, 60) })
-  if (error) redirect('/cercles?err=' + encodeURIComponent(clean(error.message)))
+  if (error) redirect('/groupes?err=' + encodeURIComponent(clean(error.message)))
   revalidatePath('/', 'layout')
-  redirect(`/c/${data}`)
+  redirect(`/g/${data}`)
 }
 
 export async function joinCircle(fd: FormData) {
@@ -123,9 +123,9 @@ export async function joinCircle(fd: FormData) {
   const raw = String(fd.get('code') ?? '').trim()
   const code = raw.split('/').filter(Boolean).pop() ?? ''
   const { data, error } = await supabase.rpc('join_circle', { p_code: code })
-  if (error) redirect('/cercles?err=' + encodeURIComponent(clean(error.message)))
+  if (error) redirect('/groupes?err=' + encodeURIComponent(clean(error.message)))
   revalidatePath('/', 'layout')
-  redirect(`/c/${data}`)
+  redirect(`/g/${data}`)
 }
 
 export async function joinInvite(code: string) {
@@ -133,14 +133,14 @@ export async function joinInvite(code: string) {
   const { data, error } = await supabase.rpc('join_circle', { p_code: code })
   if (error) redirect(`/invite/${code}?err=` + encodeURIComponent(clean(error.message)))
   revalidatePath('/', 'layout')
-  redirect(`/c/${data}`)
+  redirect(`/g/${data}`)
 }
 
 export async function leaveCircle(circleId: string) {
   const { supabase, user } = await me()
   await supabase.from('circle_members').delete().eq('circle_id', circleId).eq('user_id', user.id)
   revalidatePath('/', 'layout')
-  redirect('/cercles')
+  redirect('/groupes')
 }
 
 /* ---------- Profil ---------- */

@@ -1,5 +1,5 @@
 -- =====================================================================
--- Le Cercle — schéma Supabase (Postgres + RLS)
+-- Tu verras… — schéma Supabase (Postgres + RLS)
 -- À exécuter une fois dans Supabase > SQL Editor.
 -- Toutes les écritures sensibles passent par des fonctions RPC : quota
 -- mensuel, délais, avis scellés et paris sont garantis côté serveur.
@@ -69,7 +69,7 @@ create table public.recos (
   reply_to uuid references public.recos(id) on delete set null,
   sent_at timestamptz not null default now()
 );
--- Une reco par mois et par cercle (les réponses ne comptent pas)
+-- Une reco par mois et par groupe (les réponses ne comptent pas)
 create unique index recos_one_per_month on public.recos (circle_id, sender_id, month) where reply_to is null;
 -- Une seule réponse par reco reçue
 create unique index recos_one_reply on public.recos (sender_id, reply_to) where reply_to is not null;
@@ -154,7 +154,7 @@ language sql stable security definer set search_path = public as $$
       or exists (select 1 from reviews where reco_id = r and user_id = auth.uid())
 $$;
 
--- ---------- RPC : cercles --------------------------------------------
+-- ---------- RPC : groupes --------------------------------------------
 create or replace function public.create_circle(p_name text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare v uuid;
@@ -227,7 +227,7 @@ begin
     where x <> v_me and exists (select 1 from circle_members m where m.circle_id = v_circle and m.user_id = x);
   end if;
   if not exists (select 1 from circle_members where circle_id = v_circle and user_id = v_me) then
-    raise exception 'Tu ne fais pas partie de ce cercle';
+    raise exception 'Tu ne fais pas partie de ce groupe';
   end if;
   if coalesce(array_length(v_to, 1), 0) = 0 then raise exception 'Choisis au moins un destinataire'; end if;
   if nullif(trim(p_link),'') is not null and trim(p_link) !~* '^https://' then
@@ -239,7 +239,7 @@ begin
             nullif(trim(p_effort),''), nullif(trim(p_link),''), p_reply_to)
     returning id into v_id;
   exception when unique_violation then
-    if p_reply_to is null then raise exception 'Tu as déjà envoyé ta référence du mois dans ce cercle';
+    if p_reply_to is null then raise exception 'Tu as déjà envoyé ta référence du mois dans ce groupe';
     else raise exception 'Tu as déjà répondu à cette référence'; end if;
   end;
   insert into reco_secrets (reco_id, sender_rating, bet) values (v_id, nullif(p_rating, 0), nullif(p_bet, 0));

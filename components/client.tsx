@@ -10,13 +10,13 @@ export function NavLinks({ pending }: { pending: number }) {
   const links = [
     { href: '/a-faire', label: 'À faire', badge: pending },
     { href: '/liste', label: 'Ma galerie' },
-    { href: '/cercles', label: 'Cercles' },
+    { href: '/groupes', label: 'Groupes' },
     { href: '/profil', label: 'Profil' },
   ]
   return (
     <nav className="tabs" aria-label="Navigation principale">
       {links.map(l => {
-        const active = path === l.href || path.startsWith(l.href + '/') || (l.href === '/cercles' && path.startsWith('/c/'))
+        const active = path === l.href || path.startsWith(l.href + '/') || (l.href === '/groupes' && path.startsWith('/g/'))
         return (
           <Link key={l.href} href={l.href} className="tab" aria-current={active ? 'page' : undefined}>
             {l.label}{l.badge ? <span className="count">{l.badge}</span> : null}
@@ -47,7 +47,7 @@ export function CopyButton({ text, label = 'Copier le lien' }: { text: string; l
   const [done, setDone] = useState(false)
   async function copy() {
     try {
-      if (navigator.share && /Mobi/i.test(navigator.userAgent)) { await navigator.share({ title: 'Rejoins mon cercle', url: text }); return }
+      if (navigator.share && /Mobi/i.test(navigator.userAgent)) { await navigator.share({ title: 'Rejoins mon groupe', url: text }); return }
       await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 2000)
     } catch { /* partage annulé */ }
   }

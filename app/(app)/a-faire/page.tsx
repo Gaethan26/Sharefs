@@ -39,10 +39,10 @@ export default async function Todo({ searchParams }: { searchParams: Promise<{ e
             <h1>{veillee()}</h1>
             <p>
               {active.length ? `${active.length} œuvre${active.length > 1 ? 's' : ''} t’attend${active.length > 1 ? 'ent' : ''}. ` : 'Aucune œuvre en attente. '}
-              {circles?.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} cercle${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Rejoins un cercle pour commencer.'}
+              {circles?.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} groupe${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Rejoins un groupe pour commencer.'}
             </p>
           </div>
-          {circles?.length ? (free > 0 && <Link className="btn" href="/envoyer">Recommander une œuvre</Link>) : <Link className="btn" href="/cercles">Créer un cercle</Link>}
+          {circles?.length ? (free > 0 && <Link className="btn" href="/envoyer">Recommander une œuvre</Link>) : <Link className="btn" href="/groupes">Créer un groupe</Link>}
         </div>
       </section>
       {err && <div className="notice">{err}</div>}
@@ -53,7 +53,7 @@ export default async function Todo({ searchParams }: { searchParams: Promise<{ e
           <div>
             <h2 style={{ marginTop: 0 }}>Rien ne t’attend pour l’instant.</h2>
             <p className="sub">Quand un ami te confie une œuvre, elle apparaît ici avec son mois pour la vivre. En attendant, recommande la tienne.</p>
-            <Link className="btn" href={circles?.length ? '/envoyer' : '/cercles'}>{circles?.length ? 'Recommander une œuvre' : 'Créer un cercle'}</Link>
+            <Link className="btn" href={circles?.length ? '/envoyer' : '/groupes'}>{circles?.length ? 'Recommander une œuvre' : 'Créer un groupe'}</Link>
           </div>
         </section>
       )}

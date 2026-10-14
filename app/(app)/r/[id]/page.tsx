@@ -49,7 +49,7 @@ export default async function RecoPage({ params, searchParams }: { params: Promi
         <div className="stage-in">
           <Framed w={r.work} size="l" />
           <div>
-            <Who p={r.sender} me={me} text={`${r.reply_to ? 'répond' : 'recommande'} dans ${r.circle?.name ?? 'le cercle'}`} date={r.sent_at} />
+            <Who p={r.sender} me={me} text={`${r.reply_to ? 'répond' : 'recommande'} dans ${r.circle?.name ?? 'le groupe'}`} date={r.sent_at} />
             {r.reply_to && parentTitle && <p className="meta" style={{ margin: '4px 0 0' }}>En réponse à <Link href={`/r/${r.reply_to}`}>« {parentTitle} »</Link></p>}
             <h1 className="t-xl" style={{ margin: '14px 0 8px' }}>{r.work.title}</h1>
             <WorkMeta w={r.work} effort={r.effort} />

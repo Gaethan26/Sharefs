@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <header className="top">
         <div className="top-in">
-          <Link href="/a-faire" className="brand">Le Cercle</Link>
+          <Link href="/a-faire" className="brand">Tu verras…</Link>
           <NavLinks pending={count ?? 0} />
           <Link href="/envoyer" className="btn small">Recommander</Link>
         </div>

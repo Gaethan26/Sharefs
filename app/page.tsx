@@ -4,11 +4,11 @@ import { supabaseServer } from '@/lib/supabase/server'
 import { Artwork, ArtBackdrop, Cartel } from '@/components/Artwork'
 import type { ArtKey } from '@/lib/art'
 
-const ROOMS: { k: ArtKey; title: string; text: string }[] = [
-  { k: 'liseuse', title: 'Une œuvre par mois', text: 'Pas un fil sans fin. Une seule recommandation par mois et par cercle : celle qui compte vraiment pour toi, celle qui t’a changé un peu.' },
-  { k: 'lettre', title: 'Des avis scellés', text: 'Comme une lettre qu’on ouvre seul. Tu ne lis ce que les autres en ont pensé qu’après avoir livré ton propre regard.' },
-  { k: 'tricheur', title: 'Le pari', text: 'Celui qui recommande parie sur ta note. À la fin, on découvre s’il te connaît vraiment, ou s’il s’est trahi.' },
-  { k: 'lune', title: 'Le salon', text: 'Quand vous avez tous fini, la conversation s’ouvre. Celle qu’on ne peut pas avoir sans tout dévoiler.' },
+const ROOMS: { k: ArtKey; wall: string; title: string; text: string }[] = [
+  { k: 'liseuse', wall: 'garance', title: 'Une œuvre par mois', text: 'Pas un fil sans fin. Une seule recommandation par mois et par groupe : celle qui compte vraiment pour toi, celle qui t’a changé un peu.' },
+  { k: 'lettre', wall: 'outremer', title: 'Des avis scellés', text: 'Comme une lettre qu’on ouvre seul. Tu ne lis ce que les autres en ont pensé qu’après avoir livré ton propre regard.' },
+  { k: 'tricheur', wall: 'vermillon', title: 'Le pari', text: 'Celui qui recommande parie sur ta note. À la fin, on découvre s’il te connaît vraiment, ou s’il s’est trahi.' },
+  { k: 'lune', wall: 'emeraude', title: 'Le salon', text: 'Quand vous avez tous fini, la conversation s’ouvre. Celle qu’on ne peut pas avoir sans tout dévoiler.' },
 ]
 
 export default async function Home() {
@@ -20,14 +20,14 @@ export default async function Home() {
       <section className="hero">
         <ArtBackdrop k="orrery" width={1920} />
         <div className="hero-top">
-          <span className="brand">Le Cercle</span>
+          <span className="brand">Tu verras…</span>
           <Link className="hero-link" href="/login">Se connecter</Link>
         </div>
         <div className="hero-in">
           <div>
             <h1>On s’est toujours rassemblés autour d’une lumière pour se raconter le monde.</h1>
-            <p>Le Cercle est une veillée entre amis. Chaque mois, tu confies à tes proches un livre, un film, une série ou un jeu qui t’a marqué. Ils ont un mois pour le vivre. Ensuite, vous en parlez.</p>
-            <Link className="btn" href="/login">Entrer dans le cercle</Link>
+            <p>Chaque mois, tu confies à tes proches un livre, un film, une série ou un jeu qui t’a marqué, avec ces deux mots : tu verras. Ils ont un mois pour le vivre. Ensuite, vous en parlez.</p>
+            <Link className="btn" href="/login">Commencer</Link>
           </div>
           <Cartel k="orrery" />
         </div>
@@ -39,12 +39,14 @@ export default async function Home() {
       </section>
 
       <div className="rooms">
-        {ROOMS.map(r => (
-          <section key={r.k} className="room">
-            <Artwork k={r.k} width={1280} />
-            <div>
-              <h2>{r.title}</h2>
-              <p>{r.text}</p>
+        {ROOMS.map((r, i) => (
+          <section key={r.k} className={`wall-band wall-${r.wall}`}>
+            <div className={`room${i % 2 ? ' flip' : ''}`}>
+              <Artwork k={r.k} width={1280} />
+              <div>
+                <h2>{r.title}</h2>
+                <p>{r.text}</p>
+              </div>
             </div>
           </section>
         ))}

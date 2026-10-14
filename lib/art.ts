@@ -34,7 +34,7 @@ export type ArtKey = keyof typeof ART
 export async function artSrc(key: ArtKey, width = 1280): Promise<string | null> {
   try {
     const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${ART[key].page}`, {
-      headers: { 'User-Agent': 'LeCercle/1.0 (https://github.com/Gaethan26/Sharefs)', accept: 'application/json' },
+      headers: { 'User-Agent': 'TuVerras/1.0 (https://github.com/Gaethan26/Sharefs)', accept: 'application/json' },
       next: { revalidate: 60 * 60 * 24 * 7 },
     })
     if (!res.ok) return null

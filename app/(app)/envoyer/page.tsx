@@ -30,7 +30,7 @@ export default async function Envoyer({ searchParams }: { searchParams: Promise<
   return (
     <div className="narrow" style={{ margin: '0 auto' }}>
       <h1>{reply ? 'Répondre par une œuvre' : 'Recommandation du mois'}</h1>
-      <p className="sub">{reply ? `Tu as fini « ${reply.work.title} ». Renvoie une référence à ${reply.sender.display_name || 'ton ami'}.` : `Une seule référence par cercle en ${monthLabel()}. Tes amis auront un mois.`}</p>
+      <p className="sub">{reply ? `Tu as fini « ${reply.work.title} ». Renvoie une référence à ${reply.sender.display_name || 'ton ami'}.` : `Une seule référence par groupe en ${monthLabel()}. Tes amis auront un mois.`}</p>
       {sp.reply && !reply ? <p className="empty">Termine et note la référence avant d’y répondre.</p> : (
         <SendForm circles={[...circles.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr'))} library={library}
           preWorkId={sp.work} preCircleId={sp.circle}

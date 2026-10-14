@@ -1,4 +1,4 @@
-# Le Cercle
+# Tu verras…
 
 Une référence par mois à tes amis (livre, film, série, jeu). Ils ont un mois pour la vivre.
 Les avis restent scellés tant qu’on n’a pas fini. L’expéditeur parie sur la note. Un salon s’ouvre à ceux qui ont fini.
@@ -42,17 +42,17 @@ npm run dev
 ```
 
 ## Règles garanties par la base (pas seulement par l’interface)
-- Une reco par cercle et par mois ; une seule réponse par reco reçue, hors quota.
+- Une reco par groupe et par mois ; une seule réponse par reco reçue, hors quota.
 - Les avis, la note et le pari de l’expéditeur restent invisibles tant que tu n’as pas noté (RLS).
 - Le salon n’est lisible et accessible en écriture que pour l’expéditeur et ceux qui ont fini.
 - Le délai ne bouge que par le joker (+15 jours, une fois). Aucune écriture directe n’est possible sur les défis.
-- Les listes et profils ne sont visibles qu’entre membres d’un même cercle.
+- Les listes et profils ne sont visibles qu’entre membres d’un même groupe.
 
 ## Structure
 ```
 supabase/schema.sql      tables, fonctions RPC, policies RLS, temps réel
-app/actions.ts           server actions (envoi, défis, cercles, liste, profil)
-app/(app)/               pages connectées : a-faire, liste, cercles, c/[id], r/[id], envoyer, profil, u/[id]
+app/actions.ts           server actions (envoi, défis, groupes, liste, profil)
+app/(app)/               pages connectées : a-faire, liste, groupes, g/[id], r/[id], envoyer, profil, u/[id]
 app/api/                 catalog (TMDB, Google Books, RAWG), pitch (Claude), cron/digest (Resend)
 components/              UI ; Salon.tsx pour le temps réel, SendForm.tsx pour l’envoi
 lib/                     clients Supabase, catalogue, formats, stats d’affinité

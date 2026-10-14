@@ -15,8 +15,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
       </div>
       <div className="split-form">
         <div className="auth">
-          <Link href="/" className="brand">Le Cercle</Link>
-          <h1 style={{ marginTop: 32 }}>Entrer dans le cercle</h1>
+          <Link href="/" className="brand">Tu verras…</Link>
+          <h1 style={{ marginTop: 32 }}>Bienvenue</h1>
           <p className="sub">Avec ton e-mail et un mot de passe.</p>
           {sp.err && <div className="notice">Connexion interrompue. Réessaie.</div>}
           <LoginForm next={next} google={process.env.NEXT_PUBLIC_GOOGLE_ENABLED === '1'} />

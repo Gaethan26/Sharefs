@@ -33,10 +33,10 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
     () => (mode === 'liste' ? library.find(w => w.id === workId) ?? null : picked), [mode, library, workId, picked])
 
   if (!replyTo && circles.length === 0) {
-    return <div className="panel empty">Tu n’as pas encore de cercle.<br /><Link className="btn" href="/cercles">Créer ou rejoindre un cercle</Link></div>
+    return <div className="panel empty">Tu n’as pas encore de groupe.<br /><Link className="btn" href="/groupes">Créer ou rejoindre un groupe</Link></div>
   }
   if (!replyTo && !circles.some(c => !c.used)) {
-    return <div className="panel empty">Tu as déjà envoyé ta référence du mois dans tous tes cercles. Rendez-vous le 1er du mois prochain.</div>
+    return <div className="panel empty">Tu as déjà envoyé ta référence du mois dans tous tes groupes. Rendez-vous le 1er du mois prochain.</div>
   }
 
   function changeCircle(id: string) {
@@ -66,7 +66,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
   function submit(e: React.FormEvent) {
     e.preventDefault(); setErr('')
     if (!work) { setErr('Choisis une référence.'); return }
-    if (!replyTo && !circleId) { setErr('Choisis un cercle.'); return }
+    if (!replyTo && !circleId) { setErr('Choisis un groupe.'); return }
     if (!replyTo && recipients.size === 0) { setErr('Choisis au moins un destinataire.'); return }
     if (link && !/^https:\/\/\S+$/i.test(link)) { setErr('Le lien doit commencer par https://'); return }
     start(async () => {
@@ -112,7 +112,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
         ) : (
           <>
             <h3>Pour qui</h3>
-            <label className="f" htmlFor="circle">Cercle</label>
+            <label className="f" htmlFor="circle">Groupe</label>
             <select id="circle" value={circleId} onChange={e => changeCircle(e.target.value)}>
               {circles.map(c => <option key={c.id} value={c.id} disabled={c.used}>{c.name}{c.used ? ' (envoi du mois fait)' : ''}</option>)}
             </select>
@@ -123,7 +123,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
                   <label key={p.id}><input type="checkbox" checked={recipients.has(p.id)} onChange={() => toggle(p.id)} /><Avatar p={p} />{p.display_name || 'Sans nom'}</label>
                 ))}
               </div>
-            ) : <p className="meta">Personne d’autre dans ce cercle. Invite tes amis depuis la page du cercle.</p>}
+            ) : <p className="meta">Personne d’autre dans ce groupe. Invite tes amis depuis la page du groupe.</p>}
           </>
         )}
       </section>
