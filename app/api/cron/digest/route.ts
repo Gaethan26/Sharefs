@@ -44,12 +44,12 @@ export async function GET(req: Request) {
     if (!lines.length) continue
     const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.6;color:#18213D">
       <p>Bonjour ${esc(p.display_name || '')},</p>${lines.map(l => `<p>${l}</p>`).join('')}
-      <p><a href="${app}/a-faire" style="display:inline-block;background:#2F47E8;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Ouvrir Tu verras…</a></p>
+      <p><a href="${app}/a-faire" style="display:inline-block;background:#1B1A17;color:#F3F2EE;padding:10px 18px;border-radius:999px;text-decoration:none">Ouvrir Sharefs</a></p>
       <p style="color:#5D6580;font-size:13px">Tu peux couper ces e-mails dans ton profil.</p></div>`
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: process.env.EMAIL_FROM, to, subject: lines.length > 1 ? `Tu verras… ${lines.length} nouvelles pour toi` : 'Tu verras… du nouveau pour toi', html }),
+      body: JSON.stringify({ from: process.env.EMAIL_FROM, to, subject: lines.length > 1 ? `Sharefs : ${lines.length} nouvelles pour toi` : 'Sharefs : du nouveau pour toi', html }),
     })
     if (res.ok) { sent++; await db.from('profiles').update({ last_digest_at: now.toISOString() }).eq('id', p.id) }
   }

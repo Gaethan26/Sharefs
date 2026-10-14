@@ -1,5 +1,5 @@
 /* =====================================================================
-   Tu verras… — une galerie claire où la couleur vient des œuvres
+   Sharefs — une galerie claire où la couleur vient des œuvres
    L'interface reste neutre (papier, encre). Chaque fond coloré est tiré
    de l'image qu'il accompagne : tableau, affiche ou jaquette.
    Newsreader pour les titres et les œuvres, Figtree pour l'interface.
@@ -45,9 +45,13 @@ h3 { font-family: var(--display); font-weight: 600; font-size: 1.28rem; line-hei
 .app.has-tint { background-color: color-mix(in oklab, var(--page) 75%, var(--paper)) }
 .top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--card) 72%, transparent); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); padding-top: env(safe-area-inset-top, 0px) }
 .top-in { max-width: 1080px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 18px }
-.brand { font-family: var(--display); font-style: italic; font-weight: 500; font-size: 1.55rem; text-decoration: none; white-space: nowrap; line-height: 1 }
-/* Les points de suspension prennent la couleur de la salle en cours */
+/* Marque : « Sharefs » signé comme un tableau, « Tu verras… » en accroche */
+.brand { display: inline-flex; align-items: baseline; gap: 10px; text-decoration: none; white-space: nowrap; line-height: 1 }
+.logo { font-family: "Allura", "Snell Roundhand", cursive; font-weight: 400; font-size: 2.35rem; line-height: .8; letter-spacing: .01em }
+.tagline { font-family: var(--display); font-style: italic; font-size: 1rem; color: var(--muted) }
 .brand .dots { color: var(--page-mid, var(--mid)); transition: color .9s ease }
+.sig { font-family: "Allura", "Snell Roundhand", cursive; font-style: normal; font-weight: 400; font-size: 1.35em; line-height: .9 }
+.kicker { font-family: var(--display); font-style: italic; font-size: 1.4rem; margin: 0 0 10px; color: var(--on-deep) }
 .tabs { display: flex; gap: 2px; overflow-x: auto; flex: 1; scrollbar-width: none }
 .tab { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; text-decoration: none; font-weight: 500; color: var(--muted); white-space: nowrap; border-bottom: 2px solid transparent }
 .tab svg { opacity: .8 }
@@ -357,4 +361,41 @@ label.f { display: block; font-size: .86rem; color: var(--muted); margin: 14px 0
   .wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) }
   .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)) }
   .quick-field .btn { padding: 11px 16px }
+}
+
+/* ---------- Couvertures « collection classique » pour les œuvres sans jaquette ---------- */
+.folio { position: relative; overflow: hidden; background: var(--folio, #22211E) }
+.folio img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.9) }
+.folio-band { position: absolute; left: 0; right: 0; bottom: 0; background: #F6F3EC; color: #1B1A17; padding: 9% 10% 11%; display: grid; gap: 3px; line-height: 1.12; text-align: left }
+.folio-kind { font-family: var(--sans); font-size: .62em; color: #6B6760 }
+.folio-title { font-family: var(--display); font-style: italic; font-size: .92em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical }
+.cover-m.folio { font-size: .66rem } .cover-g.folio { font-size: 1.12rem } .cover-l.folio { font-size: 1.4rem }
+
+/* ---------- Cadres : chaque œuvre a le sien ---------- */
+.frame-white { padding: 7px; background: #FFFFFF }
+.frame-gold { padding: 10px; background: linear-gradient(135deg, #E9CB7E 0%, #9C7424 28%, #F2DC97 50%, #8A6220 74%, #D8B666 100%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.28), var(--mat-shadow) }
+.frame-gold > .cover { box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 0 4px #F6F1E4 }
+.frame-black { padding: 13px; background: #FBFAF7; box-shadow: 0 0 0 5px #1B1A17, 0 18px 34px -14px rgba(0,0,0,.5) }
+.frame-wood { padding: 9px; background: linear-gradient(90deg, #6E4325 0%, #A8754A 42%, #8C5B35 68%, #67401F 100%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.3), var(--mat-shadow) }
+.frame-wood > .cover { box-shadow: 0 0 0 4px #F3EFE6 }
+
+/* ---------- Galerie : un accrochage, chaque œuvre avec son cartel ---------- */
+.gallery { gap: 48px 30px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); padding-top: 8px }
+.tile { padding: 0; background: transparent; border-radius: 0 }
+.tile .frame { transition: transform .35s ease, box-shadow .35s ease }
+.tile:hover .frame { transform: translateY(-3px) }
+.cartel.label { background: var(--card); padding: 10px 12px 11px; margin-top: 16px; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.1); border-left: 3px solid var(--mid) }
+.cartel.label .tile-note { font-family: var(--display); font-style: italic; color: var(--muted); font-size: .95rem; margin-top: 4px }
+.tile-actions { padding-top: 10px }
+.why-by.sig { display: block; margin-top: 6px; font-size: 1.9rem; opacity: .9 }
+
+/* ---------- Palette de l'artiste ---------- */
+.palette-card { display: flex; gap: 24px; align-items: center; justify-content: space-between; flex-wrap: wrap }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px }
+.swatch { width: 38px; height: 34px; border-radius: 52% 48% 55% 45% / 46% 58% 42% 54%; transform: rotate(var(--r)); box-shadow: inset 0 -3px 6px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.15); transition: background-color .6s ease }
+@media (prefers-reduced-motion: reduce) { .tile .frame { transition: none } }
+@media (max-width: 680px) {
+  .tagline { display: none }
+  .logo { font-size: 2rem }
+  .gallery { gap: 30px 16px }
 }

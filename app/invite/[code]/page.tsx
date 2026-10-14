@@ -18,20 +18,20 @@ export default async function Invite({ params, searchParams }: { params: Promise
   return (
     <main className="wrap">
       <div className="auth">
-        <Link href="/" className="brand">Tu verras…</Link>
+        <Link href="/" className="brand"><span className="logo">Sharefs</span><span className="tagline">Tu verras…</span></Link>
         {c ? (
           <div className="panel" style={{ marginTop: 24 }}>
             <p className="meta" style={{ margin: 0 }}>Tu es invité à rejoindre</p>
             <h1 style={{ margin: '6px 0' }}>{c.name}</h1>
             <p className="meta">{c.members} membre{c.members > 1 ? 's' : ''}. Chaque mois, chacun envoie une référence ; tu as un mois pour la vivre.</p>
             {err && <p className="err">{err}</p>}
-            <form action={joinInvite.bind(null, code)} className="actions"><Submit pendingText="…">Rejoindre le groupe</Submit></form>
+            <form action={joinInvite.bind(null, code)} className="actions"><Submit pendingText="…">Rejoindre le salon</Submit></form>
           </div>
         ) : (
           <div className="panel" style={{ marginTop: 24 }}>
             <h1>Lien invalide</h1>
             <p className="meta">Ce lien d’invitation n’existe pas. Demande-en un nouveau à ton ami.</p>
-            <Link className="btn" href="/groupes">Mes groupes</Link>
+            <Link className="btn" href="/groupes">Mes salons</Link>
           </div>
         )}
       </div>

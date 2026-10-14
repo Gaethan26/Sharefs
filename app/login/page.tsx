@@ -16,7 +16,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
       </div>
       <div className="split-form">
         <div className="auth">
-          <Link href="/" className="brand">Tu verras…</Link>
+          <Link href="/" className="brand"><span className="logo">Sharefs</span><span className="tagline">Tu verras…</span></Link>
           <h1 style={{ marginTop: 32 }}>Bienvenue</h1>
           <p className="sub">Avec ton e-mail et un mot de passe.</p>
           {sp.err && <div className="notice">Connexion interrompue. Réessaie.</div>}

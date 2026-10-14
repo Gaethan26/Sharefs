@@ -20,6 +20,8 @@ export function Library({ catalog }: { catalog: Record<Kind, boolean> }) {
   useEffect(() => { try { const v = localStorage.getItem('tv-view'); if (v === 'liste' || v === 'galerie') setView(v) } catch { /* rien */ } }, [])
   const pickView = (v: 'galerie' | 'liste') => { setView(v); try { localStorage.setItem('tv-view', v) } catch { /* rien */ } }
   const items = filter ? s.library.filter(i => i.work.kind === filter) : s.library
+  // Les œuvres ajoutées sans image reçoivent leur jaquette en arrière-plan
+  useEffect(() => { if (s.library.some(i => !i.work.cover_url)) s.upgradeCovers() }, [s.library.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function add(w: WorkInput) {
     if (s.library.some(i => i.work.kind === w.kind && same(i.work.title, w.title))) { s.setToast(`« ${w.title} » est déjà dans ta galerie`); return }
@@ -29,7 +31,7 @@ export function Library({ catalog }: { catalog: Record<Kind, boolean> }) {
 
   return (
     <>
-      <RoomHeader k="liseuse" title="Ma galerie" sub="Les œuvres qui t’ont construit. Tes amis peuvent la parcourir et y piocher." />
+      <RoomHeader k="liseuse" title={<>L’exposition de <span className="sig">{(s.profile?.display_name || 'toi').split(' ')[0]}</span></>} sub="Les œuvres qui t’ont construit, accrochées pour ceux que tu aimes." />
       <section className="panel">
         <QuickAdd enabled={catalog} onAdd={add} />
       </section>
@@ -61,7 +63,7 @@ function Actions({ i }: { i: Item }) {
   if (i.id.startsWith('tmp-')) return <span className="meta">Ajout…</span>
   return (
     <>
-      <A className="btn small" href={`/envoyer?work=${i.work.id}`}>Recommander</A>
+      <A className="btn small" href={`/envoyer?work=${i.work.id}`}>Partager</A>
       <button className="btn small ghost" aria-label={`Retirer ${i.work.title}`} onClick={async () => { const r = await s.removeItem(i.id); if (r.error) s.setToast(r.error) }}>Retirer</button>
     </>
   )
@@ -70,13 +72,13 @@ function Actions({ i }: { i: Item }) {
 function Tile({ i }: { i: Item }) {
   const p = usePalette(i.work.cover_url)
   return (
-    <li className={`tile tinted${i.id.startsWith('tmp-') ? ' pending' : ''}`} style={paletteVars(p)}>
+    <li className={`tile${i.id.startsWith('tmp-') ? ' pending' : ''}`} style={paletteVars(p)}>
       <Framed w={i.work} size="g" />
-      <div className="cartel">
+      <div className="cartel label">
         <span className="cartel-title">{i.work.title}</span>
         <span className="kind">{kindOf(i.work.kind).label}</span>
+        {i.note && <span className="tile-note">{i.note}</span>}
       </div>
-      {i.note && <p className="tile-note">{i.note}</p>}
       <div className="tile-actions"><Actions i={i} /></div>
     </li>
   )

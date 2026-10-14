@@ -17,7 +17,7 @@ const META: Record<ArtKey, { artist: string; title: string; pos: string }> = {
 }
 
 /* En-tête de chaque onglet : un tableau, et toute la page prend ses couleurs */
-export function RoomHeader({ k, title, sub, children }: { k: ArtKey; title: string; sub?: React.ReactNode; children?: React.ReactNode }) {
+export function RoomHeader({ k, title, sub, children }: { k: ArtKey; title: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode }) {
   const art = useContext(ArtCtx)
   const p = ART_PALETTES[k]
   usePageTint(p)
@@ -34,8 +34,8 @@ export function RoomHeader({ k, title, sub, children }: { k: ArtKey; title: stri
   )
 }
 
-/* Variante pour un groupe ou un ami : une mosaïque de leurs jaquettes */
-export function MosaicHeader({ covers, palette, title, sub, children }: { covers: string[]; palette: Palette; title: string; sub?: React.ReactNode; children?: React.ReactNode }) {
+/* Variante pour un salon ou un ami : une mosaïque de leurs jaquettes */
+export function MosaicHeader({ covers, palette, title, sub, children }: { covers: string[]; palette: Palette; title: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode }) {
   usePageTint(palette)
   const tiles = covers.slice(0, 8)
   return (

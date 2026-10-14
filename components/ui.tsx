@@ -1,3 +1,5 @@
+'use client'
+
 import { A } from './app/router'
 import { kindOf } from '@/lib/kinds'
 import { daysLeft, fmtDate, starsTxt } from '@/lib/format'
@@ -17,14 +19,38 @@ export function Avatar({ p, size = 26 }: { p?: Person | null; size?: number }) {
   )
 }
 
-export function Cover({ w, size = 'm' }: { w: Pick<Work, 'kind' | 'cover_url'>; size?: 's' | 'm' | 'l' | 'g' }) {
+const FOLIO = ['orrery', 'liseuse', 'lettre', 'tricheur', 'lune'] as const
+const FOLIO_DEEP = { orrery: '#1C130C', liseuse: '#3B2F1B', lettre: '#283024', tricheur: '#1B130E', lune: '#25221B' }
+const hash = (s: string) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h) }
+
+type CoverWork = Pick<Work, 'kind' | 'cover_url'> & { title?: string | null; id?: string }
+
+/* Sans jaquette, l'œuvre reçoit une couverture « collection classique » :
+   un détail de tableau et son titre, comme un livre de poche illustré. Jamais un simple aplat. */
+export function Cover({ w, size = 'm' }: { w: CoverWork; size?: 's' | 'm' | 'l' | 'g' }) {
   if (w.cover_url) return <img className={`cover cover-${size}`} src={w.cover_url} alt="" loading="lazy" />
-  return <span className={`cover cover-${size} cover-ph k-${w.kind}`} aria-hidden>{kindOf(w.kind).label.charAt(0)}</span>
+  const seed = hash(w.title || w.id || w.kind)
+  const k = FOLIO[seed % FOLIO.length]
+  const pos = `${20 + (seed % 61)}% ${20 + ((seed >> 3) % 51)}%`
+  return (
+    <span className={`cover cover-${size} folio`} style={{ ['--folio' as string]: FOLIO_DEEP[k] }} aria-hidden>
+      <img src={`/art/${k}.jpg`} alt="" loading="lazy" style={{ objectPosition: pos }} onError={e => { e.currentTarget.style.display = 'none' }} />
+      {size !== 's' && (
+        <span className="folio-band">
+          <span className="folio-kind">{kindOf(w.kind).label}</span>
+          <span className="folio-title">{w.title}</span>
+        </span>
+      )}
+    </span>
+  )
 }
 
-/** Jaquette encadrée, accrochée comme une toile */
-export function Framed({ w, size = 'm' }: { w: Pick<Work, 'kind' | 'cover_url'>; size?: 's' | 'm' | 'l' | 'g' }) {
-  return <span className={`frame k-${w.kind}`}><Cover w={w} size={size} /></span>
+const FRAMES = ['white', 'gold', 'black', 'wood', 'white', 'gold'] as const
+
+/* Chaque œuvre reçoit son propre cadre, comme dans un accrochage de salon */
+export function Framed({ w, size = 'm', plain = false }: { w: CoverWork; size?: 's' | 'm' | 'l' | 'g'; plain?: boolean }) {
+  const style = plain || size === 's' ? 'white' : FRAMES[hash((w.id ?? '') + (w.title ?? '')) % FRAMES.length]
+  return <span className={`frame frame-${style}`}><Cover w={w} size={size} /></span>
 }
 
 export function WorkMeta({ w, effort }: { w: Pick<Work, 'kind' | 'creator' | 'year'>; effort?: string | null }) {

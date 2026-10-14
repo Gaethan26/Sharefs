@@ -16,8 +16,8 @@ export function Send({ work, circle, reply, ai, catalog }: { work: string | null
   const canReply = !!src && src.challenges.some(c => c.user_id === s.userId && c.status === 'done')
   return (
     <>
-    <RoomHeader k="lettre" title={reply ? 'Répondre par une œuvre' : 'Recommandation du mois'}
-      sub={src ? `Tu as fini « ${src.work.title} ». Renvoie une œuvre à ${src.sender?.display_name || 'ton ami'}.` : `Une seule recommandation par groupe en ${monthLabel()}. Tes amis auront un mois.`} />
+    <RoomHeader k="lettre" title={reply ? 'Répondre par une œuvre' : 'Partager une œuvre'}
+      sub={src ? `Tu as fini « ${src.work.title} ». Renvoie une œuvre à ${src.sender?.display_name || 'ton ami'}.` : `Une seule recommandation par salon en ${monthLabel()}. Tes amis auront un mois.`} />
     <div className="narrow" style={{ margin: '0 auto' }}>
       {reply && !canReply ? <p className="empty">Termine et note l’œuvre avant d’y répondre.</p> : (
         <SendForm key={`${work}|${circle}|${reply}`} circles={circles} library={s.library.map(i => i.work)} preWorkId={work} preCircleId={circle}

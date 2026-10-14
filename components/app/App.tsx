@@ -30,10 +30,10 @@ export function App(props: Props) {
 
 const I = (d: string) => <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
 const NAV = [
-  { href: '/a-faire', label: 'À faire', match: ['todo', 'reco'], icon: I('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2') },
+  { href: '/a-faire', label: 'À découvrir', match: ['todo', 'reco'], icon: I('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2') },
   { href: '/liste', label: 'Ma galerie', match: ['library'], icon: I('M4 5h16v14H4zM8 15l3-3 2 2 3-4 2 3') },
-  { href: '/groupes', label: 'Groupes', match: ['groups', 'group'], icon: I('M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6M2 20c0-3 3-5 6-5s6 2 6 5M16 15c3 0 6 2 6 5') },
-  { href: '/profil', label: 'Profil', match: ['profile', 'user'], icon: I('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6') },
+  { href: '/groupes', label: 'Salons', match: ['groups', 'group'], icon: I('M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6M2 20c0-3 3-5 6-5s6 2 6 5M16 15c3 0 6 2 6 5') },
+  { href: '/profil', label: 'Atelier', match: ['profile', 'user'], icon: I('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6') },
 ]
 
 function Shell({ appUrl, ai, catalog, art }: Props) {
@@ -51,8 +51,8 @@ function Shell({ appUrl, ai, catalog, art }: Props) {
   }, [s.ready])
 
   useEffect(() => {
-    const titles: Record<string, string> = { todo: 'À faire', library: 'Ma galerie', groups: 'Groupes', group: 'Groupe', reco: 'Œuvre', send: 'Recommander', profile: 'Profil', user: 'Profil' }
-    document.title = titles[route.name] ? `${titles[route.name]}, Tu verras…` : 'Tu verras…'
+    const titles: Record<string, string> = { todo: 'À découvrir', library: 'Ma galerie', groups: 'Salons', group: 'Salon', reco: 'Œuvre', send: 'Partager', profile: 'Atelier', user: 'Galerie' }
+    document.title = titles[route.name] ? `${titles[route.name]} | Sharefs` : 'Sharefs'
   }, [route.name])
 
   let view: React.ReactNode
@@ -81,7 +81,7 @@ function Shell({ appUrl, ai, catalog, art }: Props) {
       <div className={`app${tint ? ' has-tint' : ''}`} style={tint ? { ['--page' as string]: tint.soft, ['--page-deep' as string]: tint.deep, ['--page-mid' as string]: tint.mid } : undefined}>
         <header className="top">
           <div className="top-in">
-            <A href="/a-faire" className="brand">Tu verras<span className="dots">…</span></A>
+            <A href="/a-faire" className="brand" aria-label="Sharefs, accueil"><span className="logo">Sharefs</span><span className="tagline">Tu verras<span className="dots">…</span></span></A>
             <nav className="tabs" aria-label="Navigation principale">
               {NAV.map(n => (
                 <A key={n.href} href={n.href} className="tab" aria-current={n.match.includes(route.name) ? 'page' : undefined}>
@@ -89,7 +89,7 @@ function Shell({ appUrl, ai, catalog, art }: Props) {
                 </A>
               ))}
             </nav>
-            <A href="/envoyer" className="btn small">Recommander</A>
+            <A href="/envoyer" className="btn small">Partager</A>
           </div>
         </header>
         <main className="wrap">{view}</main>

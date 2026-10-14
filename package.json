@@ -1,9 +1,10 @@
 {
-  "name": "tu-verras",
+  "name": "sharefs",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/fetch-art.mjs || true",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"

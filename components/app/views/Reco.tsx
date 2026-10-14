@@ -27,7 +27,7 @@ export function Reco({ id }: { id: string }) {
 
   if (!r) return state === 'loading'
     ? <p className="empty">Chargement…</p>
-    : <div className="empty"><h1>Œuvre introuvable</h1><p>Elle a été retirée, ou tu ne fais pas partie de ce groupe.</p><A className="btn" href="/a-faire">Retour</A></div>
+    : <div className="empty"><h1>Œuvre introuvable</h1><p>Elle a été retirée, ou tu ne fais pas partie de ce salon.</p><A className="btn" href="/a-faire">Retour</A></div>
 
   const me = s.userId
   const k = kindOf(r.work.kind)
@@ -52,12 +52,12 @@ export function Reco({ id }: { id: string }) {
         <div className="stage-in">
           <Framed w={r.work} size="l" />
           <div>
-            <Who p={r.sender} me={me} text={`${r.reply_to ? 'répond' : 'recommande'} dans ${r.circle?.name ?? 'le groupe'}`} date={r.sent_at} />
+            <Who p={r.sender} me={me} text={`${r.reply_to ? 'répond' : 'recommande'} dans ${r.circle?.name ?? 'le salon'}`} date={r.sent_at} />
             {parent && <p className="meta" style={{ margin: '4px 0 0' }}>En réponse à <A href={`/r/${parent.id}`}>« {parent.work.title} »</A></p>}
             <h1 className="t-xl work" style={{ margin: '14px 0 8px' }}>{r.work.title}</h1>
             <WorkMeta w={r.work} effort={r.effort} />
             {r.pitch ? <p className="pitch">{r.pitch}</p> : r.work.synopsis ? <p className="pitch">{r.work.synopsis.slice(0, 320)}{r.work.synopsis.length > 320 ? '…' : ''}</p> : null}
-            {r.why && <p className="why">« {r.why} »<span className="why-by">{nameOf(r.sender, me)}</span></p>}
+            {r.why && <p className="why">« {r.why} »<span className="why-by sig">{(r.sender?.display_name || 'Un ami').split(' ')[0]}</span></p>}
             <WhereToFind w={r.work} link={r.link} />
           </div>
         </div>

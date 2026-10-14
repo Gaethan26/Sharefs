@@ -27,7 +27,7 @@ export function RecoCard({ r, me, showCircle = false }: { r: Reco; me: string; s
         )}
         <div className="actions">
           <span className="meta" style={{ flex: 1 }}>
-            {done === 0 ? 'Pas encore d’avis' : unlocked ? `${done} avis, salon ouvert` : `${done} avis scellé${done > 1 ? 's' : ''}`}
+            {done === 0 ? 'Pas encore d’avis' : unlocked ? `${done} avis, échanges ouverts` : `${done} avis scellé${done > 1 ? 's' : ''}`}
           </span>
           <A className="btn small ghost" href={`/r/${r.id}`}>{cta}</A>
         </div>

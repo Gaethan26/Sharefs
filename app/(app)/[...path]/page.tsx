@@ -5,7 +5,7 @@ import { catalogEnabled } from '@/lib/catalog'
 import { App } from '@/components/app/App'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Tu verras…' }
+export const metadata = { title: 'Sharefs' }
 
 /* Point d'entrée unique de l'application : tout le reste se passe dans le navigateur */
 export default async function AppPage({ params }: { params: Promise<{ path: string[] }> }) {

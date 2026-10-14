@@ -23,7 +23,7 @@ export function CopyButton({ text, label = 'Copier le lien' }: { text: string; l
   const [done, setDone] = useState(false)
   async function copy() {
     try {
-      if (navigator.share && /Mobi/i.test(navigator.userAgent)) { await navigator.share({ title: 'Rejoins mon groupe', url: text }); return }
+      if (navigator.share && /Mobi/i.test(navigator.userAgent)) { await navigator.share({ title: 'Rejoins mon salon', url: text }); return }
       await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 2000)
     } catch { /* partage annulé */ }
   }

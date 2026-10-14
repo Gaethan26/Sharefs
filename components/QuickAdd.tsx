@@ -82,7 +82,7 @@ export function QuickAdd({ enabled, onAdd, mode = 'add' }: {
           {sugg.map((s, i) => (
             <li key={`${s.source}:${s.external_id}`}>
               <button type="button" role="option" aria-selected={i === hi} onMouseDown={e => e.preventDefault()} onClick={() => add(s)}>
-                <Cover w={{ kind: s.kind, cover_url: s.cover_url ?? null }} size="s" />
+                <Cover w={{ kind: s.kind, cover_url: s.cover_url ?? null, title: s.title }} size="s" />
                 <span className="work">{s.title}</span>
                 {s.year ? <span className="meta">{s.year}</span> : null}
               </button>

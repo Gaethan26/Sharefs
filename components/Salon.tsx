@@ -49,7 +49,7 @@ export function Salon({ recoId, me, people }: { recoId: string; me: string; peop
 
   return (
     <section className="panel" id="salon">
-      <h3>Salon</h3>
+      <h3>Échanges</h3>
       <p className="meta" style={{ marginTop: -6 }}>Tout le monde ici a fini : les spoilers sont permis.</p>
       <div className="salon-list" ref={listRef}>
         {msgs.length === 0 && <p className="meta">Personne n’a encore parlé. Lance la discussion.</p>}

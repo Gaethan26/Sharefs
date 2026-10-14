@@ -43,7 +43,8 @@ export function Profile() {
 
   return (
     <>
-      <RoomHeader k="tricheur" title={s.profile?.display_name || 'Profil'} sub={s.email} />
+      <RoomHeader k="tricheur" title={<>L’atelier de <span className="sig">{(s.profile?.display_name || 'toi').split(' ')[0]}</span></>} sub={s.email} />
+      <Palette covers={s.library.map(i => i.work.cover_url).filter((u): u is string => !!u).slice(0, 10)} />
       <section className="panel">
         <h3>Toi, quand tu recommandes</h3>
         <div className="stats">
@@ -74,7 +75,7 @@ export function Profile() {
             </div>
             <div className="meta">{a ? <><strong style={{ color: 'var(--ink)' }}>{a.pct} %</strong> sur {a.n}</> : null}</div>
           </A>
-        )) : <p className="meta">Rejoins un groupe pour mesurer tes affinités.</p>}
+        )) : <p className="meta">Rejoins un salon pour mesurer tes affinités.</p>}
       </section>
       <form className="panel" onSubmit={async e => {
         e.preventDefault()
@@ -112,10 +113,10 @@ export function UserView({ id }: { id: string }) {
   const has = new Set(s.library.map(i => i.work.id))
   const covers = (items ?? []).map(i => i.work.cover_url).filter((u): u is string => !!u)
   const pal = usePalette(covers[0], ART_PALETTES.tricheur)
-  if (!person) return <div className="empty"><h1>Profil introuvable</h1><p>Vous ne partagez aucun groupe.</p></div>
+  if (!person) return <div className="empty"><h1>Profil introuvable</h1><p>Vous ne partagez aucun salon.</p></div>
   return (
     <>
-      <MosaicHeader covers={covers} palette={pal} title={person.display_name || 'Sans nom'}
+      <MosaicHeader covers={covers} palette={pal} title={<>L’exposition de <span className="sig">{(person.display_name || 'Sans nom').split(' ')[0]}</span></>}
         sub={a ? `${a.pct} % d’affinité avec toi, sur ${a.n} œuvre${a.n > 1 ? 's' : ''} notée${a.n > 1 ? 's' : ''} tous les deux.` : 'Pas encore d’œuvre notée en commun.'}>
         <Avatar p={person} size={56} />
       </MosaicHeader>
@@ -133,18 +134,36 @@ function FriendTile({ i, owned, from }: { i: { id: string; note: string | null; 
   const s = useStore()
   const p = usePalette(i.work.cover_url)
   return (
-    <li className="tile tinted" style={paletteVars(p)}>
+    <li className="tile" style={paletteVars(p)}>
       <Framed w={i.work} size="g" />
-      <div className="cartel">
+      <div className="cartel label">
         <span className="cartel-title">{i.work.title}</span>
-        <span>{[i.work.creator, i.work.year].filter(Boolean).join(', ')}</span>
         <span className="kind">{kindOf(i.work.kind).label}</span>
+        {i.note && <span className="tile-note">{i.note}</span>}
       </div>
-      {i.note && <p className="tile-note">{i.note}</p>}
       <div className="tile-actions">
         {owned ? <span className="meta">Dans ta galerie</span>
           : <button className="btn small ghost" onClick={async () => { const r = await s.addWorkId(i.work.id, `Repéré dans la galerie de ${from}`); s.setToast(r.error ?? 'Ajouté à ta galerie') }}>Ajouter à ma galerie</button>}
       </div>
     </li>
   )
+}
+
+/* La palette de l'artiste : les couleurs des œuvres qu'il partage, comme des touches de peinture */
+function Palette({ covers }: { covers: string[] }) {
+  if (covers.length < 3) return null
+  return (
+    <section className="palette-card panel">
+      <div>
+        <h3>Ta palette</h3>
+        <p className="meta" style={{ margin: 0 }}>Les couleurs des œuvres que tu as accrochées dans ta galerie.</p>
+      </div>
+      <div className="swatches">{covers.map((c, i) => <Swatch key={c} src={c} i={i} />)}</div>
+    </section>
+  )
+}
+
+function Swatch({ src, i }: { src: string; i: number }) {
+  const p = usePalette(src)
+  return <span className="swatch" style={{ background: p.mid, ['--r' as string]: `${(i * 37) % 360}deg` }} title={p.mid} />
 }

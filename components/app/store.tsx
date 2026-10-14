@@ -19,7 +19,25 @@ const CIRCLE_SELECT = 'id, name, invite_code, created_at, circle_members(role, u
 const ITEM_SELECT = 'id, note, created_at, work:works(id, kind, title, creator, year, cover_url, synopsis, source, external_id)'
 
 export const errText = (e: unknown) =>
-  ((e as { message?: string })?.message ?? 'Action impossible pour le moment.').replace(/cercle/g, 'groupe')
+  ((e as { message?: string })?.message ?? 'Action impossible pour le moment.').replace(/cercle|salon/g, 'salon')
+
+const words = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(w => w.length > 1)
+
+/* Retrouve la jaquette d'un titre saisi à la main (catalogue TMDB, Google Books ou RAWG) */
+async function findCover(w: WorkInput): Promise<WorkInput | null> {
+  try {
+    const res = await fetch(`/api/catalog?kind=${w.kind}&q=${encodeURIComponent(w.title)}`)
+    if (!res.ok) return null
+    const { results } = await res.json() as { results?: WorkInput[] }
+    const typed = words(w.title)
+    const best = (results ?? []).find(r => {
+      if (!r.cover_url) return false
+      const got = new Set(words(r.title))
+      return typed.length > 0 && typed.filter(t => got.has(t)).length / typed.length >= 0.6
+    })
+    return best ?? null
+  } catch { return null }
+}
 
 function useStoreValue(userId: string, email: string) {
   const sb = useMemo(() => supabaseBrowser(), [])
@@ -104,7 +122,8 @@ function useStoreValue(userId: string, email: string) {
     setLibrary(prev => [{ id: tmp, note: note ?? null, created_at: new Date().toISOString(),
       work: { id: tmp, kind: w.kind, title: w.title, creator: w.creator ?? null, year: w.year ?? null, cover_url: w.cover_url ?? null } }, ...prev])
     try {
-      const r = await addWorkId(await ensureWork(w), note)
+      const full = !w.cover_url ? (await findCover(w)) ?? w : w
+      const r = await addWorkId(await ensureWork(full), note)
       if (r.error) throw new Error(r.error)
       return r
     } catch (e) {
@@ -112,6 +131,24 @@ function useStoreValue(userId: string, email: string) {
       return { error: errText(e) }
     }
   }, [ensureWork, addWorkId])
+
+  // Donne une jaquette aux œuvres déjà ajoutées sans image (une fois par session, 20 au plus)
+  const upgradeCovers = useCallback(async () => {
+    try { if (sessionStorage.getItem('sf-covers')) return; sessionStorage.setItem('sf-covers', '1') } catch { /* rien */ }
+    const bare = library.filter(i => !i.work.cover_url && !i.id.startsWith('tmp-')).slice(0, 20)
+    let changed = false
+    for (const i of bare) {
+      const found = await findCover({ kind: i.work.kind, title: i.work.title })
+      if (!found) continue
+      try {
+        const workId = await ensureWork(found)
+        if (workId === i.work.id) continue
+        const { error } = await sb.from('library_items').upsert({ user_id: userId, work_id: workId, note: i.note }, { onConflict: 'user_id,work_id', ignoreDuplicates: true })
+        if (!error) { await sb.from('library_items').delete().eq('id', i.id); changed = true }
+      } catch { /* on garde l'œuvre telle quelle */ }
+    }
+    if (changed) await loadLibrary().catch(() => {})
+  }, [library, sb, userId, ensureWork, loadLibrary])
 
   const removeItem = useCallback(async (id: string): Promise<Res> => {
     setLibrary(prev => prev.filter(i => i.id !== id))
@@ -123,7 +160,7 @@ function useStoreValue(userId: string, email: string) {
   const createCircle = useCallback(async (name: string): Promise<Res> => {
     const { data, error } = await sb.rpc('create_circle', { p_name: name.trim().slice(0, 60) })
     if (error) return { error: errText(error) }
-    try { await loadCircles() } catch (e) { return { error: `Groupe créé, mais lecture impossible : ${errText(e)}` } }
+    try { await loadCircles() } catch (e) { return { error: `Salon créé, mais lecture impossible : ${errText(e)}` } }
     return { id: data as string }
   }, [sb, loadCircles])
 
@@ -144,7 +181,8 @@ function useStoreValue(userId: string, email: string) {
 
   const sendReco = useCallback(async (input: SendInput): Promise<Res> => {
     try {
-      const workId = input.workId ?? (input.work ? await ensureWork(input.work) : null)
+      const w = input.work && !input.work.cover_url ? (await findCover(input.work)) ?? input.work : input.work
+      const workId = input.workId ?? (w ? await ensureWork(w) : null)
       if (!workId) return { error: 'Choisis une œuvre.' }
       const { data, error } = await sb.rpc('send_reco', {
         p_circle: input.circleId, p_work: workId, p_recipients: input.recipients, p_why: input.why, p_pitch: input.pitch,
@@ -198,7 +236,7 @@ function useStoreValue(userId: string, email: string) {
 
   return {
     sb, userId, email, ready, fatal, profile, circles, library, recos, pending, toast, setToast,
-    loadReco, addToLibrary, addWorkId, removeItem, createCircle, joinCircle, leaveCircle, sendReco,
+    loadReco, addToLibrary, addWorkId, removeItem, upgradeCovers, createCircle, joinCircle, leaveCircle, sendReco,
     finish, joker, drop, resume, join, updateProfile, signOut,
   }
 }

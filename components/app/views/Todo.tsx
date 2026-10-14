@@ -29,9 +29,9 @@ export function Todo() {
     <>
       <RoomHeader k="orrery" title={veillee()} sub={<>
         {active.length ? `${active.length} œuvre${active.length > 1 ? 's' : ''} t’attend${active.length > 1 ? 'ent' : ''}. ` : 'Aucune œuvre en attente. '}
-        {s.circles.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} groupe${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Crée un groupe pour commencer.'}
+        {s.circles.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} salon${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Crée un salon pour commencer.'}
       </>}>
-        {s.circles.length ? (free > 0 && <A className="btn" href="/envoyer">Recommander une œuvre</A>) : <A className="btn" href="/groupes">Créer un groupe</A>}
+        {s.circles.length ? (free > 0 && <A className="btn" href="/envoyer">Partager une œuvre</A>) : <A className="btn" href="/groupes">Créer un salon</A>}
       </RoomHeader>
 
       {!active.length && !dropped.length && (
@@ -40,7 +40,7 @@ export function Todo() {
           <div>
             <h2>Rien ne t’attend pour l’instant.</h2>
             <p>Quand un ami te confie une œuvre, elle apparaît ici avec son mois pour la vivre.</p>
-            <A className="btn" href={s.circles.length ? '/envoyer' : '/groupes'}>{s.circles.length ? 'Recommander une œuvre' : 'Créer un groupe'}</A>
+            <A className="btn" href={s.circles.length ? '/envoyer' : '/groupes'}>{s.circles.length ? 'Partager une œuvre' : 'Créer un salon'}</A>
           </div>
         </section>
       )}
@@ -97,7 +97,7 @@ function Row({ r, action }: { r: RecoFull; action?: 'resume' }) {
       <div className="side">
         {action === 'resume'
           ? <button className="btn small ghost" onClick={async () => { const res = await s.resume(r.id); s.setToast(res.error ?? 'Défi repris') }}>Reprendre</button>
-          : <A className="btn small ghost" href={`/r/${r.id}#salon`}>Avis et salon</A>}
+          : <A className="btn small ghost" href={`/r/${r.id}#salon`}>Avis et échanges</A>}
       </div>
     </li>
   )

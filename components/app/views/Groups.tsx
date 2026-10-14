@@ -34,7 +34,7 @@ export function Groups() {
 
   return (
     <>
-      <RoomHeader k="lune" title="Groupes" sub="Un groupe par bande : amis proches, collègues, club de lecture. Une recommandation par mois dans chacun." />
+      <RoomHeader k="lune" title="Salons" sub="Un salon par bande : amis proches, collègues, club de lecture. Une recommandation par mois dans chacun." />
       {err && <div className="notice" role="alert">{err}</div>}
       {s.circles.length > 0 ? (
         <ul className="list panel">
@@ -45,22 +45,22 @@ export function Groups() {
                 <div className="meta">{c.members.length} membre{c.members.length > 1 ? 's' : ''}, {used.has(c.id) ? 'recommandation du mois faite' : 'recommandation du mois à faire'}</div>
               </div>
               <div className="side">
-                {!used.has(c.id) && <A className="btn small" href={`/envoyer?circle=${c.id}`}>Recommander</A>}
+                {!used.has(c.id) && <A className="btn small" href={`/envoyer?circle=${c.id}`}>Partager</A>}
                 <A className="btn small ghost" href={`/g/${c.id}`}>Ouvrir</A>
               </div>
             </li>
           ))}
         </ul>
-      ) : <p className="empty">Tu n’as pas encore de groupe. Crée le premier et invite tes amis avec un lien.</p>}
+      ) : <p className="empty">Tu n’as pas encore de salon. Crée le premier et invite tes amis avec un lien.</p>}
       <div className="row">
         <form onSubmit={create} className="panel">
-          <h3>Créer un groupe</h3>
+          <h3>Créer un salon</h3>
           <label className="f" htmlFor="gname">Nom</label>
           <input id="gname" value={name} onChange={e => setName(e.target.value)} required maxLength={60} placeholder="Les potes du lycée" />
           <div className="actions"><button className="btn" disabled={busy !== ''}>{busy === 'create' ? 'Création…' : 'Créer'}</button></div>
         </form>
         <form onSubmit={join} className="panel">
-          <h3>Rejoindre un groupe</h3>
+          <h3>Rejoindre un salon</h3>
           <label className="f" htmlFor="gcode">Lien ou code d’invitation</label>
           <input id="gcode" value={code} onChange={e => setCode(e.target.value)} required maxLength={200} placeholder="https://…/invite/3fa9c1…" />
           <div className="actions"><button className="btn ghost" disabled={busy !== ''}>{busy === 'join' ? '…' : 'Rejoindre'}</button></div>
@@ -78,9 +78,9 @@ export function Group({ id, appUrl }: { id: string; appUrl: string }) {
   const p = usePalette(covers[0], ART_PALETTES.lune)
   if (!c) return (
     <div className="empty">
-      <h1>Groupe introuvable</h1>
+      <h1>Salon introuvable</h1>
       <p>Tu n’en fais pas partie, ou il a été supprimé.</p>
-      <A className="btn" href="/groupes">Mes groupes</A>
+      <A className="btn" href="/groupes">Mes salons</A>
     </div>
   )
   const used = list.some(r => r.sender_id === s.userId && !r.reply_to && r.month === monthKey())
@@ -89,11 +89,11 @@ export function Group({ id, appUrl }: { id: string; appUrl: string }) {
     <>
       {covers.length ? (
         <MosaicHeader covers={covers} palette={p} title={c.name} sub={`${c.members.length} membre${c.members.length > 1 ? 's' : ''}. ${used ? 'Ta recommandation du mois est faite ici.' : 'Ta recommandation du mois reste à faire ici.'}`}>
-          {!used && <A className="btn" href={`/envoyer?circle=${id}`}>Recommander une œuvre</A>}
+          {!used && <A className="btn" href={`/envoyer?circle=${id}`}>Partager une œuvre</A>}
         </MosaicHeader>
       ) : (
-        <RoomHeader k="lune" title={c.name} sub={`${c.members.length} membre${c.members.length > 1 ? 's' : ''}. Accroche la première œuvre de ce groupe.`}>
-          {!used && <A className="btn" href={`/envoyer?circle=${id}`}>Recommander une œuvre</A>}
+        <RoomHeader k="lune" title={c.name} sub={`${c.members.length} membre${c.members.length > 1 ? 's' : ''}. Accroche la première œuvre de ce salon.`}>
+          {!used && <A className="btn" href={`/envoyer?circle=${id}`}>Partager une œuvre</A>}
         </RoomHeader>
       )}
       <section className="panel">
@@ -111,14 +111,14 @@ export function Group({ id, appUrl }: { id: string; appUrl: string }) {
           <div className="fit"><CopyButton text={invite} /></div>
         </div>
       </section>
-      <h2>Les œuvres du groupe</h2>
+      <h2>Les œuvres du salon</h2>
       {list.length ? <div className="wall">{list.map(r => <RecoCard key={r.id} r={r} me={s.userId} />)}</div>
-        : <p className="empty">Aucune œuvre dans ce groupe pour l’instant. Recommande la première.</p>}
+        : <p className="empty">Aucune œuvre dans ce salon pour l’instant. Recommande la première.</p>}
       <button className="linkbtn" style={{ marginTop: 30 }} onClick={async () => {
         if (!confirm(`Quitter « ${c.name} » ?`)) return
         const r = await s.leaveCircle(id)
         if (r.error) s.setToast(r.error); else navigate('/groupes')
-      }}>Quitter ce groupe</button>
+      }}>Quitter ce salon</button>
     </>
   )
 }

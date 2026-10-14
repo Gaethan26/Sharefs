@@ -1,4 +1,5 @@
 import 'server-only'
+import manifest from './art-manifest.json'
 
 /** Tableaux du domaine public, résolus via l'API Wikipédia (image Wikimedia Commons) */
 export const ART = {
@@ -32,9 +33,11 @@ export const ART = {
 export type ArtKey = keyof typeof ART
 
 export async function artSrc(key: ArtKey, width = 1280): Promise<string | null> {
+  // Copie locale téléchargée au build : fiable et rapide
+  if ((manifest as Record<string, boolean>)[key]) return `/art/${key}.jpg`
   try {
     const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${ART[key].page}`, {
-      headers: { 'User-Agent': 'TuVerras/1.0 (https://github.com/Gaethan26/Sharefs)', accept: 'application/json' },
+      headers: { 'User-Agent': 'Sharefs/1.0 (https://github.com/Gaethan26/Sharefs)', accept: 'application/json' },
       next: { revalidate: 60 * 60 * 24 * 7 },
     })
     if (!res.ok) return null
