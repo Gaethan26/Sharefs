@@ -9,7 +9,7 @@ export function NavLinks({ pending }: { pending: number }) {
   const path = usePathname()
   const links = [
     { href: '/a-faire', label: 'À faire', badge: pending },
-    { href: '/liste', label: 'Ma liste' },
+    { href: '/liste', label: 'Ma galerie' },
     { href: '/cercles', label: 'Cercles' },
     { href: '/profil', label: 'Profil' },
   ]

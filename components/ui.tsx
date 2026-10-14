@@ -17,9 +17,14 @@ export function Avatar({ p, size = 26 }: { p?: Person | null; size?: number }) {
   )
 }
 
-export function Cover({ w, size = 'm' }: { w: Pick<Work, 'kind' | 'cover_url'>; size?: 's' | 'm' | 'l' }) {
+export function Cover({ w, size = 'm' }: { w: Pick<Work, 'kind' | 'cover_url'>; size?: 's' | 'm' | 'l' | 'g' }) {
   if (w.cover_url) return <img className={`cover cover-${size}`} src={w.cover_url} alt="" loading="lazy" />
   return <span className={`cover cover-${size} cover-ph k-${w.kind}`} aria-hidden>{kindOf(w.kind).label.charAt(0)}</span>
+}
+
+/** Jaquette encadrée, accrochée comme une toile */
+export function Framed({ w, size = 'm' }: { w: Pick<Work, 'kind' | 'cover_url'>; size?: 's' | 'm' | 'l' | 'g' }) {
+  return <span className={`frame k-${w.kind}`}><Cover w={w} size={size} /></span>
 }
 
 export function WorkMeta({ w, effort }: { w: Pick<Work, 'kind' | 'creator' | 'year'>; effort?: string | null }) {

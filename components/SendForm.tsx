@@ -84,11 +84,11 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
       <section className="panel">
         <h3>La référence</h3>
         <div className="chips" role="group" aria-label="Source">
-          <button type="button" className="chip" aria-pressed={mode === 'liste'} onClick={() => setMode('liste')} disabled={!library.length}>Depuis ma liste</button>
+          <button type="button" className="chip" aria-pressed={mode === 'liste'} onClick={() => setMode('liste')} disabled={!library.length}>Depuis ma galerie</button>
           <button type="button" className="chip" aria-pressed={mode === 'catalogue'} onClick={() => setMode('catalogue')}>Chercher</button>
         </div>
         {mode === 'liste' ? (
-          <select value={workId} onChange={e => setWorkId(e.target.value)} aria-label="Référence de ta liste">
+          <select value={workId} onChange={e => setWorkId(e.target.value)} aria-label="Œuvre de ta galerie">
             {library.map(w => <option key={w.id} value={w.id}>{w.title} ({kindOf(w.kind).label})</option>)}
           </select>
         ) : (
@@ -151,7 +151,7 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
       </section>
 
       {err && <p className="err" role="alert">{err}</p>}
-      <div className="actions"><button className="btn" disabled={pending}>{pending ? 'Envoi…' : replyTo ? 'Envoyer ma réponse' : 'Envoyer la référence'}</button></div>
+      <div className="actions"><button className="btn" disabled={pending}>{pending ? 'Envoi…' : replyTo ? 'Envoyer ma réponse' : 'Confier cette œuvre'}</button></div>
     </form>
   )
 }

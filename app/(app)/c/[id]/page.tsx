@@ -27,9 +27,9 @@ export default async function CirclePage({ params }: { params: Promise<{ id: str
   return (
     <>
       <h1>{circle.name}</h1>
-      <p className="sub">{members.length} membre{members.length > 1 ? 's' : ''}. {usedThisMonth ? 'Ton envoi du mois est fait ici.' : 'Ton envoi du mois est disponible ici.'}</p>
+      <p className="sub">{members.length} membre{members.length > 1 ? 's' : ''}. {usedThisMonth ? 'Ta recommandation du mois est faite ici.' : 'Ta recommandation du mois reste à faire ici.'}</p>
       <div className="actions" style={{ marginTop: -8, marginBottom: 18 }}>
-        {usedThisMonth ? <span className="btn" aria-disabled="true">Envoi du mois fait</span> : <Link className="btn" href={`/envoyer?circle=${id}`}>Envoyer une référence</Link>}
+        {usedThisMonth ? <span className="btn" aria-disabled="true">Recommandation du mois faite</span> : <Link className="btn" href={`/envoyer?circle=${id}`}>Recommander une œuvre</Link>}
       </div>
       <section className="panel">
         <h3>Membres</h3>
@@ -46,8 +46,8 @@ export default async function CirclePage({ params }: { params: Promise<{ id: str
           <div className="fit"><CopyButton text={invite} /></div>
         </div>
       </section>
-      <h2>Le fil</h2>
-      {list.length ? list.map(r => <RecoCard key={r.id} r={r} me={user.id} />) : <p className="empty">Aucune reco dans ce cercle pour l’instant. Lance le premier envoi.</p>}
+      <h2>Les œuvres du cercle</h2>
+      {list.length ? <div className="wall">{list.map(r => <RecoCard key={r.id} r={r} me={user.id} />)}</div> : <p className="empty">Aucune œuvre accrochée dans ce cercle pour l’instant. Recommande la première.</p>}
       <form action={leaveCircle.bind(null, id)} style={{ marginTop: 30 }}>
         <button className="linkbtn">Quitter ce cercle</button>
       </form>

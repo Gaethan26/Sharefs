@@ -336,5 +336,37 @@ create policy messages_read on public.messages for select
 create policy messages_insert on public.messages for insert
   with check (user_id = auth.uid() and public.is_member(public.reco_circle(reco_id)) and public.is_unlocked(reco_id));
 
+-- ---------- Droits d'accès explicites --------------------------------
+-- Compatible avec l'option « Automatically expose new tables » décochée :
+-- chaque rôle reçoit uniquement ce dont l'app a besoin. La RLS filtre ensuite les lignes.
+revoke all on all tables in schema public from anon, authenticated;
+revoke execute on all functions in schema public from public, anon, authenticated;
+
+grant usage on schema public to authenticated, service_role;
+
+grant select on public.profiles to authenticated;
+grant update (display_name, email_reminders) on public.profiles to authenticated;
+grant select on public.circles to authenticated;
+grant update (name) on public.circles to authenticated;
+grant select, delete on public.circle_members to authenticated;
+grant select on public.works to authenticated;
+grant select, insert, delete on public.library_items to authenticated;
+grant update (note) on public.library_items to authenticated;
+grant select on public.recos, public.reco_secrets, public.challenges, public.reviews to authenticated;
+grant select, insert on public.messages to authenticated;
+
+grant execute on function
+  public.is_member(uuid), public.shares_circle(uuid), public.reco_circle(uuid), public.is_unlocked(uuid),
+  public.create_circle(text), public.circle_preview(text), public.join_circle(text),
+  public.ensure_work(text, text, text, int, text, text, text, text),
+  public.send_reco(uuid, uuid, uuid[], text, text, text, text, int, int, uuid),
+  public.join_challenge(uuid), public.finish_challenge(uuid, int, text),
+  public.use_joker(uuid), public.set_challenge_status(uuid, text)
+to authenticated;
+
+-- E-mail quotidien (route cron, clé service_role)
+grant select on all tables in schema public to service_role;
+grant update (last_digest_at) on public.profiles to service_role;
+
 -- ---------- Temps réel pour le salon ---------------------------------
 alter publication supabase_realtime add table public.messages;

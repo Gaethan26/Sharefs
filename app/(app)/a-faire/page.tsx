@@ -3,10 +3,16 @@ import { requireUser } from '@/lib/auth'
 import { RECO_SELECT, type Challenge, type Reco } from '@/lib/types'
 import { kindOf } from '@/lib/kinds'
 import { fmtDate, monthKey, monthLabel } from '@/lib/format'
-import { Countdown, Cover, TrackBar, Who, WorkMeta } from '@/components/ui'
+import { Countdown, Cover, Framed, TrackBar, Who, WorkMeta } from '@/components/ui'
+import { ArtBackdrop, Artwork } from '@/components/Artwork'
 import { dropAction, jokerAction, resumeAction } from '@/app/actions'
 
 export const metadata = { title: 'À faire' }
+
+function veillee() {
+  const m = monthLabel()
+  return `Veillée ${/^[aeiouyàâéèêh]/i.test(m) ? 'd’' : 'de '}${m}`
+}
 type Row = Challenge & { reco: Reco }
 
 export default async function Todo({ searchParams }: { searchParams: Promise<{ err?: string }> }) {
@@ -26,41 +32,51 @@ export default async function Todo({ searchParams }: { searchParams: Promise<{ e
 
   return (
     <>
-      <section className="month">
-        <div>
-          <div className="m">{monthLabel()}</div>
-          <p>
-            {active.length ? `${active.length} défi${active.length > 1 ? 's' : ''} en cours. ` : 'Aucun défi en cours. '}
-            {circles?.length ? (free > 0 ? `Ton envoi du mois est disponible dans ${free} cercle${free > 1 ? 's' : ''}.` : 'Tes envois du mois sont faits.') : 'Rejoins un cercle pour commencer.'}
-          </p>
+      <section className="veillee">
+        <ArtBackdrop k="orrery" width={1280} />
+        <div className="veillee-in">
+          <div>
+            <h1>{veillee()}</h1>
+            <p>
+              {active.length ? `${active.length} œuvre${active.length > 1 ? 's' : ''} t’attend${active.length > 1 ? 'ent' : ''}. ` : 'Aucune œuvre en attente. '}
+              {circles?.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} cercle${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Rejoins un cercle pour commencer.'}
+            </p>
+          </div>
+          {circles?.length ? (free > 0 && <Link className="btn" href="/envoyer">Recommander une œuvre</Link>) : <Link className="btn" href="/cercles">Créer un cercle</Link>}
         </div>
-        {circles?.length ? (free > 0 && <Link className="btn" href="/envoyer">Envoyer une référence</Link>) : <Link className="btn" href="/cercles">Créer un cercle</Link>}
       </section>
       {err && <div className="notice">{err}</div>}
 
       {active.length === 0 && dropped.length === 0 && (
-        <p className="empty">Rien à faire pour l’instant. Quand un ami t’envoie une référence, elle arrive ici avec son délai d’un mois.</p>
+        <section className="room" style={{ marginBottom: 40 }}>
+          <Artwork k="lune" width={960} />
+          <div>
+            <h2 style={{ marginTop: 0 }}>Rien ne t’attend pour l’instant.</h2>
+            <p className="sub">Quand un ami te confie une œuvre, elle apparaît ici avec son mois pour la vivre. En attendant, recommande la tienne.</p>
+            <Link className="btn" href={circles?.length ? '/envoyer' : '/cercles'}>{circles?.length ? 'Recommander une œuvre' : 'Créer un cercle'}</Link>
+          </div>
+        </section>
       )}
       {active.map(r => {
         const k = kindOf(r.reco.work.kind)
         return (
           <article key={r.reco.id} className={`panel card k-${r.reco.work.kind}`}>
-            <div className="due">
+            <div className="challenge">
               <Countdown c={r} kind={r.reco.work.kind} />
               <div>
-                <Who p={r.reco.sender} me={user.id} text={r.invited ? 'te recommande' : 'recommande (défi relevé)'} date={r.reco.sent_at} />
-                <Link href={`/r/${r.reco.id}`} className="reco-head">
-                  <Cover w={r.reco.work} size="s" />
+                <Who p={r.reco.sender} me={user.id} text={r.invited ? 'te confie' : 'recommande (défi relevé)'} date={r.reco.sent_at} />
+                <Link href={`/r/${r.reco.id}`} className="reco-head" style={{ marginTop: 8 }}>
                   <div><div className="work t-l">{r.reco.work.title}</div><WorkMeta w={r.reco.work} effort={r.reco.effort} /></div>
                 </Link>
+                {r.reco.why && <p className="why">« {r.reco.why} »</p>}
               </div>
+              <Framed w={r.reco.work} size="m" />
             </div>
             <TrackBar c={r} />
-            <div className="meta">{k.todo} avant le {fmtDate(r.deadline)}{r.joker_used ? ', joker utilisé' : ''} · {r.reco.circle?.name}</div>
-            {r.reco.why && <p className="why">« {r.reco.why} »</p>}
+            <div className="meta">{k.todo} avant le {fmtDate(r.deadline)}{r.joker_used ? ', joker utilisé' : ''}, dans {r.reco.circle?.name}</div>
             <div className="actions">
-              <Link className="btn small" href={`/r/${r.reco.id}#finir`}>{k.done} ? Noter</Link>
-              {!r.joker_used && <form action={jokerAction.bind(null, r.reco.id, '/a-faire')}><button className="btn small ghost">Joker +15 jours</button></form>}
+              <Link className="btn small" href={`/r/${r.reco.id}#finir`}>{k.done} ? Donner mon avis</Link>
+              {!r.joker_used && <form action={jokerAction.bind(null, r.reco.id, '/a-faire')}><button className="btn small ghost">Joker : 15 jours de plus</button></form>}
               <form action={dropAction.bind(null, r.reco.id, '/a-faire')}><button className="btn small ghost">Abandonner</button></form>
             </div>
           </article>

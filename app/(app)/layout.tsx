@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="top-in">
           <Link href="/a-faire" className="brand">Le Cercle</Link>
           <NavLinks pending={count ?? 0} />
-          <Link href="/envoyer" className="btn small">Envoyer</Link>
+          <Link href="/envoyer" className="btn small">Recommander</Link>
         </div>
       </header>
       <main className="wrap">{children}</main>

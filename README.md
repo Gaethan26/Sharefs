@@ -9,7 +9,7 @@ Les avis restent scellés tant qu’on n’a pas fini. L’expéditeur parie sur
 ## Mise en ligne (≈ 20 min)
 
 ### 1. Supabase
-1. Crée un projet sur supabase.com (région Paris, `eu-west-3`).
+1. Crée un projet sur supabase.com : région Europe, *Enable Data API* coché, *Automatically expose new tables* décoché (le schéma donne les droits lui-même), *Enable automatic RLS* coché, Postgres standard.
 2. **SQL Editor** : colle puis exécute `supabase/schema.sql`.
 3. **Authentication > URL Configuration**
    - Site URL : `https://ton-domaine`

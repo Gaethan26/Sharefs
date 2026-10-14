@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth'
 import { RECO_SELECT, type Person, type RecoFull } from '@/lib/types'
 import { kindOf } from '@/lib/kinds'
 import { betVerdict, fmtDate } from '@/lib/format'
-import { Avatar, Countdown, Cover, nameOf, StarsView, StatusChip, TrackBar, Who, WorkMeta } from '@/components/ui'
+import { Avatar, Countdown, Framed, nameOf, StarsView, StatusChip, TrackBar, Who, WorkMeta } from '@/components/ui'
 import { WhereToFind } from '@/components/WhereToFind'
 import { FinishForm } from '@/components/FinishForm'
 import { Salon } from '@/components/Salon'
@@ -44,17 +44,20 @@ export default async function RecoPage({ params, searchParams }: { params: Promi
   return (
     <div className={`k-${r.work.kind}`}>
       {err && <div className="notice">{err}</div>}
-      <Who p={r.sender} me={me} text={`${r.reply_to ? 'répond' : 'recommande'} dans ${r.circle?.name ?? 'le cercle'}`} date={r.sent_at} />
-      {r.reply_to && parentTitle && <p className="meta" style={{ margin: '4px 0 0' }}>En réponse à <Link href={`/r/${r.reply_to}`}>« {parentTitle} »</Link></p>}
-      <section className="reco-head" style={{ marginTop: 16 }}>
-        <Cover w={r.work} size="l" />
-        <div>
-          <h1 className="work t-xl" style={{ fontWeight: 700 }}>{r.work.title}</h1>
-          <WorkMeta w={r.work} effort={r.effort} />
-          {r.pitch ? <p className="pitch">{r.pitch}</p> : r.work.synopsis ? <p className="pitch meta">{r.work.synopsis.slice(0, 320)}{r.work.synopsis.length > 320 ? '…' : ''}</p> : null}
+      <section className={`stage k-${r.work.kind}`}>
+        {r.work.cover_url && <img className="stage-bg" src={r.work.cover_url} alt="" aria-hidden />}
+        <div className="stage-in">
+          <Framed w={r.work} size="l" />
+          <div>
+            <Who p={r.sender} me={me} text={`${r.reply_to ? 'répond' : 'recommande'} dans ${r.circle?.name ?? 'le cercle'}`} date={r.sent_at} />
+            {r.reply_to && parentTitle && <p className="meta" style={{ margin: '4px 0 0' }}>En réponse à <Link href={`/r/${r.reply_to}`}>« {parentTitle} »</Link></p>}
+            <h1 className="t-xl" style={{ margin: '14px 0 8px' }}>{r.work.title}</h1>
+            <WorkMeta w={r.work} effort={r.effort} />
+            {r.pitch ? <p className="pitch">{r.pitch}</p> : r.work.synopsis ? <p className="pitch meta">{r.work.synopsis.slice(0, 320)}{r.work.synopsis.length > 320 ? '…' : ''}</p> : null}
+            {r.why && <p className="why">« {r.why} »<br /><span className="meta" style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>{nameOf(r.sender, me)}</span></p>}
+          </div>
         </div>
       </section>
-      {r.why && <p className="why" style={{ fontSize: '1.05rem' }}>« {r.why} »<br /><span className="meta" style={{ fontStyle: 'normal' }}>— {nameOf(r.sender, me)}</span></p>}
       <WhereToFind w={r.work} link={r.link} />
 
       {mine && (
