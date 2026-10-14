@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { A, navigate } from '../router'
 import { useStore } from '../store'
 import { usePalette } from '../palette'
-import { usePageTint } from '../tint'
+import { RoomHeader, MosaicHeader } from '../RoomHeader'
+import { ART_PALETTES } from '@/lib/palettes'
 import { monthKey } from '@/lib/format'
 import { Avatar, nameOf } from '@/components/ui'
 import { CopyButton } from '@/components/client'
@@ -12,7 +13,6 @@ import { RecoCard } from '@/components/RecoCard'
 
 export function Groups() {
   const s = useStore()
-  usePageTint(null)
   const [name, setName] = useState(''), [code, setCode] = useState('')
   const [busy, setBusy] = useState<'' | 'create' | 'join'>(''), [err, setErr] = useState('')
   const used = new Set(s.recos.filter(r => r.sender_id === s.userId && !r.reply_to && r.month === monthKey()).map(r => r.circle_id))
@@ -34,8 +34,7 @@ export function Groups() {
 
   return (
     <>
-      <h1>Groupes</h1>
-      <p className="sub">Un groupe par bande : amis proches, collègues, club de lecture. Une recommandation par mois dans chacun.</p>
+      <RoomHeader k="lune" title="Groupes" sub="Un groupe par bande : amis proches, collègues, club de lecture. Une recommandation par mois dans chacun." />
       {err && <div className="notice" role="alert">{err}</div>}
       {s.circles.length > 0 ? (
         <ul className="list panel">
@@ -75,8 +74,8 @@ export function Group({ id, appUrl }: { id: string; appUrl: string }) {
   const s = useStore()
   const c = s.circles.find(x => x.id === id)
   const list = s.recos.filter(r => r.circle_id === id)
-  const p = usePalette(list.find(r => r.work.cover_url)?.work.cover_url)
-  usePageTint(list.length ? p : null)
+  const covers = list.map(r => r.work.cover_url).filter((u): u is string => !!u)
+  const p = usePalette(covers[0], ART_PALETTES.lune)
   if (!c) return (
     <div className="empty">
       <h1>Groupe introuvable</h1>
@@ -88,11 +87,15 @@ export function Group({ id, appUrl }: { id: string; appUrl: string }) {
   const invite = `${appUrl || window.location.origin}/invite/${c.invite_code}`
   return (
     <>
-      <h1>{c.name}</h1>
-      <p className="sub">{c.members.length} membre{c.members.length > 1 ? 's' : ''}. {used ? 'Ta recommandation du mois est faite ici.' : 'Ta recommandation du mois reste à faire ici.'}</p>
-      <div className="actions" style={{ marginTop: -8, marginBottom: 22 }}>
-        {used ? <span className="btn" aria-disabled="true">Recommandation du mois faite</span> : <A className="btn" href={`/envoyer?circle=${id}`}>Recommander une œuvre</A>}
-      </div>
+      {covers.length ? (
+        <MosaicHeader covers={covers} palette={p} title={c.name} sub={`${c.members.length} membre${c.members.length > 1 ? 's' : ''}. ${used ? 'Ta recommandation du mois est faite ici.' : 'Ta recommandation du mois reste à faire ici.'}`}>
+          {!used && <A className="btn" href={`/envoyer?circle=${id}`}>Recommander une œuvre</A>}
+        </MosaicHeader>
+      ) : (
+        <RoomHeader k="lune" title={c.name} sub={`${c.members.length} membre${c.members.length > 1 ? 's' : ''}. Accroche la première œuvre de ce groupe.`}>
+          {!used && <A className="btn" href={`/envoyer?circle=${id}`}>Recommander une œuvre</A>}
+        </RoomHeader>
+      )}
       <section className="panel">
         <h3>Membres</h3>
         <div className="recips" style={{ marginTop: 0 }}>

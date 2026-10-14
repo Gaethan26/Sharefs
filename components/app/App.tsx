@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { A, parseRoute, useLocation } from './router'
 import { StoreProvider, useStore } from './store'
 import { TintCtx } from './tint'
+import { ArtCtx, type ArtMap } from './RoomHeader'
 import type { Palette } from '@/lib/palettes'
 import type { Kind } from '@/lib/kinds'
 import { Toast } from '@/components/client'
@@ -16,7 +17,7 @@ import { Profile, UserView } from './views/Profile'
 
 type Props = {
   userId: string; email: string; appUrl: string; ai: boolean
-  catalog: Record<Kind, boolean>; art: { orrery: string | null; lune: string | null }
+  catalog: Record<Kind, boolean>; art: ArtMap
 }
 
 export function App(props: Props) {
@@ -27,11 +28,12 @@ export function App(props: Props) {
   )
 }
 
+const I = (d: string) => <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
 const NAV = [
-  { href: '/a-faire', label: 'À faire', match: ['todo', 'reco'] },
-  { href: '/liste', label: 'Ma galerie', match: ['library'] },
-  { href: '/groupes', label: 'Groupes', match: ['groups', 'group'] },
-  { href: '/profil', label: 'Profil', match: ['profile', 'user'] },
+  { href: '/a-faire', label: 'À faire', match: ['todo', 'reco'], icon: I('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2') },
+  { href: '/liste', label: 'Ma galerie', match: ['library'], icon: I('M4 5h16v14H4zM8 15l3-3 2 2 3-4 2 3') },
+  { href: '/groupes', label: 'Groupes', match: ['groups', 'group'], icon: I('M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 11a3 3 0 1 0 0-6M2 20c0-3 3-5 6-5s6 2 6 5M16 15c3 0 6 2 6 5') },
+  { href: '/profil', label: 'Profil', match: ['profile', 'user'], icon: I('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6') },
 ]
 
 function Shell({ appUrl, ai, catalog, art }: Props) {
@@ -62,7 +64,7 @@ function Shell({ appUrl, ai, catalog, art }: Props) {
     </div>
   )
   else switch (route.name) {
-    case 'todo': view = <Todo art={art} />; break
+    case 'todo': view = <Todo />; break
     case 'library': view = <Library catalog={catalog} />; break
     case 'groups': view = <Groups />; break
     case 'group': view = <Group id={route.id} appUrl={appUrl} />; break
@@ -75,14 +77,15 @@ function Shell({ appUrl, ai, catalog, art }: Props) {
 
   return (
     <TintCtx.Provider value={set}>
-      <div className={`app${tint ? ' has-tint' : ''}`} style={tint ? { ['--page' as string]: tint.soft, ['--page-deep' as string]: tint.deep } : undefined}>
+      <ArtCtx.Provider value={art}>
+      <div className={`app${tint ? ' has-tint' : ''}`} style={tint ? { ['--page' as string]: tint.soft, ['--page-deep' as string]: tint.deep, ['--page-mid' as string]: tint.mid } : undefined}>
         <header className="top">
           <div className="top-in">
-            <A href="/a-faire" className="brand">Tu verras…</A>
+            <A href="/a-faire" className="brand">Tu verras<span className="dots">…</span></A>
             <nav className="tabs" aria-label="Navigation principale">
               {NAV.map(n => (
                 <A key={n.href} href={n.href} className="tab" aria-current={n.match.includes(route.name) ? 'page' : undefined}>
-                  {n.label}{n.href === '/a-faire' && s.pending ? <span className="count">{s.pending}</span> : null}
+                  {n.icon}<span>{n.label}</span>{n.href === '/a-faire' && s.pending ? <span className="count">{s.pending}</span> : null}
                 </A>
               ))}
             </nav>
@@ -92,6 +95,7 @@ function Shell({ appUrl, ai, catalog, art }: Props) {
         <main className="wrap">{view}</main>
         <Toast msg={s.toast} onDone={clearToast} />
       </div>
+      </ArtCtx.Provider>
     </TintCtx.Provider>
   )
 }

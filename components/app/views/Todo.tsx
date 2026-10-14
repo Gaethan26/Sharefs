@@ -1,9 +1,10 @@
 'use client'
 
+import { useContext } from 'react'
 import { A } from '../router'
+import { ArtCtx, RoomHeader } from '../RoomHeader'
 import { useStore } from '../store'
 import { usePalette } from '../palette'
-import { usePageTint } from '../tint'
 import { ART_PALETTES, paletteVars } from '@/lib/palettes'
 import { kindOf } from '@/lib/kinds'
 import { fmtDate, monthKey, monthLabel } from '@/lib/format'
@@ -12,9 +13,9 @@ import type { Challenge, RecoFull } from '@/lib/types'
 
 const veillee = () => { const m = monthLabel(); return `Veillée ${/^[aeiouyàâéèêh]/i.test(m) ? 'd’' : 'de '}${m}` }
 
-export function Todo({ art }: { art: { orrery: string | null; lune: string | null } }) {
+export function Todo() {
   const s = useStore()
-  usePageTint(null)
+  const art = useContext(ArtCtx)
   const me = s.userId
   const mineOf = (r: RecoFull) => r.challenges.find(c => c.user_id === me)
   const rows = s.recos.filter(r => r.sender_id !== me && mineOf(r))
@@ -26,19 +27,12 @@ export function Todo({ art }: { art: { orrery: string | null; lune: string | nul
 
   return (
     <>
-      <section className="veillee deep" style={paletteVars(ART_PALETTES.orrery)}>
-        {art.orrery && <img className="backdrop-img" src={art.orrery} alt="" aria-hidden />}
-        <div className="veillee-in">
-          <div>
-            <h1>{veillee()}</h1>
-            <p>
-              {active.length ? `${active.length} œuvre${active.length > 1 ? 's' : ''} t’attend${active.length > 1 ? 'ent' : ''}. ` : 'Aucune œuvre en attente. '}
-              {s.circles.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} groupe${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Crée un groupe pour commencer.'}
-            </p>
-          </div>
-          {s.circles.length ? (free > 0 && <A className="btn" href="/envoyer">Recommander une œuvre</A>) : <A className="btn" href="/groupes">Créer un groupe</A>}
-        </div>
-      </section>
+      <RoomHeader k="orrery" title={veillee()} sub={<>
+        {active.length ? `${active.length} œuvre${active.length > 1 ? 's' : ''} t’attend${active.length > 1 ? 'ent' : ''}. ` : 'Aucune œuvre en attente. '}
+        {s.circles.length ? (free > 0 ? `Ta recommandation du mois reste à faire dans ${free} groupe${free > 1 ? 's' : ''}.` : 'Tes recommandations du mois sont faites.') : 'Crée un groupe pour commencer.'}
+      </>}>
+        {s.circles.length ? (free > 0 && <A className="btn" href="/envoyer">Recommander une œuvre</A>) : <A className="btn" href="/groupes">Créer un groupe</A>}
+      </RoomHeader>
 
       {!active.length && !dropped.length && (
         <section className="empty-art tinted" style={paletteVars(ART_PALETTES.lune)}>

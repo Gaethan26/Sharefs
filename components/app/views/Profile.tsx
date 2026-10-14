@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { A, navigate } from '../router'
 import { useStore } from '../store'
 import { usePalette } from '../palette'
-import { usePageTint } from '../tint'
-import { paletteVars } from '@/lib/palettes'
+import { RoomHeader, MosaicHeader } from '../RoomHeader'
+import { ART_PALETTES, paletteVars } from '@/lib/palettes'
 import { affinities } from '@/lib/stats'
 import { avg1 } from '@/lib/format'
 import { kindOf } from '@/lib/kinds'
@@ -16,7 +16,6 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : '�
 
 export function Profile() {
   const s = useStore()
-  usePageTint(null)
   const me = s.userId
   const [name, setName] = useState(s.profile?.display_name ?? '')
   const [mails, setMails] = useState(s.profile?.email_reminders ?? true)
@@ -44,8 +43,7 @@ export function Profile() {
 
   return (
     <>
-      <h1>{s.profile?.display_name || 'Profil'}</h1>
-      <p className="sub">{s.email}</p>
+      <RoomHeader k="tricheur" title={s.profile?.display_name || 'Profil'} sub={s.email} />
       <section className="panel">
         <h3>Toi, quand tu recommandes</h3>
         <div className="stats">
@@ -100,7 +98,6 @@ export function Profile() {
 
 export function UserView({ id }: { id: string }) {
   const s = useStore()
-  usePageTint(null)
   const [items, setItems] = useState<{ id: string; note: string | null; work: Work }[] | null>(null)
   useEffect(() => {
     if (id === s.userId) { navigate('/profil', { replace: true }); return }
@@ -113,12 +110,15 @@ export function UserView({ id }: { id: string }) {
   s.circles.forEach(c => c.members.forEach(m => { if (m.id === id) person = m }))
   const a = affinities(s.recos, s.userId).get(id)
   const has = new Set(s.library.map(i => i.work.id))
+  const covers = (items ?? []).map(i => i.work.cover_url).filter((u): u is string => !!u)
+  const pal = usePalette(covers[0], ART_PALETTES.tricheur)
   if (!person) return <div className="empty"><h1>Profil introuvable</h1><p>Vous ne partagez aucun groupe.</p></div>
   return (
     <>
-      <Avatar p={person} size={48} />
-      <h1 style={{ marginTop: 12 }}>{person.display_name || 'Sans nom'}</h1>
-      <p className="sub">{a ? `${a.pct} % d’affinité avec toi, sur ${a.n} œuvre${a.n > 1 ? 's' : ''} notée${a.n > 1 ? 's' : ''} tous les deux.` : 'Pas encore d’œuvre notée en commun.'}</p>
+      <MosaicHeader covers={covers} palette={pal} title={person.display_name || 'Sans nom'}
+        sub={a ? `${a.pct} % d’affinité avec toi, sur ${a.n} œuvre${a.n > 1 ? 's' : ''} notée${a.n > 1 ? 's' : ''} tous les deux.` : 'Pas encore d’œuvre notée en commun.'}>
+        <Avatar p={person} size={56} />
+      </MosaicHeader>
       <h2>Sa galerie{items ? ` (${items.length})` : ''}</h2>
       {items === null ? <p className="empty">Chargement…</p> : items.length ? (
         <ul className="gallery">

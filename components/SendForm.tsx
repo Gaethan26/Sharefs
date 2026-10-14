@@ -7,7 +7,7 @@ import { kindOf, type Kind } from '@/lib/kinds'
 import type { Person, Work, WorkInput } from '@/lib/types'
 import { Avatar, Cover, WorkMeta } from './ui'
 import { StarsInput } from './client'
-import { WorkPicker } from './WorkPicker'
+import { QuickAdd } from './QuickAdd'
 
 type CircleOpt = { id: string; name: string; used: boolean; members: Person[] }
 
@@ -84,15 +84,14 @@ export function SendForm({ circles, library, preWorkId, preCircleId, replyTo, ai
         <h3>La référence</h3>
         <div className="chips" role="group" aria-label="Source">
           <button type="button" className="chip" aria-pressed={mode === 'liste'} onClick={() => setMode('liste')} disabled={!library.length}>Depuis ma galerie</button>
-          <button type="button" className="chip" aria-pressed={mode === 'catalogue'} onClick={() => setMode('catalogue')}>Chercher</button>
+          <button type="button" className="chip" aria-pressed={mode === 'catalogue'} onClick={() => setMode('catalogue')}>Autre œuvre</button>
         </div>
         {mode === 'liste' ? (
           <select value={workId} onChange={e => setWorkId(e.target.value)} aria-label="Œuvre de ta galerie">
             {library.map(w => <option key={w.id} value={w.id}>{w.title} ({kindOf(w.kind).label})</option>)}
           </select>
         ) : (
-          <WorkPicker enabled={catalog} onPick={w => setPicked(w)} actionLabel="Choisir"
-            selectedKey={picked ? `${picked.source}:${picked.external_id}` : null} />
+          <QuickAdd mode="pick" enabled={catalog} onAdd={w => setPicked(w)} />
         )}
         {work && (
           <div className={`selected-work k-${work.kind}`}>

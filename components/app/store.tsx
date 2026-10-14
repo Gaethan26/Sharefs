@@ -98,8 +98,19 @@ function useStoreValue(userId: string, email: string) {
     return { id: workId }
   }, [sb, userId, loadLibrary])
 
+  // Ajout instantané à l'écran, puis enregistrement
   const addToLibrary = useCallback(async (w: WorkInput, note?: string): Promise<Res> => {
-    try { return await addWorkId(await ensureWork(w), note) } catch (e) { return { error: errText(e) } }
+    const tmp = `tmp-${Math.random().toString(36).slice(2)}`
+    setLibrary(prev => [{ id: tmp, note: note ?? null, created_at: new Date().toISOString(),
+      work: { id: tmp, kind: w.kind, title: w.title, creator: w.creator ?? null, year: w.year ?? null, cover_url: w.cover_url ?? null } }, ...prev])
+    try {
+      const r = await addWorkId(await ensureWork(w), note)
+      if (r.error) throw new Error(r.error)
+      return r
+    } catch (e) {
+      setLibrary(prev => prev.filter(i => i.id !== tmp))
+      return { error: errText(e) }
+    }
   }, [ensureWork, addWorkId])
 
   const removeItem = useCallback(async (id: string): Promise<Res> => {
