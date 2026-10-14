@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { supabaseServer } from '@/lib/supabase/server'
 import { Artwork, ArtBackdrop, Cartel } from '@/components/Artwork'
 import type { ArtKey } from '@/lib/art'
+import { PosterWall } from '@/components/PosterWall'
 
 const ROOMS: { k: ArtKey; wall: string; title: string; text: string }[] = [
   { k: 'liseuse', wall: 'garance', title: 'Une œuvre par mois', text: 'Pas un fil sans fin. Une seule recommandation par mois et par groupe : celle qui compte vraiment pour toi, celle qui t’a changé un peu.' },
@@ -33,6 +34,8 @@ export default async function Home() {
         </div>
       </section>
 
+      <PosterWall />
+
       <section className="epigraph">
         <blockquote>« Chaque lecteur est, quand il lit, le propre lecteur de soi-même. »</blockquote>
         <cite>Marcel Proust, Le Temps retrouvé</cite>
@@ -40,7 +43,7 @@ export default async function Home() {
 
       <div className="rooms">
         {ROOMS.map((r, i) => (
-          <section key={r.k} className={`wall-band wall-${r.wall}`}>
+          <section key={r.k} className="wall-band">
             <div className={`room${i % 2 ? ' flip' : ''}`}>
               <Artwork k={r.k} width={1280} />
               <div>
@@ -56,6 +59,7 @@ export default async function Home() {
         <h2>Ta première veillée commence quand tu veux.</h2>
         <Link className="btn" href="/login">Créer mon compte</Link>
       </section>
+      <p className="credits">Tableaux du domaine public via Wikimedia Commons. Affiches : TMDB. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>
     </main>
   )
 }

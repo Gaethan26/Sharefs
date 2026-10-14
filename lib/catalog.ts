@@ -58,6 +58,33 @@ export async function searchCatalog(kind: Kind, q: string): Promise<WorkInput[]>
   }))
 }
 
+/** Classiques du cinéma pour le mur d'affiches de l'accueil (via TMDB, attribution affichée) */
+const CLASSICS: { q: string; y: number; t: 'movie' | 'tv' }[] = [
+  { q: 'Pulp Fiction', y: 1994, t: 'movie' },
+  { q: 'The Lord of the Rings: The Fellowship of the Ring', y: 2001, t: 'movie' },
+  { q: 'The Godfather', y: 1972, t: 'movie' },
+  { q: 'Spirited Away', y: 2001, t: 'movie' },
+  { q: 'In the Mood for Love', y: 2000, t: 'movie' },
+  { q: 'Amélie', y: 2001, t: 'movie' },
+  { q: '2001: A Space Odyssey', y: 1968, t: 'movie' },
+  { q: 'Interstellar', y: 2014, t: 'movie' },
+  { q: 'Breaking Bad', y: 2008, t: 'tv' },
+]
+
+export type Poster = { title: string; year: number; poster: string }
+
+export async function classicPosters(): Promise<Poster[]> {
+  if (!process.env.TMDB_API_KEY) return []
+  const found = await Promise.all(CLASSICS.map(async c => {
+    const params: Record<string, string> = { query: c.q, language: 'fr-FR' }
+    params[c.t === 'movie' ? 'year' : 'first_air_date_year'] = String(c.y)
+    const j = await tmdb(`/search/${c.t}`, params, 60 * 60 * 24 * 7).catch(() => null)
+    const r = j?.results?.[0]
+    return r?.poster_path ? { title: (r.title ?? r.name) as string, year: c.y, poster: TMDB_IMG + 'w500' + r.poster_path } : null
+  }))
+  return found.filter((p): p is Poster => !!p)
+}
+
 export type Providers = { link: string | null; flatrate: P[]; rent: P[]; buy: P[] }
 type P = { name: string; logo: string }
 
