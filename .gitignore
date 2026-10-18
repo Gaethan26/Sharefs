@@ -1,7 +1,5 @@
-node_modules
-.next
-.env*.local
-.env
-next-env.d.ts
-*.tsbuildinfo
-public/art/
+node_modules/
+www/vendor/
+ios/App/Pods/
+android/.gradle/
+android/app/build/

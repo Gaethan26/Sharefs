@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sharefs</string>
+    <string name="title_activity_main">Sharefs</string>
+    <string name="package_name">fr.sharefs.app</string>
+    <string name="custom_url_scheme">fr.sharefs.app</string>
+</resources>

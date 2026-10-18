@@ -2,25 +2,21 @@
   "name": "sharefs",
   "version": "1.0.0",
   "private": true,
+  "description": "Sharefs : partage de films, séries, livres et jeux entre amis",
   "scripts": {
-    "dev": "next dev",
-    "prebuild": "node scripts/fetch-art.mjs || true",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "postinstall": "node scripts/copy-vendor.js",
+    "sync": "npx cap sync",
+    "ios": "npx cap sync ios && npx cap open ios",
+    "android": "npx cap sync android && npx cap open android",
+    "serve": "npx --yes serve@14.2.4 www"
   },
   "dependencies": {
-    "@supabase/ssr": "0.12.7",
-    "@supabase/supabase-js": "2.117.3",
-    "next": "15.5.27",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "server-only": "0.0.1"
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2",
+    "@supabase/supabase-js": "2.117.0"
   },
   "devDependencies": {
-    "@types/node": "22.15.0",
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
-    "typescript": "5.9.3"
+    "@capacitor/cli": "8.5.2"
   }
 }

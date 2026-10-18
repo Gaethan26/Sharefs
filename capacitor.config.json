@@ -1,0 +1,7 @@
+{
+  "appId": "fr.sharefs.app",
+  "appName": "Sharefs",
+  "webDir": "www",
+  "ios": { "contentInset": "never" },
+  "android": { "backgroundColor": "#E9ECF2" }
+}
