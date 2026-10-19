@@ -3,5 +3,5 @@
   "appName": "Sharefs",
   "webDir": "www",
   "ios": { "contentInset": "never" },
-  "android": { "backgroundColor": "#E9ECF2" }
+  "android": { "backgroundColor": "#22150C" }
 }

@@ -1,5 +1,5 @@
 node_modules/
-www/vendor/
+server/api/config.php
 ios/App/Pods/
 android/.gradle/
 android/app/build/

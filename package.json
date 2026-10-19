@@ -1,20 +1,17 @@
 {
   "name": "sharefs",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Sharefs : partage de films, séries, livres et jeux entre amis",
+  "description": "Sharefs : collection de films, séries, livres et jeux partagée entre amis",
   "scripts": {
-    "postinstall": "node scripts/copy-vendor.js",
     "sync": "npx cap sync",
     "ios": "npx cap sync ios && npx cap open ios",
-    "android": "npx cap sync android && npx cap open android",
-    "serve": "npx --yes serve@14.2.4 www"
+    "android": "npx cap sync android && npx cap open android"
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",
     "@capacitor/core": "8.5.2",
-    "@capacitor/ios": "8.5.2",
-    "@supabase/supabase-js": "2.117.0"
+    "@capacitor/ios": "8.5.2"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.2"

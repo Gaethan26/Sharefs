@@ -1,35 +1,42 @@
 # Sharefs
 
-App mobile (iOS et Android) de partage de films, séries, livres et jeux entre amis.
-Stack : HTML/JS sans framework dans `www/`, empaqueté par Capacitor 8, backend Supabase (auth par code e-mail, Postgres + RLS, temps réel).
+Collection de films, séries, livres et jeux partagée entre amis, façon jeu de cartes.
+Tout tourne sur un hébergement mutualisé o2switch : site web, API PHP 8, base MySQL. Les apps iOS et Android (Capacitor 8) utilisent la même API.
 
 ## Structure
 
-- `www/index.html` : l'app complète (UI, catalogue, recherche, collection)
-- `www/config.js` : URL et clé anon Supabase
-- `supabase/schema.sql` : tables, règles RLS, fonctions (cercles, suppression de compte)
-- `ios/`, `android/` : projets natifs générés par Capacitor
+- `www/` : l'app (HTML/CSS/JS sans framework), servie telle quelle et embarquée dans les apps mobiles
+- `server/api/` : API PHP (comptes, cercles, recommandations, catalogue TMDB / Google Books / IGDB avec cache MySQL)
+- `server/schema.sql` : tables MySQL
+- `.cpanel.yml` : déploiement automatique depuis Git dans cPanel
+- `ios/`, `android/` : projets natifs
 
-## Mise en route
+## Installation sur o2switch (une fois)
 
-1. Supabase : créer un projet, puis exécuter `supabase/schema.sql` dans SQL Editor.
-2. Supabase > Authentication > Email Templates > Magic Link : remplacer le lien par le code `{{ .Token }}` (l'app demande un code à 6 chiffres).
-3. Supabase > Authentication > SMTP : brancher un SMTP réel (Brevo, Resend…). Le SMTP par défaut est limité à quelques e-mails par heure.
-4. Renseigner `www/config.js`.
-5. `npm install` puis `npx cap sync`.
-6. Tester dans le navigateur : `npm run serve`.
+1. **Sous-domaine** : cPanel > Domaines > Créer, par exemple `sharefs.ton-domaine.fr`. Note le dossier racine créé (`/home/USER/sharefs.ton-domaine.fr`). Active le SSL dans cPanel > SSL/TLS Status (AutoSSL).
+2. **Base de données** : cPanel > Assistant de base de données MySQL. Crée la base et un utilisateur avec tous les droits. Dans phpMyAdmin, importe `server/schema.sql`.
+3. **E-mail** : cPanel > Comptes de messagerie, crée `sharefs@ton-domaine.fr` (expéditeur des codes de mot de passe oublié).
+4. **Déploiement** : remplace `USER` et le dossier dans `.cpanel.yml`. Puis cPanel > Git Version Control > Create, clone `https://github.com/Gaethan26/Sharefs.git` dans `/home/USER/repositories/sharefs`. Dans « Manage » > « Pull or Deploy », clique sur **Update from Remote** puis **Deploy HEAD Commit**.
+5. **Configuration** : dans le gestionnaire de fichiers, copie `api/config.sample.php` en `api/config.php` dans le dossier du sous-domaine et remplis-le. Ce fichier n'est jamais versionné ni écrasé par le déploiement.
+6. **Mobile** : mets l'adresse du sous-domaine dans `www/config.js` (`apiBase`).
 
-## Build
+Mises à jour suivantes : `git push`, puis dans cPanel > Git Version Control : Update from Remote, puis Deploy HEAD Commit.
 
-- Android : `npm run android` (ouvre Android Studio) > Build > Generate Signed App Bundle > publication sur la Play Console.
-- iOS (Mac + Xcode requis) : `npm run ios` > régler l'équipe de signature > Product > Archive > envoi vers App Store Connect.
+## Catalogue (clés dans `api/config.php`)
 
-Changer `appId` (`fr.sharefs.app`) dans `capacitor.config.json` avant le premier `cap add` si tu as un autre identifiant. Sinon, modifie-le aussi dans les projets natifs.
+| Clé | Où l'obtenir |
+|---|---|
+| `tmdb_token` | themoviedb.org > Paramètres > API > « Jeton d'accès en lecture de l'API » |
+| `twitch_client_id`, `twitch_client_secret` | dev.twitch.tv/console > Register Your Application (OAuth Redirect : `http://localhost`, catégorie Application Integration, double authentification Twitch requise) |
+| `google_books_key` | facultatif, Google Cloud Console > Books API |
+
+Test : `https://sharefs.ton-domaine.fr/api/search?type=f&q=dune`
+
+## Mobile
+
+`npm install`, puis `npm run ios` ou `npm run android`. Voir les étapes Xcode et Android Studio dans l'historique du projet (signature, mode développeur).
 
 ## Avant soumission aux stores
 
-- Icônes et splash : `npx @capacitor/assets generate` à partir d'un `assets/icon.png` de 1024 px.
-- Politique de confidentialité en ligne (URL demandée par les deux stores).
-- Apple, guideline 1.2 (contenu généré par les utilisateurs) : les notes de recommandation sont du contenu utilisateur. Apple peut exiger un moyen de signaler du contenu ou de bloquer quelqu'un, en plus de quitter un cercle.
-- Apple, guideline 4.2 : une app trop proche d'un site web peut être refusée. Le catalogue, la collection et le temps réel aident, mais un catalogue branché sur des API (TMDB, Google Books, IGDB via un proxy serveur) renforcera le dossier.
-- La suppression de compte est déjà intégrée (Collection > Mon compte), comme l'exige l'App Store.
+Icônes (`npx @capacitor/assets generate`), politique de confidentialité en ligne, signalement de contenu (guideline Apple 1.2). La suppression de compte est intégrée.
+L'univers visuel est original, inspiré des jeux de cartes : aucun élément graphique, nom ou police de Blizzard n'est utilisé.
