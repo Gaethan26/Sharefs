@@ -324,6 +324,12 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .lb .strip img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
 .lb .x{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.15);color:#fff;font-size:22px}
 .lb .pos{position:absolute;top:calc(env(safe-area-inset-top,0px) + 22px);left:0;right:0;text-align:center;color:#AAB2CC;font-size:14px;pointer-events:none}
+.forwho{position:relative;padding-right:30px;cursor:pointer}
+.forwho select{border:0;background:none;padding:0;font:inherit;font-weight:700;color:inherit;-webkit-appearance:none;appearance:none;cursor:pointer}
+.forwho select option{color:#18213A;background:#fff}
+.forwho::after{content:"";position:absolute;right:12px;top:50%;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.forwho.on{background:var(--act);color:var(--act-ink);border-color:var(--act)}
+.forwho .lbl{color:inherit;opacity:.7;font-weight:600}
 </style>
 </head>
 <body>
@@ -351,26 +357,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
       </div>
       <div class="row" id="typeChips"></div>
     </div>
-    <div class="panel" id="panel">
-      <h3>Mon statut</h3><div class="wrap" id="fStatus"></div>
-      <h3>Genres</h3><div class="wrap" id="fGenres"></div>
-      <h3>Période</h3><div class="wrap" id="fDecades"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:16px">
-        <button class="btn" id="reset">Tout effacer</button>
-        <button class="btn pri" id="closePanel">Voir les résultats</button>
-      </div>
-    </div>
-    <div class="pills" id="pills"></div>
-    <div class="rhead"><span id="count"></span>
-      <label class="sr" for="sort">Trier</label>
-      <select id="sort">
-        <option value="rel">Pertinence</option>
-        <option value="friends">Populaire chez mes amis</option>
-        <option value="new">Plus récent</option>
-        <option value="old">Plus ancien</option>
-        <option value="az">Titre A–Z</option>
-      </select>
-    </div>
+    <div class="row" id="smartChips" style="margin-top:2px"></div>
+    <div class="rhead"><span id="count"></span></div>
     <ul class="res" id="results"></ul>
     <div id="resMore"></div>
   </section>
@@ -506,15 +494,13 @@ const dec=y=>!y?'':y<1960?'Avant 1960':Math.floor(y/10)*10+'s';
 const decLabel=d=>d==='Avant 1960'?d:'Années '+d.slice(2);
 
 /* ---------- Recherche ---------- */
-const F={types:new Set(),genres:new Set(),decades:new Set(),status:'all',sort:'rel'};
+const F={types:new Set(),mine:false,forWho:''};
 let SR={q:null,items:[],pages:{},moreT:new Set(),loading:false,err:'',seq:0};
 const typesSel=()=>F.types.size?[...F.types]:['f','s','l','j'];
 const rr=lists=>{const out=[],max=Math.max(0,...lists.map(l=>l.length));for(let i=0;i<max;i++)for(const l of lists)if(l[i])out.push(l[i]);return out};
-const localMode=()=>['done','want','rec'].includes(F.status);
-function localItems(){
-  const ids=F.status==='done'?Object.keys(mine.done):F.status==='want'?Object.keys(mine.want):[...new Set(recs.filter(r=>r.from_id!==uid).map(r=>r.work?.id))];
-  return ids.map(id=>WK[id]).filter(Boolean);
-}
+const localMode=()=>F.mine;
+// Ma collection : les meilleures cartes d'abord, ce sont celles qu'on a le plus envie de recommander
+function localItems(){return Object.keys(mine.done).map(id=>WK[id]).filter(Boolean).sort((a,b)=>rateOf(b.id)-rateOf(a.id)||mine.done[b.id]-mine.done[a.id])}
 async function runSearch(more=false){
   if(localMode()){renderSearch();return}
   const q=$('#q').value.trim();const seq=++SR.seq;
@@ -530,34 +516,21 @@ async function runSearch(more=false){
   SR.err=errs&&errs===res.length?'Le catalogue ne répond pas. Vérifie les clés API dans config.php (README, section Catalogue).':'';
   SR.loading=false;renderSearch();
 }
-function filtered(list,{skipGenre=false}={}){
-  return list.filter(w=>{
-    if(F.types.size&&!F.types.has(w.t))return false;
-    if(!skipGenre&&F.genres.size&&!(w.g||[]).some(g=>F.genres.has(g)))return false;
-    if(F.decades.size&&!F.decades.has(dec(w.y)))return false;
-    if(F.status==='todo'&&isDone(w.id))return false;
-    return true;
-  });
-}
-function sorted(list){
-  const S=F.sort,l=[...list];
-  if(S==='new')l.sort((a,b)=>(b.y||0)-(a.y||0));
-  else if(S==='old')l.sort((a,b)=>(a.y||9999)-(b.y||9999));
-  else if(S==='az')l.sort((a,b)=>String(a.ti).localeCompare(String(b.ti),'fr'));
-  else if(S==='friends')l.sort((a,b)=>popularity(b.id)-popularity(a.id));
-  return l;
-}
+// « Pour [ami] » masque ce que l'ami a déjà terminé
+function filtered(list){return list.filter(w=>(!F.types.size||F.types.has(w.t))&&(!F.forWho||!isDone(w.id,F.forWho)))}
+const sorted=list=>list;
 function baseList(){const q=norm($('#q').value);return localMode()?localItems().filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q)):SR.items}
 function renderResults(){
-  const q=norm($('#q').value),list=sorted(filtered(baseList())),ul=$('#results');
-  const label=localMode()?'':(!q?'Tendances du moment, ':'');
-  $('#count').textContent=SR.loading&&!list.length?'Recherche…':`${label}${list.length} œuvre${list.length>1?'s':''}`;
+  const q=norm($('#q').value),list=sorted(filtered(baseList())),ul=$('#results'),who=F.forWho?nameOf(F.forWho):'';
+  $('#count').textContent=SR.loading&&!list.length&&!F.mine?'Recherche…':`${list.length} œuvre${list.length>1?'s':''}${F.mine?' de ta collection':(!q?' en tendance':'')}${who?`, encore inconnue${list.length>1?'s':''} de ${who}`:''}`;
+  if(F.mine&&!Object.keys(mine.done).length){ul.innerHTML=`<li><div class="empty"><b>Ta collection est vide.</b>Marque des œuvres comme vues, lues ou finies pour les retrouver ici et les recommander.</div></li>`;$('#resMore').innerHTML='';return}
   if(SR.err&&!localMode()){ul.innerHTML=`<li><div class="empty"><b>Recherche indisponible.</b>${esc(SR.err)}</div></li>`;$('#resMore').innerHTML='';return}
   if(!list.length&&!SR.loading){ul.innerHTML=`<li><div class="empty"><b>Aucune œuvre ne correspond.</b>Retire un filtre, essaie un autre titre ou ajoute-la toi-même.<br><button class="btn pri" data-manual="">Envoyer « ${esc($('#q').value.trim()||'une œuvre')} » à la main</button>${activeCount()?' <button class="btn" data-act="reset">Effacer les filtres</button>':''}</div></li>`;$('#resMore').innerHTML='';return}
   ul.innerHTML=list.map(w=>{
     const n=new Set(recsAbout(w.id).map(r=>r.from_id)).size,b=[];
     if(isDone(w.id))b.push(rarityTag(rateOf(w.id)));
     if(isWant(w.id))b.push(`<span class="bdg">Plus tard</span>`);
+    if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec">Dans la liste de ${esc(who)}</span>`);
     if(n)b.push(`<span class="bdg rec">Conseillé par ${n} ami${n>1?'s':''}</span>`);
     return `<li><button data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${hl(w.ti,q)}</span><br><span class="meta">${metaLine(w)}</span>${b.length?`<span class="badges">${b.join('')}</span>`:''}</span></button></li>`}).join('');
   $('#resMore').innerHTML=(SR.loading?'<p class="loading">Chargement…</p>':(!localMode()&&SR.moreT.size?'<button class="btn more" data-more>Voir plus d’œuvres</button>':''))+
@@ -607,24 +580,13 @@ function remember(v){v=v.trim();if(v.length<2)return;const r=lsGet('sharefs-rece
 
 /* filtres */
 const chip=(label,pressed,data,cls='chip')=>`<button class="${cls}" aria-pressed="${pressed}" ${data}>${label}</button>`;
-const activeCount=()=>F.genres.size+F.decades.size+(F.status!=='all');
-const STATUS=[['all','Tout'],['todo','À découvrir'],['done','Dans ma collection'],['want','Plus tard'],['rec','Conseillé par mes amis']];
+const activeCount=()=>F.types.size+(F.mine?1:0)+(F.forWho?1:0);
 function renderFilters(){
-  $('#typeChips').innerHTML=chip('Tout',!F.types.size,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('')+
-    `<button class="chip ftr" id="openPanel" aria-expanded="${$('#panel').classList.contains('open')}" aria-controls="panel">Filtres${activeCount()?` <span class="cnt">${activeCount()}</span>`:''}</button>`;
-  $('#fStatus').innerHTML=STATUS.map(([k,l])=>chip(l,F.status===k,`data-status="${k}"`)).join('');
-  const base=filtered(baseList(),{skipGenre:true}),freq={};
-  base.forEach(w=>(w.g||[]).forEach(g=>freq[g]=(freq[g]||0)+1));
-  F.genres.forEach(g=>freq[g]=freq[g]||0);
-  const gs=Object.keys(freq).sort((a,b)=>freq[b]-freq[a]||a.localeCompare(b,'fr')).slice(0,30);
-  $('#fGenres').innerHTML=gs.length?gs.map(g=>chip(esc(g),F.genres.has(g),`data-genre="${esc(g)}"`)).join(''):'<span class="meta">Les genres apparaissent avec les résultats.</span>';
-  const ds=[...new Set(baseList().map(w=>dec(w.y)).filter(Boolean).concat([...F.decades]))].sort();
-  $('#fDecades').innerHTML=ds.map(d=>chip(decLabel(d),F.decades.has(d),`data-dec="${d}"`)).join('')||'<span class="meta">Aucune date disponible.</span>';
-  const pills=[];
-  F.genres.forEach(g=>pills.push([esc(g),`data-rm-genre="${esc(g)}"`]));
-  F.decades.forEach(d=>pills.push([decLabel(d),`data-rm-dec="${d}"`]));
-  if(F.status!=='all')pills.push([STATUS.find(s=>s[0]===F.status)[1],'data-rm-status']);
-  $('#pills').innerHTML=pills.map(([l,d])=>`<button class="pill" ${d} aria-label="Retirer le filtre ${l}">${l}</button>`).join('');
+  $('#typeChips').innerHTML=chip('Tout',!F.types.size,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('');
+  const n=Object.keys(mine.done).length,fr=others();
+  if(F.forWho&&!fr.includes(F.forWho))F.forWho='';
+  $('#smartChips').innerHTML=chip(`${gem(4)}Ma collection${n?` <span class="cnt">${n}</span>`:''}`,F.mine,'data-mine')+
+    (fr.length?`<label class="chip forwho${F.forWho?' on':''}"><span class="lbl">Pour</span><select id="forWho" aria-label="Chercher pour un ami"><option value="">tous</option>${fr.map(f=>`<option value="${f}"${F.forWho===f?' selected':''}>${esc(nameOf(f))}</option>`).join('')}</select></label>`:'');
 }
 function renderSearch(){renderFilters();renderResults()}
 
@@ -701,7 +663,8 @@ let sheetId=null,lastFocus=null,recOpen=false,recTo=new Set(),recNote='',pickOpe
 function openSheet(id,refocus=true,opts={}){
   const w=WK[id];if(!w)return;
   if(String(id).startsWith('man-'))w.full=true;
-  if(sheetId!==id){recOpen=false;recTo=new Set();recNote='';pickOpen=!!opts.pick}
+  if(sheetId!==id){recOpen=false;recTo=new Set();recNote='';pickOpen=!!opts.pick;
+    if(F.forWho&&others().includes(F.forWho)&&$('#v-search').classList.contains('on')&&!opts.pick){recTo=new Set([F.forWho]);recOpen=true}}
   sheetId=id;if(refocus)lastFocus=document.activeElement;
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
@@ -862,20 +825,13 @@ document.addEventListener('click',e=>{
   if(d.cview){collView=d.cview;lsSet('sharefs-collview',collView);renderColl();return}
   if(d.ctype!==undefined){collType=d.ctype;renderColl();return}
   if(d.crar!==undefined){collRar=+d.crar;renderColl();return}
-  if('searchall' in d){$('#q').value=$('#collQ').value;F.status='all';setTab('search');runSearch();return}
-  if('explore' in d){$('#q').value='';F.status='all';F.types.clear();setTab('search');runSearch();return}
+  if('searchall' in d){$('#q').value=$('#collQ').value;F.mine=false;setTab('search');runSearch();return}
+  if('explore' in d){$('#q').value='';F.mine=false;F.types.clear();setTab('search');runSearch();return}
   if('more' in d){runSearch(true);return}
   if(b.id==='recBtn'){recOpen=!recOpen;refreshSheet();if(recOpen)$('#recNote')?.focus();return}
-  if(d.type!==undefined){if(!d.type)F.types.clear();else F.types.has(d.type)?F.types.delete(d.type):F.types.add(d.type);runSearch();return}
-  if(b.id==='openPanel'){$('#panel').classList.toggle('open');renderFilters();return}
-  if(d.genre){F.genres.has(d.genre)?F.genres.delete(d.genre):F.genres.add(d.genre);renderSearch();return}
-  if(d.dec){F.decades.has(d.dec)?F.decades.delete(d.dec):F.decades.add(d.dec);renderSearch();return}
-  if(d.status){const was=localMode();F.status=d.status;was!==localMode()&&!localMode()?runSearch():renderSearch();return}
-  if('rmGenre' in d){F.genres.delete(d.rmGenre);renderSearch();return}
-  if('rmDec' in d){F.decades.delete(d.rmDec);renderSearch();return}
-  if('rmStatus' in d){const was=localMode();F.status='all';was?runSearch():renderSearch();return}
-  if(b.id==='reset'||d.act==='reset'){const was=localMode();F.genres.clear();F.decades.clear();F.status='all';was?runSearch():renderSearch();return}
-  if(b.id==='closePanel'){$('#panel').classList.remove('open');renderFilters();$('#count').scrollIntoView({block:'start',behavior:'smooth'});return}
+  if(d.type!==undefined){if(!d.type)F.types.clear();else F.types.has(d.type)?F.types.delete(d.type):F.types.add(d.type);F.mine?renderSearch():runSearch();return}
+  if('mine' in d){F.mine=!F.mine;F.mine?renderSearch():runSearch();return}
+  if(b.id==='reset'||d.act==='reset'){F.types.clear();F.mine=false;F.forWho='';runSearch();return}
   if(b.id==='clear'){$('#q').value='';onQuery();$('#q').focus();return}
   if(b.id==='goSearch'){setTab('search');return}
 });
@@ -894,7 +850,7 @@ qEl.addEventListener('keydown',e=>{
 });
 function markAC(){document.querySelectorAll('#ac .opt').forEach(o=>o.setAttribute('aria-selected',+o.dataset.i===acIdx));const o=$('#ao'+acIdx);if(o){o.scrollIntoView({block:'nearest'});qEl.setAttribute('aria-activedescendant','ao'+acIdx)}}
 $('#ac').addEventListener('mousedown',e=>e.preventDefault());
-$('#sort').addEventListener('change',e=>{F.sort=e.target.value;renderResults()});
+document.addEventListener('change',e=>{if(e.target.id==='forWho'){F.forWho=e.target.value;renderSearch()}});
 
 /* ---------- Accès ---------- */
 const gate=$('#gate'),gIn=$('#gateIn');
