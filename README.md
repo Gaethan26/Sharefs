@@ -39,4 +39,4 @@ Test : `https://sharefs.ton-domaine.fr/api/search?type=f&q=dune`
 ## Avant soumission aux stores
 
 Icônes (`npx @capacitor/assets generate`), politique de confidentialité en ligne, signalement de contenu (guideline Apple 1.2). La suppression de compte est intégrée.
-L'univers visuel est original, inspiré des jeux de cartes : aucun élément graphique, nom ou police de Blizzard n'est utilisé.
+Les touches « jeu de cartes » de la collection sont originales : aucun élément graphique, nom ou police de Blizzard n’est utilisé.
