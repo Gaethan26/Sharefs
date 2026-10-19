@@ -106,7 +106,9 @@ function igdb(string $body): array {
 }
 function from_game(array $x): array {
   $ic = $x['involved_companies'] ?? []; $dev = null;
-  foreach ($ic as $c) if (!empty($c['developer'])) { $dev = $c; break; }
+  foreach ($ic as $c) {
+    if (!empty($c['developer'])) { $dev = $c; break; }
+  }
   $dev = $dev ?? ($ic[0] ?? null);
   return clean(['id' => 'igdb-' . $x['id'], 't' => 'j', 'ti' => $x['name'] ?? '', 'y' => !empty($x['first_release_date']) ? (int) gmdate('Y', $x['first_release_date']) : null,
     'c' => $dev['company']['name'] ?? '',

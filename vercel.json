@@ -1,3 +1,6 @@
 {
-  "git": { "deploymentEnabled": false }
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "",
+  "outputDirectory": "www"
 }

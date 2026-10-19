@@ -1,7 +1,7 @@
 # Sharefs
 
 Collection de films, séries, livres et jeux partagée entre amis, façon jeu de cartes.
-Tout tourne sur un hébergement mutualisé o2switch : site web, API PHP 8, base MySQL. Les apps iOS et Android (Capacitor 8) utilisent la même API.
+Tout tourne sur un hébergement mutualisé o2switch : site web, API PHP (8.1 minimum), base MySQL ou MariaDB. Les apps iOS et Android (Capacitor 8) utilisent la même API.
 
 ## Structure
 

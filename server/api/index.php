@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+if (PHP_VERSION_ID < 80100) {
+  http_response_code(500); header('Content-Type: application/json');
+  echo '{"error":"php_8_1_required"}'; exit;
+}
 require __DIR__ . '/lib.php';
 require __DIR__ . '/catalog.php';
 
