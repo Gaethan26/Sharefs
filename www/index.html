@@ -565,6 +565,29 @@ nav.tabs button[aria-current="page"]::after{content:"";position:absolute;bottom:
 .sp.im{background:linear-gradient(90deg,rgba(0,0,0,.42),rgba(0,0,0,.06) 28%,rgba(255,255,255,.14) 50%,rgba(0,0,0,.06) 72%,rgba(0,0,0,.42)),var(--im) center/cover no-repeat}
 .sp.im span{color:#fff;background:rgba(14,17,28,.6);padding:6px 3px;border-radius:3px;max-height:calc(100% - 46px)}
 .sp.im.book.v1 span{background:rgba(255,250,235,.92);color:#2A2A33}
+/* étagère par type : éclairage chaud, objets de rappel */
+.case{background:linear-gradient(90deg,#6E4426,#8A5A34 5%,#845532 95%,#673F22)}
+.case::before{background:linear-gradient(#A97446,#7E512D 70%,#6E4426)}
+.case::after{background:linear-gradient(#6E4426,#4F2F18)}
+.shelfrow{min-height:162px;padding:22px 10px 0;
+  background:radial-gradient(70% 55% at 55% 0%,rgba(255,214,150,.42),transparent 75%),linear-gradient(180deg,rgba(30,14,4,.2),rgba(30,14,4,.45)),repeating-linear-gradient(90deg,#6B4429 0 10px,#734A2D 10px 21px,#673F26 21px 33px);
+  box-shadow:inset 0 10px 16px -10px rgba(20,8,2,.7),inset 10px 0 12px -10px rgba(20,8,2,.6),inset -10px 0 12px -10px rgba(20,8,2,.6)}
+.shelfrow::before{content:"";position:absolute;top:5px;left:32%;right:10%;height:3px;border-radius:2px;background:#FFF6E2;box-shadow:0 0 10px 3px rgba(255,214,150,.75),0 6px 22px 6px rgba(255,214,150,.25)}
+.board{background:linear-gradient(#C08A55,#9C6A3C 55%,#7E522D)}
+.sdeco{position:absolute;right:12px;bottom:0;display:block;line-height:0;filter:drop-shadow(0 4px 3px rgba(0,0,0,.35))}
+.sdeco.plantwrap{right:16px}
+.sp{box-shadow:2px 0 3px rgba(10,4,0,.45),inset 0 0 0 1px rgba(0,0,0,.25)}
+.sp.im.disc::before,.sp.im.box::before,.sp.im.game::before{display:none}
+.sp.im.disc,.sp.im.box{background:linear-gradient(90deg,rgba(10,10,14,.75),rgba(10,10,14,.1) 18%,rgba(255,255,255,.14) 50%,rgba(10,10,14,.1) 82%,rgba(10,10,14,.75)),var(--im) center/cover no-repeat;border-radius:2px}
+.sp.im.game{background:linear-gradient(90deg,rgba(10,10,14,.7),rgba(10,10,14,.1) 20%,rgba(255,255,255,.12) 50%,rgba(10,10,14,.1) 80%,rgba(10,10,14,.7)),var(--im) center/cover no-repeat}
+.sp.im.disc span,.sp.im.box span,.sp.im.game span{top:50%;max-height:calc(100% - 22px)}
+/* cartes : une ligne par type, 4 par ligne */
+.crow+.crow{margin-top:18px}
+.crh{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:750;color:var(--ink);margin:0 0 8px}
+.crh .n{font-weight:600;color:var(--muted)}
+.cards,.crow .cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 8px}
+.cards .gt{font-size:12px}
+.cards .gm{font-size:11px}
 </style>
 </head>
 <body>
@@ -604,7 +627,6 @@ nav.tabs button[aria-current="page"]::after{content:"";position:absolute;bottom:
     <div class="who-row" id="whoRow"></div>
     <div class="level rank" id="rank" style="margin-top:12px"></div>
     <div class="chead"><h2 id="collTitle">Mes cartes</h2><div class="row" id="collView"></div></div>
-    <div class="row" id="bookmarks" style="margin:0 0 8px"></div>
     <div class="tools">
       <label class="sr" for="collQ">Chercher une carte</label>
       <input class="mini" id="collQ" type="search" autocomplete="off" placeholder="Fouiner dans mon grimoire">
@@ -866,11 +888,18 @@ function renderFeed(){
     return `<article class="ev t-${w.t}${me?'':' hasbm'}">${me?'':`<span class="bmk">${wantBtn(w.id)}</span>`}<div class="who">${avatar(e.who)}<span>${line}<br>${ago(e.ts)}</span>${me&&e.k==='rec'?`<button class="del" data-delrec="${esc(e.r.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
       <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${badge}</span></button>
       ${e.k==='rec'&&e.r.note?`<p class="note">« ${esc(e.r.note)} »</p>`:''}${acts}</article>`}).join('')+
-    `<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="lt">Tu es à jour</span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
+    `<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
 }
 
 /* ---------- Collection ---------- */
 let collWho=null,collView=lsGet('sharefs-collview','book'),collList='done',collType='',collRar=0,justAdded=null;
+const TYPE_ORDER=['f','s','j','l'];
+const SHELF_DECO={
+  f:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 52 46" width="50" height="44"><rect x="3" y="17" width="46" height="27" rx="3" fill="#2A2D36"/><rect x="8" y="24" width="36" height="3" rx="1.5" fill="#4C5260"/><rect x="8" y="31" width="24" height="3" rx="1.5" fill="#4C5260"/><path d="M3 17 45 8.5l2 8.5H3z" fill="#2A2D36"/><path d="M8 16.3 15 9.5l6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7z" fill="#EEF1F5"/><circle cx="6" cy="17" r="2" fill="#8A909C"/></svg></span>`,
+  s:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 54 50" width="52" height="48"><path d="M19 4l8 9 9-11" fill="none" stroke="#3A3F4B" stroke-width="2.4" stroke-linecap="round"/><rect x="3" y="13" width="48" height="31" rx="6" fill="#5A4A3C"/><rect x="8" y="17" width="31" height="23" rx="4" fill="#1E2433"/><rect x="8" y="17" width="31" height="23" rx="4" fill="url(#tvg)" opacity=".85"/><circle cx="45" cy="23" r="2.6" fill="#D9C7A8"/><circle cx="45" cy="31" r="2.6" fill="#D9C7A8"/><rect x="10" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><rect x="39" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><defs><radialGradient id="tvg" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#9CC3F5"/><stop offset="1" stop-color="#2F6FDB" stop-opacity=".2"/></radialGradient></defs></svg></span>`,
+  j:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 60 40" width="58" height="38"><path d="M16 6h28c8 0 13 6 14 15l1 7c.6 6-6.5 9.5-11 4.5L42 27H18l-6 5.5C7.5 37.5.4 34 1 28l1-7C3 12 8 6 16 6z" fill="#23262E"/><path d="M16 6h28c8 0 13 6 14 15" fill="none" stroke="#3B3F4A" stroke-width="1.5"/><rect x="12" y="15" width="10" height="3.4" rx="1.2" fill="#5E6472"/><rect x="15.3" y="11.7" width="3.4" height="10" rx="1.2" fill="#5E6472"/><circle cx="43" cy="13" r="2.4" fill="#E0453A"/><circle cx="48" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="38" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="43" cy="22" r="2.4" fill="#5E6472"/><circle cx="24" cy="24" r="3.6" fill="#353943"/><circle cx="36" cy="24" r="3.6" fill="#353943"/></svg></span>`,
+  l:`<span class="sdeco plantwrap" aria-hidden="true"><span class="deco plant" style="position:relative;display:block"><i></i><i></i><i></i><i></i></span></span>`
+};
 const hsh=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return h};
 const PAL={l:['#2F5D3A','#4F6D5B','#86A788','#1C9662','#5B7F3A','#7A8B4A','#E8DCC2','#D8CBA8','#8C6B4A','#3E6B5A','#A8B88A','#6E5A44'],
   f:['#E3A900','#D98E04','#F2C14E','#C9900A','#EAD27A'],s:['#2F6FDB','#3D86E8','#1F57B8','#5B9BF0','#2A4F9E'],j:['#E0453A','#C7362C','#F06A5E','#A82A22','#F28B82']};
@@ -897,7 +926,6 @@ function renderColl(){
     <div class="bar"><i style="width:${next?((n-prev)/(next[0]-prev))*100:100}%"></i></div>
     <div class="rarities">${[1,2,3,4].map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
-  $('#bookmarks').innerHTML=chip(`Tout <span class="n">${n}</span>`,!collType,'data-ctype=""','chip')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p} <span class="n">${per[k]}</span>`,collType===k,`data-ctype="${k}"`,'chip')).join('');
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
   $('#collTitle').textContent=collList==='want'?'Ma liste':collView==='shelf'?'L’étagère':'Mes cartes';
   $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0"><span class="all"></span>Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${gem(r)}${RAR[r].n}</button>`).join('');
@@ -905,20 +933,24 @@ function renderColl(){
   let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
   items=items.filter(x=>(!collType||x.w.t===collType)&&(!collRar||x.r===collRar)&&(!q||norm(x.w.ti+' '+(x.w.c||'')+' '+(x.w.g||[]).join(' ')).includes(q)));
   const sh=$('#shelf'),raw=$('#collQ').value.trim();
-  if(!items.length){
+  if(!items.length&&!(collView==='shelf'&&!raw&&collList!=='want')){
     sh.innerHTML=raw?`<div style="text-align:center;padding:10px 0"><p class="meta">Aucune carte de ce nom ici.</p><button class="btn pri" data-searchall>Chercher « ${esc(raw)} » dans toutes les œuvres</button></div>`:
       `<div style="text-align:center;padding:14px 0"><div class="cardback" style="width:90px;margin:0 auto 12px"></div><p class="meta" style="margin:0">${collList==='want'?'Touche le signet d’une œuvre pour la garder ici.':isMe?'Chaque œuvre terminée devient une carte de ta collection.':'Aucune carte pour l’instant.'}</p></div>`;
   }else if(collView==='book'){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
-    sh.innerHTML=`<div class="cards">${items.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`;
+    sh.innerHTML=TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
+      return `<section class="crow"><div class="crh"><span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span></div><div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div></section>`}).join('');
   }else{
     items.sort((a,b)=>a.ts-b.ts);
-    const max=Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44),rows=[];let cur=[],acc=0;
-    for(const it of items){const ww=spW(it.w)+(/lean/.test(spine(it.w,0,1))?9:2);if(acc+ww>max&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
-    if(cur.length)rows.push(cur);
-    while(rows.length<3)rows.push([]);
-    const DECO=['<span class="deco stack" style="right:16px" aria-hidden="true"><i></i><i></i><i></i></span>','<span class="deco plant" style="right:18px" aria-hidden="true"><i></i><i></i><i></i><i></i></span>','<span class="deco lamp" style="right:22px" aria-hidden="true"></span>'];
-    sh.innerHTML=`<div class="case"><span class="deco plant" style="right:20px" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="left:22px" aria-hidden="true"><i></i><i></i><i></i></span>${rows.map((row,k)=>`<div class="shelfrow">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${row.length<5?DECO[k%DECO.length]:''}</div><div class="board"></div>`).join('')}</div>`;
+    const max=Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44);
+    let html='';
+    for(const t of TYPE_ORDER){
+      const its=items.filter(x=>x.w.t===t),rows=[];let cur=[],acc=0;
+      for(const it of its){const ww=spW(it.w)+(/lean/.test(spine(it.w,0,1))?9:2);if(acc+ww>max-(rows.length?0:64)&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
+      if(cur.length||!rows.length)rows.push(cur);
+      rows.forEach((row,k)=>{html+=`<div class="shelfrow" data-t="${t}">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${k===0?SHELF_DECO[t]:''}</div><div class="board"></div>`});
+    }
+    sh.innerHTML=`<div class="case">${html}</div>`;
   }
   justAdded=null;renderAccount();
 }
