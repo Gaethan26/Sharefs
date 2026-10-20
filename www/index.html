@@ -50,7 +50,7 @@ h2{font-size:21px;letter-spacing:-.02em;margin:28px 0 10px;font-weight:750}
 .sub{color:var(--muted);margin:0 0 18px}
 .view{display:none}.view.on{display:block}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
 nav.tabs button{border:0;background:none;padding:10px 0 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px;color:var(--muted);font-weight:600}
 nav.tabs button svg{width:24px;height:24px}
 nav.tabs button[aria-current="page"]{color:var(--ink)}
@@ -588,6 +588,159 @@ nav.tabs button[aria-current="page"]::after{content:"";position:absolute;bottom:
 .cards,.crow .cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 8px}
 .cards .gt{font-size:12px}
 .cards .gm{font-size:11px}
+.shelfrow{gap:5px}
+.sp{transform:rotate(var(--tilt,0deg));transform-origin:bottom center}
+.sp:hover,.sp:focus-visible{transform:rotate(var(--tilt,0deg)) translateY(-8px)}
+.sp.landed{animation:landsp2 1.3s ease-out}
+@keyframes landsp2{0%{transform:rotate(var(--tilt,0deg)) translateY(-16px);box-shadow:0 0 18px 4px var(--rc,#fff)}100%{transform:rotate(var(--tilt,0deg))}}
+.wl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.wl li{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--r-lg);padding:10px 10px 10px 12px;border:2px solid color-mix(in srgb,var(--tc) 40%,transparent)}
+.wl-open{flex:1;min-width:0;display:flex;align-items:center;gap:12px;border:0;background:none;padding:0;text-align:left;color:inherit}
+.wl-open .cover{width:46px;min-height:68px;height:68px}
+.wl-t{display:flex;flex-direction:column;min-width:0}
+.wl-t b{font-size:16px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl-d{font-size:12px}
+.wl-a{display:flex;gap:6px;flex:none}
+.wl-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 10px;text-align:center;color:var(--muted)}
+.wl-empty svg{width:34px;height:34px}
+/* ===== défis ===== */
+nav.tabs button{position:relative}
+.nbadge{position:absolute;top:6px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:var(--ink);color:var(--surface);font-size:11px;font-weight:800;line-height:17px}
+.chals{display:flex;flex-direction:column;gap:14px}
+.chal{background:var(--surface);border-radius:var(--r-lg);padding:14px;border:2px solid var(--line)}
+.chal.st-live{border-color:color-mix(in srgb,var(--ink) 35%,transparent)}
+.chal.st-lost{opacity:.75}
+.ch-top{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
+.ch-top b{color:var(--ink)}
+.ch-vs{display:grid;place-items:center;width:22px;height:22px;color:var(--ink)}
+.ch-l{flex:1;min-width:0;margin-left:4px}
+.ch-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--surface2);color:var(--ink)}
+.ch-tag.live{background:var(--act);color:var(--act-ink)}
+.ch-works{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}
+.chw{position:relative;border:0;background:none;padding:0;text-align:left;color:inherit;min-width:0}
+.chw .card{border-width:2px;filter:grayscale(.55) brightness(.92)}
+.chw.ok .card{filter:none}
+.chw.empty{aspect-ratio:2/3;border:2px dashed var(--line);border-radius:12px}
+.chk{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--act);color:var(--act-ink);box-shadow:0 0 0 2px var(--surface)}
+.chw-t{display:block;font-size:11px;font-weight:650;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ch-bar{height:7px;border-radius:99px;background:var(--surface2);margin-top:12px;overflow:hidden}
+.ch-bar i{display:block;height:100%;border-radius:99px;background:var(--brandbar)}
+.ch-meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:6px}
+.ch-x{border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:6px 0 0}
+.ch-empty,.rk-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 12px;text-align:center;color:var(--muted);background:var(--surface);border-radius:var(--r-lg)}
+.ch-empty svg,.rk-empty svg{width:30px;height:30px}
+.rk-title{display:flex;align-items:center;gap:8px}
+.rk{background:var(--surface);border-radius:var(--r-lg);overflow:hidden;position:relative}
+.rk::before{content:"";display:block;height:4px;background:var(--brandbar)}
+.rk-h,.rk-r{display:grid;grid-template-columns:1fr 64px 84px;align-items:center;gap:8px;padding:10px 14px}
+.rk-h{font-size:12px;font-weight:700;color:var(--muted)}
+.rk-r+.rk-r,.rk-h+.rk-r{border-top:1px solid var(--line)}
+.rk-r.me{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.rk-n{display:flex;align-items:center;gap:8px;min-width:0}
+.rk-n i{font-style:normal;font-weight:800;width:18px;color:var(--muted)}
+.rk-n b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-p{font-size:20px;font-weight:800;text-align:right}
+.rk-p small{font-size:11px;font-weight:600;color:var(--muted)}
+.rk-c{text-align:right;font-size:12px;color:var(--muted);opacity:.75}
+.rk-legend{font-size:12px;color:var(--muted);margin:8px 2px 0}
+.chf-h{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.chf-h h3{margin:0;font-size:22px;letter-spacing:-.02em}
+.chf-h p{margin:2px 0 0}
+.chf-i{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--act);color:var(--act-ink)}
+.chslots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
+.chs{position:relative;min-width:0}
+.chs.empty{aspect-ratio:2/3;border:2px dashed var(--line);border-radius:12px;display:grid;place-items:center;color:var(--muted);font-size:22px}
+.chs-x{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--act);color:var(--act-ink);font-size:15px;line-height:1}
+.chr{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line)}
+.chr .cover{width:32px;min-height:46px;height:46px}
+.chr-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.chr-t b{font-size:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.chr .btn.icon{font-size:20px;line-height:1;padding:6px 12px}
+.chcoll{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px;scrollbar-width:none}
+.chcoll::-webkit-scrollbar{display:none}
+.chcoll button{flex:none;width:62px;border:0;background:none;padding:0}
+.sh-acts .btn.icon{display:inline-flex}
+/* confettis */
+.confetti{position:fixed;inset:0;z-index:90;pointer-events:none;overflow:hidden}
+.confetti i{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(var(--r))}}
+.card.egg{background:var(--f4) !important}
+/* ===== fil ===== */
+.day{display:flex;align-items:center;gap:10px;margin:18px 2px 10px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.day::before,.day::after{content:"";flex:1;height:1px;background:var(--line)}
+.day:first-child{margin-top:4px}
+.ev .work .cover{width:66px;min-height:96px;height:96px}
+.ev .work .ti{font-size:20px}
+.ev.forme{box-shadow:0 10px 26px -14px color-mix(in srgb,var(--tc) 80%,transparent)}
+.pt{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--act);color:var(--act-ink);font-size:11px;font-weight:800;vertical-align:1px}
+.note{position:relative;background:var(--surface2);border-left:0 !important;border-radius:4px 14px 14px 14px;padding:10px 14px;margin-left:0}
+.evf{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 16px 0}
+.ev:not(.hasbm) .evf{justify-content:flex-end}
+.cmtb{display:inline-flex;align-items:center;gap:6px;border:0;background:var(--surface2);color:var(--ink);border-radius:999px;padding:8px 14px;font-weight:700;font-size:14px}
+.cmtb.on{background:var(--act);color:var(--act-ink)}
+.cmts{margin:12px 16px 0;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.cm{display:flex;align-items:flex-start;gap:8px}
+.cm .av{width:28px;height:28px;font-size:12px}
+.cb{flex:1;min-width:0;background:var(--surface2);border-radius:4px 14px 14px 14px;padding:8px 12px;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.ct{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.cmx{border:0;background:none;color:var(--muted);font-size:16px;padding:2px 4px}
+.cmw{display:flex;align-items:center;gap:8px}
+.cmw .av{width:28px;height:28px;font-size:12px}
+.cmi{flex:1;min-width:0;height:40px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);padding:0 14px;font-size:15px}
+.cmi:focus{outline:none;border-color:var(--ink)}
+.cms{flex:none;width:40px;height:40px;border-radius:50%;border:0;background:var(--act);color:var(--act-ink);display:grid;place-items:center}
+.evm{display:flex;align-items:center;gap:10px;width:100%;border:0;text-align:left;color:inherit;background:var(--surface);border-radius:var(--r-lg);padding:8px 10px 8px 12px;margin-bottom:10px;border:2px solid color-mix(in srgb,var(--tc) 30%,transparent)}
+.evm .av{width:28px;height:28px;font-size:12px}
+.evm-t{flex:1;min-width:0;font-size:14px;color:var(--muted);line-height:1.35}
+.evm-t b{color:var(--ink)}
+.evm-r{display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:12px;font-weight:700;color:var(--rt)}
+.evm .cover{width:30px;min-height:44px;height:44px;flex:none}
+.evc{background:var(--surface);border-radius:var(--r-lg);padding:14px 16px 16px;margin-bottom:16px;border:2px solid color-mix(in srgb,var(--ink) 30%,transparent);position:relative;overflow:hidden}
+.evc::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--brandbar)}
+.evc-h{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.evc-h b{color:var(--ink)}
+.evc-h small{font-size:12px}
+.evc-w{display:flex;gap:6px;margin:12px 0}
+.evc-w button{border:0;background:none;padding:0;opacity:.6}
+.evc-w button.ok{opacity:1}
+.evc-w .cover{width:44px;min-height:64px;height:64px}
+.evw{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:10px;border-radius:var(--r-lg);background:var(--act);color:var(--act-ink);font-size:14px}
+.evw svg{flex:none}
+/* ===== envoyer une œuvre ===== */
+.mledge{margin:10px 0 14px}
+.mspine{position:absolute;left:136px;bottom:11px;width:24px;height:52px;border-radius:2px 2px 0 0;background:var(--surface2);box-shadow:inset -3px 0 0 rgba(0,0,0,.12);transform:rotate(-4deg);transform-origin:bottom left;transition:background .25s}
+.mspine.t-f{background:var(--film)}.mspine.t-s{background:var(--serie)}.mspine.t-l{background:var(--livre)}.mspine.t-j{background:var(--jeu)}
+.mspine span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(180deg);writing-mode:vertical-rl;font-size:9px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;max-height:44px}
+.mspine.t-f span{color:#18213A}
+.ev.mprev{margin-top:6px}
+.ev.mprev .work{margin-top:12px}
+.ev.mprev .work .cover{width:46px;min-height:68px;height:68px}
+/* ===== ordinateur : décor sur les côtés ===== */
+.side{display:none}
+@media (min-width:1180px){
+  .side{display:block;position:fixed;top:84px;bottom:90px;width:min(320px,calc((100vw - 660px)/2 - 48px));overflow:auto;scrollbar-width:none}
+  .side::-webkit-scrollbar{display:none}
+  .side-l{left:32px}.side-r{right:32px}
+  body{background-image:radial-gradient(40% 50% at 0% 30%,color-mix(in srgb,var(--film) 14%,transparent),transparent 70%),radial-gradient(35% 45% at 100% 20%,color-mix(in srgb,var(--serie) 12%,transparent),transparent 70%),radial-gradient(35% 45% at 0% 95%,color-mix(in srgb,var(--livre) 12%,transparent),transparent 70%),radial-gradient(35% 45% at 100% 90%,color-mix(in srgb,var(--jeu) 12%,transparent),transparent 70%);background-attachment:fixed}
+}
+.sl-brand{font-size:44px;font-weight:800;letter-spacing:-.03em;font-variation-settings:"wdth" 80;line-height:1}
+.sl-brand span{display:inline-block;width:12px;height:12px;border-radius:50%;margin-left:4px;background:var(--jeu);box-shadow:16px 0 0 var(--film),32px 0 0 var(--serie),48px 0 0 var(--livre);vertical-align:7px}
+.sl-tag{font-size:20px;font-weight:700;color:var(--muted);margin:10px 0 22px}
+.sl-fan{justify-content:flex-start;padding-left:16px;margin-bottom:10px}
+.sl-ledge{margin:0 0 18px}
+.sl-legend{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:14px;font-weight:650}
+.sl-legend li{display:flex;align-items:center;gap:8px}
+.sl-hint{font-size:12px;color:var(--muted);margin-top:22px;font-style:italic}
+.sbox2{background:var(--surface);border-radius:var(--r-lg);padding:14px;margin-bottom:14px;position:relative;overflow:hidden}
+.sbox2::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--brandbar)}
+.sbox2 h3{display:flex;align-items:center;gap:8px;margin:2px 0 10px;font-size:15px}
+.sbox2 .rk{background:none}.sbox2 .rk::before{display:none}
+.sbox2 .rk-h,.sbox2 .rk-r{padding:8px 0;grid-template-columns:1fr 50px 72px}
+.sbox2 .rk-h{font-size:11px}
+.sbox2 .rk-empty{background:none;padding:6px 0}
+.sch{display:flex;align-items:center;gap:8px;width:100%;border:0;background:var(--surface2);border-radius:12px;padding:10px 12px;margin-top:6px;text-align:left;color:inherit;font-size:13px}
+.sch span{flex:1}.sch small{color:var(--muted)}
+.scode{font-size:26px;font-weight:800;letter-spacing:.1em;margin:0 0 10px}
 </style>
 </head>
 <body>
@@ -616,10 +769,15 @@ nav.tabs button[aria-current="page"]::after{content:"";position:absolute;bottom:
       </div>
       <div class="row" id="typeChips"></div>
     </div>
-    <div class="row" id="smartChips" style="margin-top:2px"></div>
     <div class="rhead"><span id="count"></span></div>
     <ul class="res" id="results"></ul>
     <div id="resMore"></div>
+  </section>
+
+  <section class="view" id="v-chal" aria-labelledby="h-chal">
+    <h1 id="h-chal">Défis</h1>
+    <p class="sub">Lance jusqu’à 4 œuvres à un ami : il a un mois pour toutes les finir.</p>
+    <div id="chalBody"></div>
   </section>
 
   <section class="view" id="v-coll" aria-labelledby="h-coll">
@@ -638,9 +796,20 @@ nav.tabs button[aria-current="page"]::after{content:"";position:absolute;bottom:
   </section>
 </div>
 
+<aside class="side side-l" aria-label="Sharefs">
+  <div class="sl-brand">Sharefs<span aria-hidden="true"></span></div>
+  <p class="sl-tag">Tu verras c’est d’la frappe !</p>
+  <div class="fan sl-fan" aria-hidden="true"><span class="t-f"></span><span class="t-s"></span><span class="t-l"></span><span class="t-j"></span></div>
+  <div class="ledge sl-ledge" aria-hidden="true"><span class="deco stack" style="left:12px"><i></i><i></i><i></i></span><span class="minisp" style="left:78px"><i class="t-f"></i><i class="t-s"></i><i class="t-l"></i><i class="t-j"></i></span><span class="deco plant" style="right:64px"><i></i><i></i><i></i><i></i></span><span class="deco lamp" style="right:16px"></span></div>
+  <ul class="sl-legend"><li><span class="tm t-f"></span>Films</li><li><span class="tm t-s"></span>Séries</li><li><span class="tm t-l"></span>Livres</li><li><span class="tm t-j"></span>Jeux</li></ul>
+  <p class="sl-hint">Psst… le logo cache quelque chose.</p>
+</aside>
+<aside class="side side-r" id="sideR" aria-label="En un coup d’œil"></aside>
+
 <nav class="tabs" aria-label="Navigation principale"><div class="in">
   <button data-tab="feed" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Fil</button>
   <button data-tab="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Recherche</button>
+  <button data-tab="chal"><span class="nbadge" hidden></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4M7 17l-3 3M3 19l2 2"/></svg>Défis</button>
   <button data-tab="coll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16.5 5.5l3.6-1 3.4 14.5-3.6 1z"/></svg>Collection</button>
 </div></nav>
 
@@ -734,6 +903,7 @@ const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'curren
 const NOT={f:'Pas encore vu',s:'Pas terminée',l:'Pas encore lu',j:'Pas encore fini'};
 const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tgl${on?' on':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${on?T[w.t].done:NOT[w.t]}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
+const doneTglMini=id=>{const w=WK[id],on=isDone(id);return `<button class="btn icon${on?' saved':''}" data-quickdone="${esc(id)}" aria-pressed="${on}" aria-label="${on?T[w.t].done:T[w.t].act}" title="${on?T[w.t].done:T[w.t].act}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`};
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
 const rarityTag=r=>`<span class="bdg rar r${r}">${gem(r)}<span class="rname r${r}">${RAR[r].n}</span></span>`;
@@ -755,7 +925,7 @@ const dec=y=>!y?'':y<1960?'Avant 1960':Math.floor(y/10)*10+'s';
 const decLabel=d=>d==='Avant 1960'?d:'Années '+d.slice(2);
 
 /* ---------- Recherche ---------- */
-const F={types:new Set(),mine:false,forWho:''};
+const F={types:new Set(),mine:false,forWho:''};// forWho n'est plus exposé dans l'interface
 let SR={q:null,items:[],pages:{},moreT:new Set(),loading:false,err:'',seq:0};
 const typesSel=()=>F.types.size?[...F.types]:['f','s','l','j'];
 const rr=lists=>{const out=[],max=Math.max(0,...lists.map(l=>l.length));for(let i=0;i<max;i++)for(const l of lists)if(l[i])out.push(l[i]);return out};
@@ -817,9 +987,6 @@ function renderAC(){
   let html='';acItems=[];
   const opt=inner=>{const i=acItems.length-1;return `<div class="opt" role="option" id="ao${i}" data-i="${i}" aria-selected="${i===acIdx}">${inner}</div>`};
   if(!q){
-    const rec=lsGet('sharefs-recent',[]);
-    if(rec.length){html+='<div class="grp"><span class="grow">Recherches récentes</span><button data-acclear>Effacer</button><button class="x" data-acclose aria-label="Fermer">×</button></div>';
-      rec.forEach(t=>{acItems.push({k:'q',v:t});const i=acItems.length-1;html+=`<div class="opt recent" role="option" id="ao${i}" data-i="${i}" aria-selected="${i===acIdx}"><span class="ot">${esc(t)}</span><button class="rm" data-acrm="${esc(t)}" aria-label="Retirer ${esc(t)}">×</button></div>`})}
   }else{
     const local=Object.values(WK).filter(w=>(isDone(w.id)||isWant(w.id)||recsAbout(w.id).length||finishers(w.id).length)&&norm(w.ti+' '+(w.c||'')).includes(q)).slice(0,3);
     if(local.length){html+='<div class="grp">Chez toi et tes amis</div>';local.forEach(w=>{acItems.push({k:'w',v:w.id});html+=opt(`<span class="tm t-${w.t}"></span><span><span class="ot">${hl(w.ti,q)}</span><br><span class="om">${metaLine(w)}</span></span>`)})}
@@ -842,15 +1009,164 @@ function remember(v){v=v.trim();if(v.length<2)return;const r=lsGet('sharefs-rece
 
 /* filtres */
 const chip=(label,pressed,data,cls='chip')=>`<button class="${cls}" aria-pressed="${pressed}" ${data}>${label}</button>`;
-const activeCount=()=>F.types.size+(F.mine?1:0)+(F.forWho?1:0);
+const activeCount=()=>F.types.size+(F.mine?1:0);
 function renderFilters(){
-  $('#typeChips').innerHTML=chip('Tout',!F.types.size,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('');
-  const n=Object.keys(mine.done).length,fr=others();
-  if(F.forWho&&!fr.includes(F.forWho))F.forWho='';
-  $('#smartChips').innerHTML=chip(`${CARDS_ICON}Ma collection${n?` <span class="cnt">${n}</span>`:''}`,F.mine,'data-mine')+
-    (fr.length?`<label class="chip forwho${F.forWho?' on':''}"><span class="lbl">Pour</span><select id="forWho" aria-label="Chercher pour un ami"><option value="">tous</option>${fr.map(f=>`<option value="${f}"${F.forWho===f?' selected':''}>${esc(nameOf(f))}</option>`).join('')}</select></label>`:'');
+  const n=Object.keys(mine.done).length;
+  $('#typeChips').innerHTML=chip('Tout',!F.types.size&&!F.mine,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('')+
+    chip(`${CARDS_ICON}${n?`<span class="cnt">${n}</span>`:''}`,F.mine,'data-mine aria-label="Seulement ma collection" title="Seulement ma collection"');
 }
 function renderSearch(){renderFilters();renderResults()}
+
+/* ---------- Défis ---------- */
+let comments=[],challenges=[],openCmts=new Set(),cmDraft={},chalTab='live';
+const DAY=86400000;
+const SWORDS='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4M7 17l-3 3M3 19l2 2"/></svg>';
+const TROPHY='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
+const CHAT='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+const SEND='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
+const CHECK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const fmtDate=ts=>new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+// Une œuvre compte pour le défi si elle est terminée entre le lancement et l'échéance
+function chalState(c){
+  const d=dataOf(c.to_id).done||{},a=Date.parse(c.created_at)-120000,b=Date.parse(c.deadline);
+  const ok=(c.works||[]).filter(w=>{const t=d[w.id];return t&&t>=a&&t<=b});
+  const won=ok.length===c.works.length,st=won?'won':Date.now()>b?'lost':'live';
+  return {ok:new Set(ok.map(w=>w.id)),n:ok.length,total:c.works.length,st,wonAt:won?Math.max(...ok.map(w=>d[w.id])):0,left:Math.ceil((b-Date.now())/DAY),end:b};
+}
+// Classement : on y entre en remportant un défi ; 1 point par œuvre terminée dans les temps lors d'un défi
+function ranking(){
+  return [uid,...others()].filter(Boolean).map(id=>{const st=challenges.filter(c=>c.to_id===id).map(chalState);
+    return {id,pts:st.reduce((s,x)=>s+x.n,0),wins:st.filter(x=>x.st==='won').length,coll:Object.keys(dataOf(id).done||{}).length}})
+    .filter(x=>x.wins>0).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||b.coll-a.coll);
+}
+function rankTable(rk,limit=99){
+  if(!rk.length)return `<div class="rk-empty">${TROPHY}<p>Personne n’est encore classé. Remporte un défi pour entrer dans la course.</p></div>`;
+  return `<div class="rk"><div class="rk-h"><span>Nom</span><span>1V1</span><span class="rk-c">Collection</span></div>${rk.slice(0,limit).map((x,i)=>`<div class="rk-r${x.id===uid?' me':''}"><span class="rk-n"><i>${i+1}</i>${avatar(x.id)}<b>${esc(nameOf(x.id))}</b></span><span class="rk-p">${x.pts}<small> pt${x.pts>1?'s':''}</small></span><span class="rk-c">${x.coll}</span></div>`).join('')}</div>`;
+}
+const liveForMe=()=>challenges.filter(c=>c.to_id===uid&&chalState(c).st==='live').length;
+function chalCard(c,s){
+  const toMe=c.to_id===uid,fromMe=c.from_id===uid;
+  const head=toMe?`<b>${esc(nameOf(c.from_id))}</b> te défie`:fromMe?`Tu défies <b>${esc(nameOf(c.to_id))}</b>`:`<b>${esc(nameOf(c.from_id))}</b> défie <b>${esc(nameOf(c.to_id))}</b>`;
+  const tag=s.st==='live'?`<span class="ch-tag live">J-${Math.max(0,s.left)}</span>`:s.st==='won'?`<span class="ch-tag won">${CHECK}Réussi</span>`:`<span class="ch-tag lost">Raté</span>`;
+  return `<article class="chal st-${s.st}"><div class="ch-top">${avatar(c.from_id)}<span class="ch-vs">${SWORDS}</span>${avatar(c.to_id)}<span class="ch-l">${head}</span>${tag}</div>
+    <div class="ch-works">${c.works.map(w=>{const W=WK[w.id]||reg(w),ok=s.ok.has(w.id);return `<button class="chw${ok?' ok':''}" data-open="${esc(w.id)}" aria-label="${esc(W.ti)}">${card(W,0)}${ok?`<span class="chk">${CHECK}</span>`:''}<span class="chw-t">${esc(W.ti)}</span></button>`}).join('')}${'<span class="chw empty" aria-hidden="true"></span>'.repeat(4-c.works.length)}</div>
+    <div class="ch-bar"><i style="width:${s.n/s.total*100}%"></i></div>
+    <div class="ch-meta"><span>${s.n}/${s.total} terminée${s.n>1?'s':''}</span><span>${s.st==='live'?`avant le ${fmtDate(s.end)}`:s.st==='won'?`+${s.n} point${s.n>1?'s':''}`:`terminé le ${fmtDate(s.end)}`}</span></div>
+    ${c.note?`<p class="note">« ${esc(c.note)} »</p>`:''}
+    ${fromMe&&s.st==='live'?`<button class="ch-x" data-delchal="${esc(c.id)}">Annuler le défi</button>`:''}</article>`;
+}
+function renderChal(){
+  const el=$('#chalBody');if(!el)return;
+  const mineCh=challenges.filter(c=>c.to_id===uid||c.from_id===uid).map(c=>({c,s:chalState(c)}));
+  const live=mineCh.filter(x=>x.s.st==='live'),done=mineCh.filter(x=>x.s.st!=='live'),list=chalTab==='live'?live:done;
+  el.innerHTML=`<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
+    <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
+    <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>
+    <h2 class="rk-title">${TROPHY}Classement 1V1</h2>
+    ${rankTable(ranking())}
+    <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi. On entre au classement en remportant un défi.</p>`;
+  const b=liveForMe(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}
+}
+// Formulaire de défi
+const CH={to:'',works:[],note:'',q:'',res:[],err:''};let chT=null,chSeq=0;
+function openChallenge(pre){
+  CH.to=F.forWho&&others().includes(F.forWho)?F.forWho:(others().length===1?others()[0]:'');CH.works=[];CH.note='';CH.q='';CH.res=[];CH.err='';
+  if(pre&&WK[pre])CH.works=[snap(WK[pre])];
+  lastFocus=document.activeElement;sheetId='__chal';closeAC();renderChalForm();
+  $('#sheet').style.setProperty('--tc','var(--ink)');$('#scrim').classList.add('open');$('#sheet').classList.add('open');
+}
+function chalAddable(w){return !CH.works.some(x=>x.id===w.id)&&!(CH.to&&isDone(w.id,CH.to))}
+function chalResHTML(){
+  if(!CH.q.trim())return '';
+  if(!CH.res.length)return '<p class="meta" style="margin:8px 2px">Recherche…</p>';
+  return CH.res.slice(0,8).map(w=>{const ok=chalAddable(w),seen=CH.to&&isDone(w.id,CH.to);
+    return `<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${seen?`Déjà vu par ${esc(nameOf(CH.to))}`:metaLine(w)}</span></span><button class="btn icon" data-chadd="${esc(w.id)}" ${ok&&CH.works.length<4?'':'disabled'} aria-label="Ajouter">+</button></div>`}).join('');
+}
+function renderChalForm(){
+  const friends=others(),end=Date.now()+30*DAY;
+  const mineTop=Object.keys(mine.done).map(id=>WK[id]).filter(Boolean).sort((a,b)=>rateOf(b.id)-rateOf(a.id)).filter(chalAddable).slice(0,12);
+  $('#sheetIn').innerHTML=`<div class="grab"></div>
+    <div class="chf-h"><span class="chf-i">${SWORDS}</span><div><h3 id="shTitle">Lancer un défi</h3><p class="meta">Jusqu’à 4 œuvres à finir avant le ${fmtDate(end)}.</p></div></div>
+    <div class="to">Qui défies-tu ?</div>
+    ${friends.length?`<div class="rto">${friends.map(f=>`<button class="pickw" aria-pressed="${CH.to===f}" data-chto="${f}">${avatar(f)}<span class="pn">${esc(nameOf(f))}</span></button>`).join('')}</div>`:'<p class="meta">Invite des amis avec ton code (onglet Collection) pour les défier.</p>'}
+    <div class="to">Les œuvres <span class="meta">(${CH.works.length}/4)</span></div>
+    <div class="chslots">${CH.works.map(w=>`<div class="chs">${card(WK[w.id]||w,0)}<button class="chs-x" data-chrm="${esc(w.id)}" aria-label="Retirer">×</button><span class="chw-t">${esc(w.ti)}</span></div>`).join('')}${'<div class="chs empty" aria-hidden="true">+</div>'.repeat(4-CH.works.length)}</div>
+    ${CH.works.length<4?`<input class="mini" id="chq" type="search" autocomplete="off" placeholder="Ajouter une œuvre : titre, auteur…" value="${esc(CH.q)}" style="margin-top:12px;width:100%">
+      <div id="chres">${chalResHTML()}</div>
+      ${mineTop.length?`<div class="to">Depuis ma collection</div><div class="chcoll">${mineTop.map(w=>`<button data-chadd="${esc(w.id)}" aria-label="Ajouter ${esc(w.ti)}">${card(w,rateOf(w.id))}</button>`).join('')}</div>`:''}`:''}
+    <label class="to" for="chNote" style="display:block">Un petit mot ?</label>
+    <textarea id="chNote" maxlength="280" placeholder="Prépare-toi, ça va piquer.">${esc(CH.note)}</textarea>
+    <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.2em;margin:6px 0">${esc(CH.err)}</p>
+    <button class="btn pri send" data-chsend style="width:100%;padding:13px;display:flex;align-items:center;justify-content:center;gap:8px">${SWORDS}Lancer le défi</button>`;
+}
+function chalSearch(){
+  clearTimeout(chT);const q=CH.q.trim();if(!q){CH.res=[];$('#chres').innerHTML='';return}
+  $('#chres').innerHTML=chalResHTML();
+  chT=setTimeout(async()=>{const s=++chSeq;const res=await Promise.all(['f','s','l','j'].map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
+    if(s!==chSeq||sheetId!=='__chal')return;CH.res=rr(res.map(r=>(r.items||[]).map(reg)));const box=$('#chres');if(box)box.innerHTML=chalResHTML()},250);
+}
+async function sendChallenge(btn){
+  CH.note=$('#chNote').value.trim();
+  if(!CH.to){CH.err='Choisis qui tu défies.';renderChalForm();return}
+  if(!CH.works.length){CH.err='Ajoute au moins une œuvre.';renderChalForm();return}
+  btn.disabled=true;
+  try{const c=await call('POST','challenges',{to_id:CH.to,works:CH.works,note:CH.note});challenges.unshift(c);toast('Défi lancé');closeSheet();chalTab='live';setTab('chal');renderAll()}
+  catch(e){CH.err=msg(e);renderChalForm()}
+}
+// Fête quand un défi est relevé
+function confetti(){
+  if(RM)return;const c=document.createElement('div');c.className='confetti';c.setAttribute('aria-hidden','true');
+  const cols=['var(--film)','var(--serie)','var(--livre)','var(--jeu)'];
+  c.innerHTML=Array.from({length:80},(_,i)=>`<i style="left:${Math.random()*100}%;background:${cols[i%4]};animation-delay:${(Math.random()*.7).toFixed(2)}s;animation-duration:${(1.8+Math.random()*1.6).toFixed(2)}s;--r:${Math.round(Math.random()*720-360)}deg"></i>`).join('');
+  document.body.appendChild(c);setTimeout(()=>c.remove(),4200);
+}
+function checkWins(silent){
+  const prev=lsGet('sharefs-wins',null),seen=new Set(prev||[]);let fresh=null;
+  for(const c of challenges){if(c.to_id!==uid)continue;const s=chalState(c);if(s.st==='won'&&!seen.has(c.id)){seen.add(c.id);fresh={c,s}}}
+  lsSet('sharefs-wins',[...seen]);
+  if(fresh&&prev!==null&&!silent){setTimeout(()=>{confetti();toast(`Défi relevé ! +${fresh.s.n} point${fresh.s.n>1?'s':''}`)},400)}
+}
+function chalProgressToast(id){
+  const c=challenges.find(c=>c.to_id===uid&&c.works.some(w=>w.id===id)&&chalState(c).st!=='lost');
+  if(c){const s=chalState(c);if(s.st==='live')setTimeout(()=>toast(`Défi de ${nameOf(c.from_id)} : ${s.n}/${s.total}`),2900)}
+}
+async function delChal(id){
+  if(!confirm('Annuler ce défi ?'))return;
+  try{await call('DELETE','challenges/'+id);challenges=challenges.filter(c=>c.id!==id);renderAll()}catch(e){toast(msg(e))}
+}
+// Commentaires
+async function sendComment(recId){
+  const inp=document.getElementById('cmi-'+recId),text=(inp?.value||'').trim();if(!text)return;
+  inp.disabled=true;
+  try{const c=await call('POST',`recs/${recId}/comments`,{text});comments.push(c);cmDraft[recId]='';renderFeed();const n=document.getElementById('cmi-'+recId);n?.focus()}
+  catch(e){toast(msg(e));inp.disabled=false}
+}
+async function delComment(id){
+  try{await call('DELETE','comments/'+id);comments=comments.filter(c=>c.id!==id);renderFeed()}catch(e){toast(msg(e))}
+}
+// Easter egg : 7 touches sur le logo (ou le code Konami) révèlent une carte secrète
+let eggTaps=[];
+function easterEgg(){
+  const w={id:'egg-zz',t:'f',ti:'Le coup de boule',y:2006,c:'Zidane'},el=$('#reveal');
+  el.style.setProperty('--rc','var(--r4)');revealId=null;
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,4,'egg')}<div class="cardback"></div></div><div class="burst"></div>
+    <div class="cap">Carte secrète<span class="rname">Zidane, 9 juillet 2006</span></div><div class="tap">Tu verras, c’est d’la frappe.</div></div>`;
+  el.classList.add('open');el.focus();confetti();
+  clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),4200);
+}
+document.addEventListener('click',e=>{if(!e.target.closest('header.top .brand'))return;const now=Date.now();eggTaps=eggTaps.filter(t=>now-t<2500);eggTaps.push(now);if(eggTaps.length>=7){eggTaps=[];easterEgg()}});
+(()=>{const K=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];let i=0;
+  document.addEventListener('keydown',e=>{i=e.key===K[i]?i+1:(e.key===K[0]?1:0);if(i===K.length){i=0;easterEgg()}})})();
+
+/* ---------- Côtés du site (ordinateur) ---------- */
+function renderSide(){
+  document.querySelectorAll('.sl-fan span').forEach((x,i)=>{if(!x.innerHTML)x.innerHTML=ICON['fslj'[i]]});
+  const r=$('#sideR');if(!r||!uid)return;
+  const live=challenges.filter(c=>(c.to_id===uid||c.from_id===uid)&&chalState(c).st==='live').map(c=>({c,s:chalState(c)})).sort((a,b)=>a.s.end-b.s.end);
+  r.innerHTML=`<div class="sbox2"><h3>${TROPHY}Classement 1V1</h3>${rankTable(ranking(),5)}</div>
+    <div class="sbox2"><h3>${SWORDS}Défis en cours</h3>${live.length?live.slice(0,3).map(({c,s})=>`<button class="sch" data-tab="chal"><span>${c.to_id===uid?`${esc(nameOf(c.from_id))} te défie`:`Tu défies ${esc(nameOf(c.to_id))}`}</span><b>${s.n}/${s.total}</b><small>J-${Math.max(0,s.left)}</small></button>`).join(''):'<p class="meta">Aucun défi en cours.</p>'}<button class="btn" data-newchal style="width:100%;margin-top:10px">Lancer un défi</button></div>
+    ${myCircles[0]?`<div class="sbox2"><h3>Ton code</h3><div class="scode">${esc(myCircles[0])}</div><button class="btn" data-invite="${esc(myCircles[0])}" style="width:100%">Inviter des amis</button></div>`:''}`;
+}
 
 /* ---------- Fil ---------- */
 let feedMode='all';
@@ -860,6 +1176,13 @@ function recLine(r){
   if(to.includes(uid))return `<b>${esc(nameOf(from))}</b> te recommande${to.length>1?' (avec '+to.filter(i=>i!==uid).map(i=>esc(nameOf(i))).join(', ')+')':''}`;
   return `<b>${esc(nameOf(from))}</b> recommande au cercle`;
 }
+function dayLabel(ts){const d=new Date(ts),t=new Date();t.setHours(0,0,0,0);const diff=Math.round((t-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/DAY);
+  return diff<=0?'Aujourd’hui':diff===1?'Hier':diff<7?d.toLocaleDateString('fr-FR',{weekday:'long'}):d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
+function cmtBlock(r){
+  const list=comments.filter(c=>c.rec_id===r.id);
+  return `<div class="cmts">${list.map(c=>`<div class="cm">${avatar(c.from_id)}<div class="cb"><b>${esc(nameOf(c.from_id))}</b> ${esc(c.text)}<span class="ct">${ago(Date.parse(c.created_at))}</span></div>${c.from_id===uid?`<button class="cmx" data-delcmt="${esc(c.id)}" aria-label="Supprimer mon commentaire">×</button>`:''}</div>`).join('')}
+    <div class="cmw">${avatar(uid)}<input class="cmi" id="cmi-${esc(r.id)}" data-rec="${esc(r.id)}" maxlength="500" autocomplete="off" placeholder="Ajoute ton grain de sel…" value="${esc(cmDraft[r.id]||'')}"><button class="cms" data-sendcmt="${esc(r.id)}" aria-label="Envoyer">${SEND}</button></div></div>`;
+}
 function renderFeed(){
   const forMe=recs.filter(r=>(r.to_ids||[]).includes(uid)).length;
   if(!others().length){
@@ -867,11 +1190,16 @@ function renderFeed(){
     $('#feedMode').innerHTML=`<div class="join"><div><b>Rejoins tes amis 🤌</b><span>${code?`Ton code : <strong>${esc(code)}</strong>`:'Partage ton code ou entre le leur.'}</span></div>${code?`<button class="btn pri" data-invite="${esc(code)}">Inviter</button>`:''}<button class="btn" data-acc="join">J’ai un code</button></div>`;
   }else $('#feedMode').innerHTML=chip('Tout',feedMode==='all','data-feed="all"')+chip(`Pour moi${forMe?` <span class="cnt">${forMe}</span>`:''}`,feedMode==='me','data-feed="me"')+chip('Mes envois',feedMode==='sent','data-feed="sent"');
   let ev=recs.filter(r=>r.work&&r.work.id).map(r=>({k:'rec',r,w:WK[r.work.id]||reg(r.work),who:r.from_id,ts:Date.parse(r.created_at)}));
-  if(feedMode==='all')for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
-  if(feedMode==='me')ev=ev.filter(e=>(e.r.to_ids||[]).includes(uid));
-  if(feedMode==='sent')ev=ev.filter(e=>e.who===uid);
+  if(feedMode==='all'){
+    for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
+    for(const c of challenges){const s=chalState(c);ev.push({k:'chal',c,s,who:c.from_id,ts:Date.parse(c.created_at)});if(s.st==='won')ev.push({k:'won',c,s,who:c.to_id,ts:s.wonAt})}
+  }
+  if(feedMode==='me')ev=ev.filter(e=>e.k==='rec'&&(e.r.to_ids||[]).includes(uid));
+  if(feedMode==='sent')ev=ev.filter(e=>e.who===uid&&e.k==='rec');
   ev.sort((a,b)=>b.ts-a.ts);
   const el=$('#feed');
+  // garder la saisie d'un commentaire pendant les rafraîchissements
+  const act=document.activeElement,keep=act&&act.classList.contains('cmi')?{id:act.id,s:act.selectionStart}:null;
   if(!ev.length){el.innerHTML=feedMode==='all'?`<div class="hero">
     <div class="fan" aria-hidden="true">${['f','s','l','j'].map(t=>`<span class="t-${t}">${ICON[t]}</span>`).join('')}</div>
     <div class="ht">Qu’est-ce qui t’a marqué récemment ?</div>
@@ -880,15 +1208,27 @@ function renderFeed(){
     <div class="tries">${[['Dune','l'],['Breaking Bad','s'],['Interstellar','f'],['Zelda','j']].map(([q,t])=>`<button class="chip" data-try="${q}"><span class="tm t-${t}"></span>${q}</button>`).join('')}</div>
     <div class="links"><button data-gocoll>Inviter des amis</button><span aria-hidden="true">·</span><button data-manual="">Ajouter à la main</button></div>
   </div>`:`<div class="empty"><b>${feedMode==='me'?'Personne ne t’a encore recommandé d’œuvre en direct.':'Tu n’as encore rien recommandé.'}</b></div>`;return}
-  el.innerHTML=ev.slice(0,80).map(e=>{
-    const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who);
-    const line=e.k==='rec'?recLine(e.r):`<b>${esc(nameOf(e.who))}</b> ${T[w.t].did} et en fait une carte <span class="rname r${r}">${RAR[r].n}</span>`;
-    const acts=me?'':`<div class="acts">${doneTgl(w.id,'data-quickdone')}</div>`;
-    const badge=e.k==='rec'&&r?`<span class="badges">${rarityTag(r)}</span>`:'';
-    return `<article class="ev t-${w.t}${me?'':' hasbm'}">${me?'':`<span class="bmk">${wantBtn(w.id)}</span>`}<div class="who">${avatar(e.who)}<span>${line}<br>${ago(e.ts)}</span>${me&&e.k==='rec'?`<button class="del" data-delrec="${esc(e.r.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
-      <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${badge}</span></button>
-      ${e.k==='rec'&&e.r.note?`<p class="note">« ${esc(e.r.note)} »</p>`:''}${acts}</article>`}).join('')+
-    `<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
+  let last='',html='';
+  for(const e of ev.slice(0,90)){
+    const day=dayLabel(e.ts);if(day!==last){html+=`<div class="day"><span>${day}</span></div>`;last=day}
+    if(e.k==='done'){const w=e.w,r=rateOf(w.id,e.who);
+      html+=`<button class="evm t-${w.t}" data-open="${esc(w.id)}">${avatar(e.who)}<span class="evm-t"><b>${esc(nameOf(e.who))}</b> ${T[w.t].did} <b>${esc(w.ti)}</b><span class="evm-r r${r}"><span class="rg"></span>${RAR[r].s}</span></span>${cover(w)}</button>`;continue}
+    if(e.k==='chal'){const c=e.c,s=e.s;
+      html+=`<article class="evc"><div class="evc-h"><span class="chf-i">${SWORDS}</span><span>${c.to_id===uid?`<b>${esc(nameOf(c.from_id))}</b> te lance un défi`:c.from_id===uid?`<b>Tu</b> lances un défi à <b>${esc(nameOf(c.to_id))}</b>`:`<b>${esc(nameOf(c.from_id))}</b> lance un défi à <b>${esc(nameOf(c.to_id))}</b>`}<br><small>${c.works.length} œuvre${c.works.length>1?'s':''}, ${s.st==='live'?`J-${Math.max(0,s.left)}`:s.st==='won'?'relevé':'raté'}, ${s.n}/${s.total}</small></span></div>
+        <div class="evc-w">${c.works.map(w=>{const W=WK[w.id]||reg(w);return `<button data-open="${esc(w.id)}" class="${s.ok.has(w.id)?'ok':''}">${cover(W)}</button>`}).join('')}</div>
+        <button class="btn" data-tab="chal">Voir le défi</button></article>`;continue}
+    if(e.k==='won'){const c=e.c;
+      html+=`<div class="evw">${TROPHY}<span><b>${esc(nameOf(c.to_id))}</b> a relevé le défi de <b>${esc(nameOf(c.from_id))}</b> : +${e.s.n} point${e.s.n>1?'s':''}</span></div>`;continue}
+    const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who),rr2=e.r,toMe=(rr2.to_ids||[]).includes(uid),nc=comments.filter(c=>c.rec_id===rr2.id).length,open=openCmts.has(rr2.id);
+    html+=`<article class="ev t-${w.t}${me?'':' hasbm'}${toMe?' forme':''}">${me?'':`<span class="bmk">${wantBtn(w.id)}</span>`}
+      <div class="who">${avatar(e.who)}<span>${recLine(rr2)}<br>${ago(e.ts)}${toMe?' <span class="pt">Pour toi</span>':''}</span>${me?`<button class="del" data-delrec="${esc(rr2.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
+      <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>
+      ${rr2.note?`<p class="note">« ${esc(rr2.note)} »</p>`:''}
+      <div class="evf">${me?'':doneTgl(w.id,'data-quickdone')}<button class="cmtb${open?' on':''}" data-cmt="${esc(rr2.id)}" aria-expanded="${open}">${CHAT}<span>${nc?nc:'Commenter'}</span></button></div>
+      ${open?cmtBlock(rr2):''}</article>`;
+  }
+  el.innerHTML=html+`<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
+  if(keep){const n=document.getElementById(keep.id);if(n){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(_){}}}
 }
 
 /* ---------- Collection ---------- */
@@ -898,7 +1238,7 @@ const SHELF_DECO={
   f:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 52 46" width="50" height="44"><rect x="3" y="17" width="46" height="27" rx="3" fill="#2A2D36"/><rect x="8" y="24" width="36" height="3" rx="1.5" fill="#4C5260"/><rect x="8" y="31" width="24" height="3" rx="1.5" fill="#4C5260"/><path d="M3 17 45 8.5l2 8.5H3z" fill="#2A2D36"/><path d="M8 16.3 15 9.5l6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7z" fill="#EEF1F5"/><circle cx="6" cy="17" r="2" fill="#8A909C"/></svg></span>`,
   s:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 54 50" width="52" height="48"><path d="M19 4l8 9 9-11" fill="none" stroke="#3A3F4B" stroke-width="2.4" stroke-linecap="round"/><rect x="3" y="13" width="48" height="31" rx="6" fill="#5A4A3C"/><rect x="8" y="17" width="31" height="23" rx="4" fill="#1E2433"/><rect x="8" y="17" width="31" height="23" rx="4" fill="url(#tvg)" opacity=".85"/><circle cx="45" cy="23" r="2.6" fill="#D9C7A8"/><circle cx="45" cy="31" r="2.6" fill="#D9C7A8"/><rect x="10" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><rect x="39" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><defs><radialGradient id="tvg" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#9CC3F5"/><stop offset="1" stop-color="#2F6FDB" stop-opacity=".2"/></radialGradient></defs></svg></span>`,
   j:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 60 40" width="58" height="38"><path d="M16 6h28c8 0 13 6 14 15l1 7c.6 6-6.5 9.5-11 4.5L42 27H18l-6 5.5C7.5 37.5.4 34 1 28l1-7C3 12 8 6 16 6z" fill="#23262E"/><path d="M16 6h28c8 0 13 6 14 15" fill="none" stroke="#3B3F4A" stroke-width="1.5"/><rect x="12" y="15" width="10" height="3.4" rx="1.2" fill="#5E6472"/><rect x="15.3" y="11.7" width="3.4" height="10" rx="1.2" fill="#5E6472"/><circle cx="43" cy="13" r="2.4" fill="#E0453A"/><circle cx="48" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="38" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="43" cy="22" r="2.4" fill="#5E6472"/><circle cx="24" cy="24" r="3.6" fill="#353943"/><circle cx="36" cy="24" r="3.6" fill="#353943"/></svg></span>`,
-  l:`<span class="sdeco plantwrap" aria-hidden="true"><span class="deco plant" style="position:relative;display:block"><i></i><i></i><i></i><i></i></span></span>`
+  l:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 60 44" width="58" height="42"><path d="M14 40h32l-4-6H18z" fill="#5C3D24"/><path d="M30 12C24 7 14 6 4 8v26c10-2 20-1 26 4z" fill="#F4ECD8"/><path d="M30 12c6-5 16-6 26-4v26c-10-2-20-1-26 4z" fill="#EADFC6"/><path d="M30 12v26" stroke="#B9A57E" stroke-width="1.2"/><path d="M9 14c6-1 12 0 16 2M9 19c6-1 12 0 16 2M9 24c6-1 12 0 16 2M35 16c4-2 10-3 16-2M35 21c4-2 10-3 16-2M35 26c4-2 10-3 16-2" stroke="#BCAE8E" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M44 8v14l3-2.5 3 2.5V7.5" fill="#1C9662"/></svg></span>`
 };
 const hsh=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return h};
 const PAL={l:['#2F5D3A','#4F6D5B','#86A788','#1C9662','#5B7F3A','#7A8B4A','#E8DCC2','#D8CBA8','#8C6B4A','#3E6B5A','#A8B88A','#6E5A44'],
@@ -909,8 +1249,9 @@ function spine(w,r,i){
   const h=hsh(w.id),pal=PAL[w.t]||PAL.l,c=pal[h%pal.length];
   let cls={l:'book',f:'disc',s:'box',j:'game'}[w.t]||'book',st=`--bk:${c};--bt:${isLight(c)?'#1B2238':'#fff'};`;
   if(w.img){cls+=' im';st+=`--im:url('${String(w.img).replace(/'/g,'%27').replace(/"/g,'%22')}');`}
-  if(w.t==='l'){cls+=' v'+((h>>5)%4);if(i>0&&h%7===0)cls+=' lean';st+=`height:${104+h%5*11}px;width:${spW(w)}px;`}
-  return `<button class="sp ${cls}${r?' r'+r:''}" style="${st}${r?`--rc:var(--r${r})`:''}" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}" title="${esc(w.ti)}"><span>${esc(w.ti)}</span></button>`;
+  if(w.t==='l'){cls+=' v'+((h>>5)%4);st+=`height:${104+h%5*11}px;width:${spW(w)}px;`}
+  st+=`--tilt:${((h>>9)%7-3)*.9}deg;`;
+  return `<button class="sp ${cls}${r?' r'+r:''}" style="${st}${r?`--rc:var(--r${r})`:''}" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}" title="${esc(w.ti)}"></button>`;
 }
 function renderColl(){
   const ids=[uid,...others()].filter(Boolean);
@@ -927,12 +1268,21 @@ function renderColl(){
     <div class="rarities">${[1,2,3,4].map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
-  $('#collTitle').textContent=collList==='want'?'Ma liste':collView==='shelf'?'L’étagère':'Mes cartes';
+  $('#collTitle').textContent=collList==='want'?'Mes signets':collView==='shelf'?'L’étagère':'Mes cartes';
   $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0"><span class="all"></span>Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${gem(r)}${RAR[r].n}</button>`).join('');
   const q=norm($('#collQ').value);
   let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
   items=items.filter(x=>(!collType||x.w.t===collType)&&(!collRar||x.r===collRar)&&(!q||norm(x.w.ti+' '+(x.w.c||'')+' '+(x.w.g||[]).join(' ')).includes(q)));
   const sh=$('#shelf'),raw=$('#collQ').value.trim();
+  if(collList==='want'){
+    items.sort((a,b)=>b.ts-a.ts);
+    sh.innerHTML=items.length?`<ul class="wl">${items.map(({w,ts})=>{const recBy=[...new Set(recsAbout(w.id).map(r=>r.from_id))];
+      return `<li class="t-${w.t}"><button class="wl-open" data-open="${esc(w.id)}">${cover(w)}<span class="wl-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span>
+        <span class="meta wl-d">Gardé ${ago(ts)}${recBy.length?`, conseillé par ${recBy.map(k=>esc(nameOf(k))).join(', ')}`:''}</span></span></button>
+        ${isMe?`<div class="wl-a">${doneTglMini(w.id)}${wantBtn(w.id)}</div>`:''}</li>`}).join('')}</ul>`
+      :`<div class="wl-empty">${BM(false)}<p>${raw?'Aucun signet de ce nom.':'Touche le signet d’une œuvre pour la retrouver ici, comme un coup de cœur.'}</p></div>`;
+    justAdded=null;renderAccount();return;
+  }
   if(!items.length&&!(collView==='shelf'&&!raw&&collList!=='want')){
     sh.innerHTML=raw?`<div style="text-align:center;padding:10px 0"><p class="meta">Aucune carte de ce nom ici.</p><button class="btn pri" data-searchall>Chercher « ${esc(raw)} » dans toutes les œuvres</button></div>`:
       `<div style="text-align:center;padding:14px 0"><div class="cardback" style="width:90px;margin:0 auto 12px"></div><p class="meta" style="margin:0">${collList==='want'?'Touche le signet d’une œuvre pour la garder ici.':isMe?'Chaque œuvre terminée devient une carte de ta collection.':'Aucune carte pour l’instant.'}</p></div>`;
@@ -978,6 +1328,7 @@ function openSheet(id,refocus=true,opts={}){
       ${doneTgl(id,'data-done')}
       ${wantBtn(id)}
       <button class="btn recb" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button>
+      <button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button>
     </div>
     ${pick}
     <div id="recForm" class="recf" ${recOpen?'':'hidden'}>
@@ -1000,7 +1351,7 @@ function openSheet(id,refocus=true,opts={}){
       .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
   }
 }
-function refreshSheet(){if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
+function refreshSheet(){if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
 function closeSheet(){if(!sheetId)return;sheetId=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
@@ -1012,16 +1363,21 @@ function openManual(title=''){
   setTimeout(()=>$(MAN.title?'#mNote':'#mTitle')?.focus(),60);
 }
 function renderManual(){
-  const friends=others();
+  const friends=others(),t=MAN.t||'',ti=MAN.title.trim()||'Ton œuvre';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
     <h3 id="shTitle" style="font-size:24px;margin:2px 0 4px;letter-spacing:-.02em">Envoyer une œuvre</h3>
-    <p class="meta" style="margin:0 0 14px">Pour une œuvre absente des catalogues.</p>
+    <p class="meta" style="margin:0 0 6px">Pour une œuvre absente des catalogues.</p>
+    <div class="ledge mledge" aria-hidden="true"><span class="deco stack" style="left:12px"><i></i><i></i><i></i></span><span class="minisp" style="left:76px"><i class="t-f"></i><i class="t-s"></i><i class="t-l"></i><i class="t-j"></i></span><span class="mspine${t?' t-'+t:''}" id="mpSpine"><span>${esc(ti)}</span></span><span class="deco plant" style="right:58px"><i></i><i></i><i></i><i></i></span><span class="deco lamp" style="right:16px"></span></div>
     <label class="to" for="mTitle" style="display:block">Titre</label>
-    <input class="mini" id="mTitle" maxlength="120" autocomplete="off" value="${esc(MAN.title)}" placeholder="Titre de l’œuvre" style="margin-top:6px">
+    <input class="mini" id="mTitle" maxlength="120" autocomplete="off" value="${esc(MAN.title)}" placeholder="Titre de l’œuvre" style="margin-top:6px;width:100%">
     <div class="to">Type<div class="wrap">${Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.n}`,MAN.t===k,`data-mtype="${k}"`)).join('')}</div></div>
     <label class="to" for="mNote" style="display:block">Commentaire</label>
-    <textarea id="mNote" maxlength="280" placeholder="Pourquoi tes amis devraient s’y mettre ?">${esc(MAN.note)}</textarea>
+    <textarea id="mNote" maxlength="280" placeholder="Qu’est-ce que c’est !?">${esc(MAN.note)}</textarea>
     <div class="to">À qui ?<div class="wrap">${chip('Tout le cercle',!MAN.to.size,'data-mto=""')}${friends.map(f=>chip(esc(nameOf(f)),MAN.to.has(f),`data-mto="${f}"`)).join('')}</div></div>
+    <div class="to">Aperçu dans le fil</div>
+    <div class="ev mprev${t?' t-'+t:''}"><div class="who">${avatar(uid)}<span><b>Tu</b> recommandes${MAN.to.size?' à '+[...MAN.to].map(f=>`<b>${esc(nameOf(f))}</b>`).join(', '):' au cercle'}<br>à l’instant</span></div>
+      <div class="work"><span class="cover${t?' t-'+t:''}"><span class="ct">${esc(ti)}</span></span><span><span class="ti" id="mpTitle">${esc(ti)}</span><br><span class="meta">${t?T[t].n:'Choisis un type'}</span></span></div>
+      <p class="note" id="mpNote" ${MAN.note.trim()?'':'hidden'}>« ${esc(MAN.note.trim())} »</p></div>
     <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.3em;margin:10px 0 4px">${esc(MAN.err)}</p>
     <button class="btn pri" data-msend style="width:100%;padding:13px">${MAN.to.size?`Envoyer à ${MAN.to.size} ami${MAN.to.size>1?'s':''}`:'Envoyer au cercle'}</button>`;
 }
@@ -1128,7 +1484,7 @@ function setRate(id,n){
   mine.rate[id]=n;
   if(!was){mine.done[id]=Date.now();delete mine.want[id];justAdded=id}
   keepWork(id);save();
-  if(!was){pickOpen=false;closeSheet();renderAll();reveal(id)}
+  if(!was){pickOpen=false;closeSheet();renderAll();reveal(id);chalProgressToast(id);checkWins()}
   else{toast(`Carte ${RAR[n].n.toLowerCase()}`);renderAll()}
 }
 function toggleDone(id){
@@ -1151,7 +1507,7 @@ let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on
 
 function renderAll(){
   if(uid)members[uid]={name:myName,data:mine};
-  renderFeed();renderSearch();renderColl();
+  renderFeed();renderSearch();renderColl();renderChal();renderSide();
   if(sheetId&&$('#sheet').classList.contains('open'))refreshSheet();
 }
 let searchStarted=false;
@@ -1160,6 +1516,7 @@ function setTab(t){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.dataset.tab===t?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
   window.scrollTo(0,0);
   if(t==='coll')renderColl();
+  if(t==='chal')renderChal();
   if(t==='search'){if(!searchStarted){searchStarted=true;runSearch()}setTimeout(()=>$('#q').focus(),30)}
 }
 
@@ -1170,6 +1527,17 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button,[data-i]');if(!b)return;const d=b.dataset;
   if(d.i!==undefined&&b.classList.contains('opt')){pickAC(+d.i);return}
   if(d.tab!==undefined){closeSheet();setTab(d.tab);return}
+  if('newchal' in d){openChallenge();return}
+  if(d.chalwith){const w=d.chalwith;closeSheet();setTimeout(()=>openChallenge(w),220);return}
+  if(d.chtab){chalTab=d.chtab;renderChal();return}
+  if(d.chto){CH.to=d.chto;CH.works=CH.works.filter(w=>!isDone(w.id,CH.to));CH.err='';refreshSheet();return}
+  if(d.chadd){const w=WK[d.chadd];if(w&&CH.works.length<4&&chalAddable(w)){CH.works.push(snap(w));CH.err=''}refreshSheet();return}
+  if(d.chrm){CH.works=CH.works.filter(x=>x.id!==d.chrm);refreshSheet();return}
+  if('chsend' in d){sendChallenge(b);return}
+  if(d.delchal){delChal(d.delchal);return}
+  if(d.cmt){openCmts.has(d.cmt)?openCmts.delete(d.cmt):openCmts.add(d.cmt);renderFeed();if(openCmts.has(d.cmt))setTimeout(()=>document.getElementById('cmi-'+d.cmt)?.focus(),30);return}
+  if(d.sendcmt){sendComment(d.sendcmt);return}
+  if(d.delcmt){delComment(d.delcmt);return}
   if(d.inspect){inspect(d.inspect,b.querySelector('.card')||b);return}
   if(d.acrm!==undefined){lsSet('sharefs-recent',lsGet('sharefs-recent',[]).filter(x=>x!==d.acrm));acIdx=-1;renderAC();return}
   if('acclear' in d){lsSet('sharefs-recent',[]);closeAC();return}
@@ -1202,11 +1570,19 @@ document.addEventListener('click',e=>{
   if('explore' in d){$('#q').value='';F.mine=false;F.types.clear();setTab('search');runSearch();return}
   if('more' in d){runSearch(true);return}
   if(b.id==='recBtn'){recOpen=!recOpen;refreshSheet();if(recOpen)$('#recNote')?.focus();return}
-  if(d.type!==undefined){if(!d.type)F.types.clear();else F.types.has(d.type)?F.types.delete(d.type):F.types.add(d.type);F.mine?renderSearch():runSearch();return}
+  if(d.type!==undefined){if(!d.type){F.types.clear();F.mine=false}else F.types.has(d.type)?F.types.delete(d.type):F.types.add(d.type);F.mine?renderSearch():runSearch();return}
   if('mine' in d){F.mine=!F.mine;F.mine?renderSearch():runSearch();return}
   if(b.id==='reset'||d.act==='reset'){F.types.clear();F.mine=false;F.forWho='';runSearch();return}
   if(b.id==='clear'){$('#q').value='';onQuery();$('#q').focus();return}
   if(b.id==='goSearch'){setTab('search');return}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('cmi')){e.preventDefault();sendComment(e.target.dataset.rec)}});
+document.addEventListener('input',e=>{const tg=e.target;
+  if(tg.classList&&tg.classList.contains('cmi'))cmDraft[tg.dataset.rec]=tg.value;
+  if(tg.id==='chq'){CH.q=tg.value;chalSearch()}
+  if(tg.id==='chNote')CH.note=tg.value;
+  if(tg.id==='mTitle'){const v=tg.value.trim()||'Ton œuvre';const a=$('#mpSpine span'),b2=$('#mpTitle');if(a)a.textContent=v;if(b2)b2.textContent=v}
+  if(tg.id==='mNote'){const n=$('#mpNote');if(n){n.textContent=tg.value.trim()?'« '+tg.value.trim()+' »':'';n.hidden=!tg.value.trim()}}
 });
 document.addEventListener('input',e=>{if(e.target.id==='recNote'){recNote=e.target.value;const c=$('#recCount');if(c)c.textContent=recNote.length+'/280'}if(e.target.id==='collQ')renderColl()});
 $('#scrim').addEventListener('click',closeSheet);
@@ -1223,7 +1599,6 @@ qEl.addEventListener('keydown',e=>{
 });
 function markAC(){document.querySelectorAll('#ac .opt').forEach(o=>o.setAttribute('aria-selected',+o.dataset.i===acIdx));const o=$('#ao'+acIdx);if(o){o.scrollIntoView({block:'nearest'});qEl.setAttribute('aria-activedescendant','ao'+acIdx)}}
 $('#ac').addEventListener('mousedown',e=>e.preventDefault());
-document.addEventListener('change',e=>{if(e.target.id==='forWho'){F.forWho=e.target.value;renderSearch()}});
 
 /* ---------- Accès ---------- */
 const gate=$('#gate'),gIn=$('#gateIn');
@@ -1297,6 +1672,7 @@ function applyState(st){
   st.members.forEach(m=>{const d=normData(m.data);members[m.id]={name:m.name,data:d};names[m.id]=m.name;Object.values(d.works).forEach(reg)});
   if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
   myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
+  comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
   renderAll();
 }
 async function loadAll(){try{applyState(await call('GET','state'))}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
