@@ -83,7 +83,7 @@ nav.tabs button[aria-current="page"] svg{stroke-width:2.4}
 /* search */
 .sbox{position:sticky;top:calc(env(safe-area-inset-top,0px) + 66px);z-index:15;background:var(--bg);padding-bottom:10px}
 .field{position:relative}
-.field input{width:100%;height:64px;border:2px solid var(--ink);background:var(--surface);border-radius:var(--r-lg);padding:0 52px 0 52px;font-size:21px;font-weight:600;letter-spacing:-.01em}
+.field input{width:100%;height:54px;border:2px solid var(--ink);background:var(--surface);border-radius:var(--r-lg);padding:0 48px 0 46px;font-size:17px;font-weight:600;letter-spacing:-.01em}
 .field input::placeholder{color:var(--muted);font-weight:500}
 .field input:focus{outline:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--serie) 35%,transparent)}
 .field .lens{position:absolute;left:18px;top:50%;transform:translateY(-50%);width:22px;height:22px;pointer-events:none}
@@ -136,7 +136,6 @@ select{border:1.5px solid var(--line);background:var(--surface);border-radius:va
 .bar{height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:8px}
 .bar i{display:block;height:100%;background:var(--ink);border-radius:99px;transition:width .5s}
 .shelf-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px}
-.shelf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:0;row-gap:0;background:linear-gradient(var(--surface),var(--surface));border-radius:var(--r-lg);padding:18px 14px 0}
 .plank{display:flex;align-items:flex-end;gap:3px;width:100%;flex-wrap:wrap;border-bottom:10px solid var(--surface2);padding-bottom:0;margin-bottom:16px;min-height:130px}
 .spine{border:0;width:30px;border-radius:3px 3px 1px 1px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;font-weight:700;padding:8px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#fff;text-align:left;line-height:30px}
 .spine.t-f{color:var(--film-ink)}
@@ -223,10 +222,10 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 
 /* ---------- Touches « jeu de cartes » (collection surtout) ---------- */
 :root{--r1:#98A1B3;--r2:#2F7BEA;--r3:#9B4BE0;--r4:#F08A12;--gold:#E2B44C;--gold-l:#FFE3A1;--gold-d:#A9771F;--card-ink:#1B2238}
-.rg{display:inline-block;width:12px;height:14px;clip-path:polygon(50% 0,100% 40%,50% 100%,0 40%);background:radial-gradient(circle at 40% 30%,rgba(255,255,255,.7),transparent 55%),var(--rc,var(--r1));vertical-align:-2px;flex:none}
+.rg{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;vertical-align:1px;background:var(--rc,var(--r1));box-shadow:0 0 0 3px color-mix(in srgb,var(--rc,var(--r1)) 22%,transparent)}
 .r1{--rc:var(--r1)}.r2{--rc:var(--r2)}.r3{--rc:var(--r3)}.r4{--rc:var(--r4)}
 .rname{font-weight:750;color:var(--rc,var(--muted))}
-.bdg .rg{width:10px;height:12px}
+.bdg .rg{width:8px;height:8px;box-shadow:none}
 .bdg.rar{background:var(--surface2);color:var(--ink);display:inline-flex;align-items:center;gap:5px}
 
 /* rang */
@@ -237,7 +236,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .rarities{display:flex;gap:14px;margin-top:10px}
 .rar{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
 .rar b{color:var(--ink);font-size:17px}
-.rar .rg{width:14px;height:17px}
+.rar .rg{width:11px;height:11px}
 
 /* grille de cartes : l'image de l'œuvre, un contour à la couleur de la rareté */
 .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 12px}
@@ -249,7 +248,6 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .card .ph{position:absolute;inset:0;display:flex;align-items:flex-end;padding:10%;color:#fff;font-weight:800;font-size:14px;line-height:1.1}
 .card.t-f .ph{color:#18213A}
-.card .rgem{position:absolute;right:6px;top:6px;width:13px;height:16px;clip-path:polygon(50% 0,100% 40%,50% 100%,0 40%);background:radial-gradient(circle at 40% 30%,rgba(255,255,255,.8),transparent 55%),var(--rc);filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)}
 .card.r4{box-shadow:0 6px 14px rgba(10,15,35,.18),0 0 14px rgba(240,138,18,.45)}
 .card.r3{box-shadow:0 6px 14px rgba(10,15,35,.18),0 0 10px rgba(155,75,224,.3)}
 .card.ghost{border-color:var(--line)}
@@ -269,21 +267,20 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 /* filtre par rareté */
 .gfilter{display:flex;justify-content:center;gap:14px;margin:16px 0 4px}
 .gfilter button{border:0;background:none;padding:2px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:650;color:var(--muted)}
-.gfilter .rg{width:22px;height:26px;transition:transform .15s}
-.gfilter .all{width:22px;height:26px;display:grid;place-items:center;font-size:17px}
+.gfilter .rg{width:16px;height:16px;margin:5px 0;transition:transform .15s}
+.gfilter .all{width:16px;height:16px;margin:5px 0;border-radius:50%;border:2px solid var(--muted)}
 .gfilter button[aria-pressed="true"]{color:var(--ink)}
 .gfilter button[aria-pressed="true"] .rg{transform:scale(1.2)}
 
 /* étagère : gemme de rareté en haut de tranche */
 .spine{position:relative}
-.spine::after{content:"";position:absolute;left:50%;top:6px;width:9px;height:11px;transform:translateX(-50%) rotate(180deg);clip-path:polygon(50% 0,100% 40%,50% 100%,0 40%);background:var(--rc,var(--r1));box-shadow:0 0 0 1px #fff}
 
 /* choix de la rareté */
 .pick{margin:16px 0 4px;padding:14px;border-radius:var(--r-md);background:var(--surface2)}
 .pick p{margin:0 0 10px;font-weight:750}
 .pick .opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .pick button{border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;font-weight:700;min-width:0}
-.pick button .rg{width:22px;height:26px}
+.pick button .rg{width:14px;height:14px;margin:4px 0}
 .pick button[aria-pressed="true"]{border-color:var(--rc);box-shadow:0 0 0 2px var(--rc)}
 .pick small{font-weight:500;color:var(--muted);font-size:11px}
 
@@ -347,6 +344,66 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .hero .links{margin-top:16px;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;white-space:nowrap;font-size:14px;color:var(--muted)}
 .hero .links button{border:0;background:none;padding:2px;color:var(--ink);font-weight:650;text-decoration:underline;text-underline-offset:3px}
 @media (prefers-reduced-motion:reduce){.fan span{animation:none}}
+.field .lens{width:19px;height:19px;left:16px}
+.ac{top:60px}
+.ac .opt{padding:8px 14px;gap:10px}
+.ac .opt .ot{font-size:15px}
+.ac .opt .om{font-size:12px}
+.ac .grp{font-size:12px;display:flex;align-items:center;gap:10px}
+.ac .grp .grow{flex:1}
+.ac .grp button{border:0;background:none;padding:2px 4px;color:var(--muted);font-size:12px;font-weight:650}
+.ac .grp button.x{font-size:18px;line-height:1}
+.ac .opt .rm{margin-left:auto;border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px}
+.ac .opt.recent .ot{font-weight:500}
+.join{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;padding:14px 16px;border-radius:var(--r-lg);color:#fff;
+  background:linear-gradient(120deg,var(--serie),color-mix(in srgb,var(--jeu) 85%,var(--serie)));box-shadow:0 8px 20px -8px color-mix(in srgb,var(--jeu) 70%,transparent)}
+.join>div{flex:1 1 160px;display:flex;flex-direction:column;gap:2px}
+.join b{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.join span{font-size:14px;opacity:.9}
+.join strong{letter-spacing:.08em}
+.join .btn{background:#fff;color:#18213A}
+.join .btn.pri{background:var(--film);color:#18213A}
+#feedMode:has(.join){overflow:visible}
+/* étagère : livres, DVD, boîtiers de jeux */
+.case{border-radius:12px;padding:10px 10px 0;background:linear-gradient(#7A4D2C,#5E3A20);box-shadow:0 14px 28px -14px rgba(40,20,5,.7),inset 0 1px 0 rgba(255,255,255,.12)}
+.shelfrow{display:flex;align-items:flex-end;gap:2px;min-height:166px;padding:16px 10px 0;border-radius:4px 4px 0 0;
+  background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(0,0,0,.2) 40%,rgba(0,0,0,.35)),repeating-linear-gradient(90deg,#3A2313 0 7px,#432916 7px 15px,#361F10 15px 24px)}
+.board{height:15px;margin:0 -10px 12px;border-radius:2px;background:linear-gradient(#D19A62,#A9723F 50%,#83552D);box-shadow:0 7px 9px -3px rgba(0,0,0,.55)}
+.case .board:last-child{margin-bottom:0;border-radius:0 0 10px 10px;height:18px}
+.sp{flex:none;position:relative;border:0;padding:0;overflow:hidden;cursor:pointer;border-radius:2px 2px 0 0;box-shadow:2px 0 4px rgba(0,0,0,.4);transition:transform .18s ease;transform-origin:bottom left}
+.sp:hover,.sp:focus-visible{transform:translateY(-8px)}
+.sp span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(180deg);writing-mode:vertical-rl;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:calc(100% - 30px);font-size:11px;font-weight:750;line-height:1}
+.sp.book{background:linear-gradient(90deg,rgba(0,0,0,.3),transparent 18%,rgba(255,255,255,.16) 42%,transparent 62%,rgba(0,0,0,.32)),var(--bk);color:var(--bt);font-family:Georgia,"Times New Roman",serif}
+.sp.book::before{content:"";position:absolute;left:0;right:0;top:9px;height:8px;border-top:2px solid rgba(222,183,96,.85);border-bottom:2px solid rgba(222,183,96,.85)}
+.sp.book.lean{transform:rotate(-4deg);margin-left:7px}
+.sp.book.lean:hover{transform:rotate(-4deg) translateY(-8px)}
+.sp.disc{width:22px;height:144px;border-radius:3px;color:#EEF0F5;background:linear-gradient(90deg,#07080b,#2c3039 38%,#14161b)}
+.sp.disc.box{width:32px;height:150px}
+.sp.disc::before{content:"";position:absolute;left:3px;right:3px;top:4px;height:17px;border-radius:2px;background:var(--film)}
+.sp.disc.box::before{background:var(--serie)}
+.sp.game{width:20px;height:128px;border-radius:4px;color:#fff;background:linear-gradient(90deg,#121826,#2E3A54 40%,#181f2e)}
+.sp.game::before{content:"";position:absolute;left:0;right:0;top:0;height:24px;background:var(--jeu)}
+.sp.disc span,.sp.game span{top:calc(50% + 10px);max-height:calc(100% - 40px)}
+.sp.r2::after,.sp.r3::after,.sp.r4::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--rc)}
+.sp.r4{box-shadow:2px 0 4px rgba(0,0,0,.4),0 0 12px rgba(240,138,18,.65)}
+/* inspection d'une carte */
+.insp{position:fixed;inset:0;z-index:72;display:none;background:rgba(8,10,20,.9);overflow:auto;cursor:zoom-out}
+.insp.open{display:block}
+.istage{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:calc(env(safe-area-inset-top,0px) + 24px) 20px calc(env(safe-area-inset-bottom,0px) + 24px)}
+.iwrap{width:min(64vw,260px);perspective:900px;cursor:default}
+.itilt{position:relative;border-radius:14px;transition:transform .12s ease-out;transform-style:preserve-3d}
+.itilt .card{border-width:4px;border-radius:14px;box-shadow:0 26px 50px rgba(0,0,0,.55)}
+.itilt .card.r3{box-shadow:0 26px 50px rgba(0,0,0,.55),0 0 26px rgba(155,75,224,.55)}
+.itilt .card.r4{box-shadow:0 26px 50px rgba(0,0,0,.55),0 0 36px rgba(240,138,18,.7)}
+.itilt .card .ph{font-size:22px}
+.glare{position:absolute;inset:0;border-radius:14px;pointer-events:none;background:radial-gradient(circle at var(--mx,30%) var(--my,15%),rgba(255,255,255,.32),transparent 48%);mix-blend-mode:soft-light}
+.iinfo{text-align:center;color:#fff;max-width:330px;cursor:default}
+.iinfo .it{font-size:23px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+.iinfo .meta{color:#AAB2CC;margin-top:2px}
+.irar{display:inline-flex;align-items:center;gap:8px;margin:12px 0 4px;padding:5px 13px;border-radius:999px;background:rgba(255,255,255,.08);font-weight:700;color:var(--rc)}
+.iacts{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.iacts .btn{background:rgba(255,255,255,.12);color:#fff}
+.iacts .btn.pri{background:#fff;color:#18213A}
 </style>
 </head>
 <body>
@@ -409,6 +466,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle"><div class="in" id="sheetIn"></div></div>
 <div class="reveal" id="reveal" role="dialog" aria-modal="true" aria-label="Nouvelle carte" tabindex="-1"></div>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Images"><div class="strip" id="lbStrip"></div><div class="pos" id="lbPos"></div><button class="x" id="lbClose" aria-label="Fermer">×</button></div>
+<div class="insp" id="insp" role="dialog" aria-modal="true" aria-label="Carte"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
@@ -486,8 +544,9 @@ const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
 const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'');
 const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('has-img');this.remove()">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
 function card(w,r=0,cls=''){
-  return `<span class="card t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="ph">${esc(short(w.ti))}</span>${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}${r?'<span class="rgem"></span>':''}</span>`;
+  return `<span class="card t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="ph">${esc(short(w.ti))}</span>${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>`;
 }
+const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
@@ -573,7 +632,8 @@ function renderAC(){
   const opt=inner=>{const i=acItems.length-1;return `<div class="opt" role="option" id="ao${i}" data-i="${i}" aria-selected="${i===acIdx}">${inner}</div>`};
   if(!q){
     const rec=lsGet('sharefs-recent',[]);
-    if(rec.length){html+='<div class="grp">Recherches récentes</div>';rec.forEach(t=>{acItems.push({k:'q',v:t});html+=opt(`<span class="ot">${esc(t)}</span>`)})}
+    if(rec.length){html+='<div class="grp"><span class="grow">Recherches récentes</span><button data-acclear>Effacer</button><button class="x" data-acclose aria-label="Fermer">×</button></div>';
+      rec.forEach(t=>{acItems.push({k:'q',v:t});const i=acItems.length-1;html+=`<div class="opt recent" role="option" id="ao${i}" data-i="${i}" aria-selected="${i===acIdx}"><span class="ot">${esc(t)}</span><button class="rm" data-acrm="${esc(t)}" aria-label="Retirer ${esc(t)}">×</button></div>`})}
   }else{
     const local=Object.values(WK).filter(w=>(isDone(w.id)||isWant(w.id)||recsAbout(w.id).length||finishers(w.id).length)&&norm(w.ti+' '+(w.c||'')).includes(q)).slice(0,3);
     if(local.length){html+='<div class="grp">Chez toi et tes amis</div>';local.forEach(w=>{acItems.push({k:'w',v:w.id});html+=opt(`<span class="tm t-${w.t}"></span><span><span class="ot">${hl(w.ti,q)}</span><br><span class="om">${metaLine(w)}</span></span>`)})}
@@ -601,7 +661,7 @@ function renderFilters(){
   $('#typeChips').innerHTML=chip('Tout',!F.types.size,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('');
   const n=Object.keys(mine.done).length,fr=others();
   if(F.forWho&&!fr.includes(F.forWho))F.forWho='';
-  $('#smartChips').innerHTML=chip(`${gem(4)}Ma collection${n?` <span class="cnt">${n}</span>`:''}`,F.mine,'data-mine')+
+  $('#smartChips').innerHTML=chip(`${CARDS_ICON}Ma collection${n?` <span class="cnt">${n}</span>`:''}`,F.mine,'data-mine')+
     (fr.length?`<label class="chip forwho${F.forWho?' on':''}"><span class="lbl">Pour</span><select id="forWho" aria-label="Chercher pour un ami"><option value="">tous</option>${fr.map(f=>`<option value="${f}"${F.forWho===f?' selected':''}>${esc(nameOf(f))}</option>`).join('')}</select></label>`:'');
 }
 function renderSearch(){renderFilters();renderResults()}
@@ -616,7 +676,10 @@ function recLine(r){
 }
 function renderFeed(){
   const forMe=recs.filter(r=>(r.to_ids||[]).includes(uid)).length;
-  $('#feedMode').innerHTML=chip('Tout',feedMode==='all','data-feed="all"')+chip(`Pour moi${forMe?` <span class="cnt">${forMe}</span>`:''}`,feedMode==='me','data-feed="me"')+chip('Mes envois',feedMode==='sent','data-feed="sent"');
+  if(!others().length){
+    const code=myCircles[0]||'';
+    $('#feedMode').innerHTML=`<div class="join"><div><b>Rejoins tes amis 🤌</b><span>${code?`Ton code : <strong>${esc(code)}</strong>`:'Partage ton code ou entre le leur.'}</span></div>${code?`<button class="btn pri" data-invite="${esc(code)}">Inviter</button>`:''}<button class="btn" data-acc="join">J’ai un code</button></div>`;
+  }else $('#feedMode').innerHTML=chip('Tout',feedMode==='all','data-feed="all"')+chip(`Pour moi${forMe?` <span class="cnt">${forMe}</span>`:''}`,feedMode==='me','data-feed="me"')+chip('Mes envois',feedMode==='sent','data-feed="sent"');
   let ev=recs.filter(r=>r.work&&r.work.id).map(r=>({k:'rec',r,w:WK[r.work.id]||reg(r.work),who:r.from_id,ts:Date.parse(r.created_at)}));
   if(feedMode==='all')for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
   if(feedMode==='me')ev=ev.filter(e=>(e.r.to_ids||[]).includes(uid));
@@ -626,7 +689,7 @@ function renderFeed(){
   if(!ev.length){el.innerHTML=feedMode==='all'?`<div class="hero">
     <div class="fan" aria-hidden="true">${['f','s','l','j'].map(t=>`<span class="t-${t}">${ICON[t]}</span>`).join('')}</div>
     <div class="ht">Qu’est-ce qui t’a marqué récemment ?</div>
-    <p>Un film, une série, un livre, un jeu : recommande-le à tes amis. Leurs conseils apparaîtront ici.</p>
+    <p>Un film, une série, un livre, un jeu : recommande-le à tes amis. Leurs petites perles apparaîtront ici.</p>
     <button class="fakeq" data-gosearch><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cherche une œuvre…</button>
     <div class="tries">${[['Dune','l'],['Breaking Bad','s'],['Interstellar','f'],['Zelda','j']].map(([q,t])=>`<button class="chip" data-try="${q}"><span class="tm t-${t}"></span>${q}</button>`).join('')}</div>
     <div class="links"><button data-gocoll>Inviter des amis</button><span aria-hidden="true">·</span><button data-manual="">Ajouter à la main</button></div>
@@ -643,7 +706,15 @@ function renderFeed(){
 
 /* ---------- Collection ---------- */
 let collWho=null,collView=lsGet('sharefs-collview','book'),collList='done',collType='',collRar=0,justAdded=null;
-function spineH(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))>>>0;return [84,96,108,120][h%4]}
+const hsh=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return h};
+const BOOKC=['#7A1F2B','#1F3A5F','#2F5D3A','#C8962E','#E9E1CF','#26262E','#1C5B63','#8C4A1E','#5B2A5E','#B5452F'];
+const spW=w=>w.t==='l'?24+(hsh(w.id)>>3)%4*4:w.t==='s'?32:w.t==='f'?22:20;
+function spine(w,r,i){
+  const h=hsh(w.id);let cls='game',st='';
+  if(w.t==='l'){const c=BOOKC[h%BOOKC.length],light=c==='#E9E1CF'||c==='#C8962E';cls='book'+(i>0&&h%7===0?' lean':'');st=`--bk:${c};--bt:${light?'#26262E':'#F4EBD6'};height:${106+h%5*10}px;width:${spW(w)}px;`}
+  else if(w.t!=='j')cls='disc'+(w.t==='s'?' box':'');
+  return `<button class="sp ${cls}${r?' r'+r:''}" style="${st}${r?`--rc:var(--r${r})`:''}" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}" title="${esc(w.ti)}"><span>${esc(w.ti)}</span></button>`;
+}
 function renderColl(){
   const ids=[uid,...others()].filter(Boolean);
   if(!collWho||!ids.includes(collWho))collWho=uid;
@@ -662,7 +733,7 @@ function renderColl(){
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"');
   $('#collList').innerHTML=chip('Cartes obtenues',collList==='done','data-clist="done"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-clist="want" aria-label="Ma liste pour plus tard"'):'');
   $('#collTitle').textContent=collList==='want'?'Ma liste':collView==='shelf'?'L’étagère':'Mes cartes';
-  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0"><span class="all">∗</span>Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${gem(r)}${RAR[r].n}</button>`).join('');
+  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0"><span class="all"></span>Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${gem(r)}${RAR[r].n}</button>`).join('');
   const q=norm($('#collQ').value);
   let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
   items=items.filter(x=>(!collType||x.w.t===collType)&&(!collRar||x.r===collRar)&&(!q||norm(x.w.ti+' '+(x.w.c||'')+' '+(x.w.g||[]).join(' ')).includes(q)));
@@ -672,11 +743,13 @@ function renderColl(){
       `<div style="text-align:center;padding:14px 0"><div class="cardback" style="width:90px;margin:0 auto 12px"></div><p class="meta" style="margin:0">${collList==='want'?'Touche le signet d’une œuvre pour la garder ici.':isMe?'Chaque œuvre terminée devient une carte de ta collection.':'Aucune carte pour l’instant.'}</p></div>`;
   }else if(collView==='book'){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
-    sh.innerHTML=`<div class="cards">${items.map(({w,r})=>`<button data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`;
+    sh.innerHTML=`<div class="cards">${items.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`;
   }else{
     items.sort((a,b)=>a.ts-b.ts);
-    const rows=[];for(let i=0;i<items.length;i+=10)rows.push(items.slice(i,i+10));
-    sh.innerHTML=`<div class="shelf">${rows.map(row=>`<div class="plank">${row.map(({w,r})=>`<button class="spine t-${w.t}" style="height:${spineH(w.id)}px;--rc:var(--r${r||1})" data-open="${esc(w.id)}" title="${esc(w.ti)}">${esc(w.ti)}</button>`).join('')}</div>`).join('')}</div>`;
+    const max=Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44),rows=[];let cur=[],acc=0;
+    for(const it of items){const ww=spW(it.w)+(/lean/.test(spine(it.w,0,1))?9:2);if(acc+ww>max&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
+    if(cur.length)rows.push(cur);
+    sh.innerHTML=`<div class="case">${rows.map(row=>`<div class="shelfrow">${row.map(({w,r},i)=>spine(w,r,i)).join('')}</div><div class="board"></div>`).join('')}</div>`;
   }
   justAdded=null;renderAccount();
 }
@@ -757,6 +830,48 @@ async function sendManual(btn){
   catch(e){MAN.err=msg(e);renderManual()}
 }
 
+/* ---------- Inspection d'une carte ---------- */
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let insp=null;
+const flipFrom=(src,el)=>{const a=src.getBoundingClientRect(),b=el.getBoundingClientRect();return `translate(${a.left+a.width/2-(b.left+b.width/2)}px,${a.top+a.height/2-(b.top+b.height/2)}px) scale(${a.width/b.width},${a.height/b.height})`};
+function inspect(id,src){
+  const w=WK[id];if(!w)return;
+  const who=collWho||uid,want=collList==='want',r=want?0:rateOf(id,who),ts=(want?dataOf(who).want:dataOf(who).done)[id];
+  const ov=$('#insp');
+  ov.innerHTML=`<div class="istage"><div class="iwrap"><div class="itilt">${card(w,r)}<span class="glare"></span></div></div>
+    <div class="iinfo"><div class="it">${esc(w.ti)}</div><div class="meta">${metaLine(w)}</div>
+    ${r?`<div class="irar r${r}"><span class="rg"></span>${RAR[r].s}, carte ${RAR[r].n.toLowerCase()}</div>`:''}
+    ${ts?`<div class="meta">${want?'Gardée':'Ajoutée'} le ${new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
+    <div class="iacts"><button class="btn pri" data-isheet="${esc(id)}">Voir la fiche</button><button class="btn" data-iclose>Fermer</button></div></div></div>`;
+  ov.classList.add('open');document.body.style.overflow='hidden';insp={id,src};
+  const wrap=ov.querySelector('.iwrap'),tilt=ov.querySelector('.itilt');
+  if(src&&!RM){
+    wrap.animate([{transform:flipFrom(src,wrap)},{transform:'translateY(-14px) scale(1.05) rotateY(-14deg)',offset:.62},{transform:'none'}],{duration:640,easing:'cubic-bezier(.2,.8,.2,1)'});
+    ov.querySelector('.iinfo').animate([{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'none'}],{duration:380,delay:300,fill:'backwards',easing:'ease-out'});
+    ov.animate([{backgroundColor:'rgba(8,10,20,0)'},{backgroundColor:'rgba(8,10,20,.9)'}],{duration:320});
+  }
+  wrap.onpointermove=e=>{if(RM)return;const b=tilt.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;
+    tilt.style.transform=`rotateY(${x*20}deg) rotateX(${-y*20}deg)`;tilt.style.setProperty('--mx',(x+.5)*100+'%');tilt.style.setProperty('--my',(y+.5)*100+'%')};
+  wrap.onpointerleave=()=>{tilt.style.transform=''};
+  setTimeout(()=>ov.querySelector('[data-isheet]')?.focus({preventScroll:true}),120);
+}
+function closeInspect(then){
+  const ov=$('#insp');if(!ov.classList.contains('open'))return;
+  const done=()=>{ov.classList.remove('open');ov.innerHTML='';document.body.style.overflow='';const s=insp?.src;insp=null;if(then)then();else s?.focus?.({preventScroll:true})};
+  const src=insp?.src,wrap=ov.querySelector('.iwrap');
+  if(src&&src.isConnected&&!RM&&!then){
+    ov.querySelector('.iinfo').animate([{opacity:1},{opacity:0}],{duration:140,fill:'forwards'});
+    ov.animate([{backgroundColor:'rgba(8,10,20,.9)'},{backgroundColor:'rgba(8,10,20,0)'}],{duration:380,fill:'forwards'});
+    wrap.animate([{transform:'none'},{transform:flipFrom(src,wrap)}],{duration:380,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=done;
+  }else done();
+}
+$('#insp').addEventListener('click',e=>{
+  const b=e.target.closest('button');
+  if(b&&b.dataset.isheet){const id=b.dataset.isheet;closeInspect(()=>openSheet(id));return}
+  if(b&&'iclose' in b.dataset){closeInspect();return}
+  if(!e.target.closest('.iwrap')&&!e.target.closest('.iinfo'))closeInspect();
+});
+
 /* ---------- Galerie ---------- */
 function openGallery(i){
   const w=WK[sheetId];if(!w||!w.imgs)return;
@@ -819,16 +934,21 @@ function setTab(t){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+t));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.dataset.tab===t?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
   window.scrollTo(0,0);
+  if(t==='coll')renderColl();
   if(t==='search'){if(!searchStarted){searchStarted=true;runSearch()}setTimeout(()=>$('#q').focus(),30)}
 }
 
 /* ---------- Événements ---------- */
 $('#reveal').addEventListener('click',closeReveal);
 document.addEventListener('click',e=>{
-  if(e.target.closest('#gate')||e.target.closest('#reveal')||e.target.closest('#lb'))return;
+  if(e.target.closest('#gate')||e.target.closest('#reveal')||e.target.closest('#lb')||e.target.closest('#insp'))return;
   const b=e.target.closest('button,[data-i]');if(!b)return;const d=b.dataset;
   if(d.i!==undefined&&b.classList.contains('opt')){pickAC(+d.i);return}
   if(d.tab!==undefined){closeSheet();setTab(d.tab);return}
+  if(d.inspect){inspect(d.inspect,b.querySelector('.card')||b);return}
+  if(d.acrm!==undefined){lsSet('sharefs-recent',lsGet('sharefs-recent',[]).filter(x=>x!==d.acrm));acIdx=-1;renderAC();return}
+  if('acclear' in d){lsSet('sharefs-recent',[]);closeAC();return}
+  if('acclose' in d){closeAC();$('#q').blur();return}
   if(d.gal!==undefined){openGallery(+d.gal);return}
   if('gosearch' in d){setTab('search');return}
   if(d.try){$('#q').value=d.try;setTab('search');setTimeout(()=>{$('#q').focus();onQuery()},40);return}
@@ -863,7 +983,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{if(e.target.id==='recNote')recNote=e.target.value;if(e.target.id==='collQ')renderColl()});
 $('#scrim').addEventListener('click',closeSheet);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#lb').classList.contains('open'))closeGallery();else if($('#reveal').classList.contains('open'))closeReveal();else if($('#sheet').classList.contains('open'))closeSheet();else closeAC()}else if((e.key==='Enter'||e.key===' ')&&$('#reveal').classList.contains('open')){e.preventDefault();closeReveal()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#insp').classList.contains('open'))closeInspect();else if($('#lb').classList.contains('open'))closeGallery();else if($('#reveal').classList.contains('open'))closeReveal();else if($('#sheet').classList.contains('open'))closeSheet();else closeAC()}else if((e.key==='Enter'||e.key===' ')&&$('#reveal').classList.contains('open')){e.preventDefault();closeReveal()}});
 const qEl=$('#q');
 qEl.addEventListener('input',onQuery);
 qEl.addEventListener('focus',renderAC);
@@ -985,6 +1105,8 @@ document.addEventListener('click',async e=>{
   if(a==='delete'&&confirm('Supprimer ton compte, ta collection et tes recommandations ? Cette action est définitive.')){
     try{await call('DELETE','me');token='';lsSet('sharefs-token','');location.reload()}catch(err){toast(msg(err))}}
 });
+
+let rzT;addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(collView==='shelf'&&$('#v-coll').classList.contains('on'))renderColl()},200)});
 
 /* ---------- Démarrage ---------- */
 renderAll();
