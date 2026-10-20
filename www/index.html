@@ -284,8 +284,7 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .pback,.pface{position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:3px solid #fff;box-shadow:0 10px 20px -6px rgba(10,15,35,.35)}
 .pback{transform:rotateY(180deg);background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.95) 0 9%,transparent 10%),repeating-radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--rc) 70%,#000) 0 7px,var(--rc) 7px 14px)}
 .pface{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 4px;text-align:center;background:radial-gradient(120% 80% at 50% 0%,rgba(255,255,255,.35),transparent 60%),var(--rc)}
-.pe{font-size:clamp(24px,8vw,34px);line-height:1}
-.ps{font-size:12.5px;font-weight:800;line-height:1.1}
+.ps{font-size:clamp(12px,3.3vw,15px);font-weight:800;line-height:1.15;padding:0 3px;hyphens:none}
 .pface small{font-size:10px;font-weight:650;opacity:.85}
 .pc:hover .pin{transform:translateY(-6px)}
 .pc[aria-pressed="true"] .pface{box-shadow:0 0 0 3px var(--rc),0 12px 26px -6px var(--rc)}
@@ -388,18 +387,15 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
   background:linear-gradient(90deg,#A8703F,#C48A54 4%,#BC834E 96%,#9C6636);box-shadow:0 18px 30px -16px rgba(60,30,10,.55)}
 .case::before{content:"";position:absolute;left:-10px;right:-10px;top:-16px;height:18px;border-radius:5px 5px 2px 2px;background:linear-gradient(#E3B07A,#C48A54 70%,#A8703F);box-shadow:0 4px 6px -2px rgba(0,0,0,.35)}
 .case::after{content:"";position:absolute;left:-6px;right:-6px;bottom:-14px;height:16px;border-radius:2px 2px 4px 4px;background:linear-gradient(#A8703F,#8A5A30)}
-.case .deco{position:absolute;font-size:30px;line-height:1;bottom:100%;margin-bottom:12px;filter:drop-shadow(0 3px 2px rgba(0,0,0,.25))}
 .shelfrow{position:relative;display:flex;align-items:flex-end;gap:2px;min-height:168px;padding:16px 10px 0;
   background:linear-gradient(180deg,rgba(40,20,5,.38),rgba(40,20,5,.08) 38%,rgba(40,20,5,.16)),repeating-linear-gradient(90deg,#8E5F3A 0 10px,#966540 10px 21px,#885A36 21px 33px);
   box-shadow:inset 0 10px 14px -8px rgba(40,20,5,.55),inset 8px 0 10px -8px rgba(40,20,5,.4),inset -8px 0 10px -8px rgba(40,20,5,.4)}
-.shelfrow .deco{position:absolute;right:14px;bottom:2px;font-size:30px;line-height:1;filter:drop-shadow(0 3px 2px rgba(0,0,0,.25))}
 .board{height:16px;margin:0 -14px;position:relative;z-index:1;background:linear-gradient(#EDBE88,#CF9760 50%,#AE7744);box-shadow:0 8px 10px -5px rgba(40,20,5,.5)}
 .sp{flex:none;position:relative;border:0;padding:0;overflow:hidden;cursor:pointer;color:var(--bt);background:var(--bk);border-radius:2px 2px 0 0;
   box-shadow:2px 0 3px rgba(40,20,5,.35);transition:transform .18s ease;transform-origin:bottom left}
 .sp:hover,.sp:focus-visible{transform:translateY(-8px)}
 .sp span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(180deg);writing-mode:vertical-rl;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:calc(100% - 30px);font-size:11px;font-weight:750;line-height:1}
 .sp.book{background:linear-gradient(90deg,rgba(0,0,0,.22),transparent 18%,rgba(255,255,255,.2) 42%,transparent 62%,rgba(0,0,0,.24)),var(--bk);font-family:Georgia,"Times New Roman",serif}
-.sp.book::before{content:"";position:absolute;left:0;right:0;top:9px;height:8px;border-top:2px solid rgba(255,226,150,.8);border-bottom:2px solid rgba(255,226,150,.8)}
 .sp.book.lean{transform:rotate(-4deg);margin-left:7px}
 .sp.book.lean:hover{transform:rotate(-4deg) translateY(-8px)}
 .sp.disc,.sp.box,.sp.game{background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,0) 14%,rgba(255,255,255,.12) 50%,rgba(0,0,0,.14) 88%,rgba(0,0,0,.25)),var(--bk);border-radius:3px}
@@ -422,17 +418,42 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .itilt .card.r4{box-shadow:0 26px 50px rgba(0,0,0,.55),0 0 36px rgba(240,138,18,.7)}
 .itilt .card .ph{font-size:22px}
 .glare{position:absolute;inset:0;border-radius:14px;pointer-events:none;background:radial-gradient(circle at var(--mx,30%) var(--my,15%),rgba(255,255,255,.32),transparent 48%);mix-blend-mode:soft-light}
-.iinfo{text-align:center;color:#fff;max-width:330px;cursor:default}
+.iinfo{text-align:center;color:var(--ink);background:var(--surface);border-radius:var(--r-lg);padding:16px 18px;width:min(100%,340px);box-shadow:0 18px 40px -12px rgba(0,0,0,.5);cursor:default}
 .iinfo .it{font-size:23px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
-.iinfo .meta{color:#AAB2CC;margin-top:2px}
-.irar{display:inline-flex;align-items:center;gap:8px;margin:12px 0 4px;padding:5px 13px;border-radius:999px;background:rgba(255,255,255,.08);font-weight:700;color:var(--rc)}
+.iinfo .meta{color:var(--muted);margin-top:2px}
+.irar{display:inline-flex;align-items:center;gap:8px;margin:12px 0 4px;padding:5px 13px;border-radius:999px;background:color-mix(in srgb,var(--rc) 14%,transparent);font-weight:700;color:var(--ink)}
 .iacts{display:flex;gap:8px;justify-content:center;margin-top:16px}
-.iacts .btn{background:rgba(255,255,255,.12);color:#fff}
-.iacts .btn.pri{background:#fff;color:#18213A}
+.iacts .btn{background:var(--surface2);color:var(--ink)}
+.iacts .btn.pri{background:var(--act);color:var(--act-ink)}
 .cards button.landed .card{animation:landc 1.3s ease-out}
 @keyframes landc{0%{transform:scale(1.08);box-shadow:0 0 0 0 var(--rc,#fff)}100%{transform:none;box-shadow:0 0 0 22px transparent}}
 .sp.landed{animation:landsp 1.3s ease-out}
 @keyframes landsp{0%{transform:translateY(-16px);box-shadow:0 0 18px 4px var(--rc,#fff)}100%{transform:none}}
+.gate .link{display:block;margin:14px auto 0;padding:8px 12px;border:0;background:none;color:var(--muted);font-weight:650;font-size:15px;text-decoration:underline;text-underline-offset:3px}
+.gate .link:hover{color:var(--ink)}
+/* dos de livres : quatre façons de relier */
+.sp.book.v0::before{content:"";position:absolute;left:0;right:0;top:9px;height:8px;border-top:2px solid rgba(255,226,150,.85);border-bottom:2px solid rgba(255,226,150,.85)}
+.sp.book.v0::after{content:"";position:absolute;left:0;right:0;bottom:9px;height:8px;border-top:2px solid rgba(255,226,150,.85);border-bottom:2px solid rgba(255,226,150,.85)}
+.sp.book.v1 span{background:rgba(255,250,235,.92);color:#2A2A33;padding:6px 2px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.sp.book.v2::before,.sp.book.v2::after{content:"";position:absolute;left:0;right:0;height:16px;background:rgba(0,0,0,.28)}
+.sp.book.v2::before{top:0}.sp.book.v2::after{bottom:0}
+.sp.book.v3::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:6px;transform:translateX(-50%);background:rgba(255,255,255,.22)}
+.sp.book.v3 span{font-family:inherit;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:9.5px}
+.sp.book.r2::after,.sp.book.r3::after,.sp.book.r4::after{content:"";position:absolute;left:0;right:0;bottom:0;top:auto;height:5px;border:0;background:var(--rc)}
+/* déco dessinée */
+.deco{position:absolute;pointer-events:none}
+.case>.deco{bottom:100%;margin-bottom:14px}
+.shelfrow>.deco{bottom:0}
+.plant{width:38px;height:50px}
+.plant::before{content:"";position:absolute;bottom:0;left:8px;width:22px;height:18px;background:linear-gradient(#D06A4A,#A9482E);clip-path:polygon(0 0,100% 0,84% 100%,16% 100%)}
+.plant i{position:absolute;bottom:14px;left:16px;width:9px;height:26px;border-radius:50% 50% 50% 50%/70% 70% 30% 30%;background:linear-gradient(#5E9E5A,#3B7A3F);transform-origin:bottom center}
+.plant i:nth-child(1){transform:rotate(-38deg)}.plant i:nth-child(2){transform:rotate(-8deg);height:32px}.plant i:nth-child(3){transform:rotate(26deg)}.plant i:nth-child(4){transform:rotate(52deg);height:20px}
+.stack{display:flex;flex-direction:column;align-items:center;gap:1px}
+.stack i{display:block;height:9px;border-radius:2px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)}
+.stack i:nth-child(1){width:46px;background:#33658A}.stack i:nth-child(2){width:54px;background:#C9A15B}.stack i:nth-child(3){width:50px;background:#8E3B46}
+.lamp{width:28px;height:40px}
+.lamp::before{content:"";position:absolute;top:0;left:2px;width:24px;height:16px;background:#E8DCC2;clip-path:polygon(20% 0,80% 0,100% 100%,0 100%)}
+.lamp::after{content:"";position:absolute;bottom:0;left:6px;width:16px;height:24px;background:linear-gradient(#3D5A80,#2F4858);border-radius:8px 8px 3px 3px}
 </style>
 </head>
 <body>
@@ -509,8 +530,8 @@ const T={
   l:{n:'Livre',p:'Livres',done:'Lu',act:'J’ai lu',did:'a lu',fmt:x=>x+' pages'},
   j:{n:'Jeu',p:'Jeux',done:'Fini',act:'J’ai fini',did:'a fini',fmt:()=>''}
 };
-const RAR=[null,{n:'Commune',s:'Une bouse frérot',e:'💩'},{n:'Rare',s:'Mouuais..',e:'😐'},{n:'Épique',s:'Étonnant !',e:'😮'},{n:'Légendaire',s:'Messi prime',e:'🐐'}];
-const RANKS=[[0,'Recrue'],[1,'Apprenti'],[10,'Aventurier'],[25,'Héros'],[50,'Champion'],[100,'Légende']];
+const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Étonnant\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
+const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Pape de la pop culture']];
 const ICON={
   f:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10h18v10H3z"/><path d="M2.6 5.3 19.8 2.6l.6 3.9L3.2 9.2z"/></svg>',
   s:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 2.5 12 6.5l4-4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
@@ -736,14 +757,14 @@ function renderFeed(){
 /* ---------- Collection ---------- */
 let collWho=null,collView=lsGet('sharefs-collview','book'),collList='done',collType='',collRar=0,justAdded=null;
 const hsh=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return h};
-const PAL={l:['#1C9662','#2E7D5B','#9B2D3B','#C8962E','#EFE6D2','#1C6B73','#C2553A','#5B7F3A','#3E6E8E','#7D4E8C','#D9C27A'],
+const PAL={l:['#8E3B46','#2F4858','#4F6D5B','#C9A15B','#E8DCC2','#33658A','#B85C38','#6B5B95','#86A788','#D4A373','#3D5A80','#A26769','#F2CC8F','#577590','#7A8B4A','#C4746E'],
   f:['#E3A900','#D98E04','#F2C14E','#C9770A','#EAD27A'],s:['#2F6FDB','#3D86E8','#1F57B8','#5B9BF0','#2A4F9E'],j:['#D43F7D','#B83269','#E8669A','#9E2A5A','#F08DB5']};
 const isLight=c=>{const n=parseInt(c.slice(1),16);return ((n>>16)*299+((n>>8)&255)*587+(n&255)*114)/1000>160};
-const spW=w=>w.t==='l'?24+(hsh(w.id)>>3)%4*4:w.t==='s'?30:w.t==='f'?22:20;
+const spW=w=>w.t==='l'?24+(hsh(w.id)>>3)%5*4:w.t==='s'?30:w.t==='f'?22:20;
 function spine(w,r,i){
   const h=hsh(w.id),pal=PAL[w.t]||PAL.l,c=pal[h%pal.length];
   let cls={l:'book',f:'disc',s:'box',j:'game'}[w.t]||'book',st=`--bk:${c};--bt:${isLight(c)?'#1B2238':'#fff'};`;
-  if(w.t==='l'){if(i>0&&h%7===0)cls+=' lean';st+=`height:${104+h%5*11}px;width:${spW(w)}px;`}
+  if(w.t==='l'){cls+=' v'+((h>>5)%4);if(i>0&&h%7===0)cls+=' lean';st+=`height:${104+h%5*11}px;width:${spW(w)}px;`}
   return `<button class="sp ${cls}${r?' r'+r:''}" style="${st}${r?`--rc:var(--r${r})`:''}" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}" title="${esc(w.ti)}"><span>${esc(w.ti)}</span></button>`;
 }
 function renderColl(){
@@ -781,8 +802,8 @@ function renderColl(){
     for(const it of items){const ww=spW(it.w)+(/lean/.test(spine(it.w,0,1))?9:2);if(acc+ww>max&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
     if(cur.length)rows.push(cur);
     while(rows.length<3)rows.push([]);
-    const DECO=['🪴','🕯️','🎧','🏺'];
-    sh.innerHTML=`<div class="case"><span class="deco" style="right:18px">🪴</span><span class="deco" style="left:20px;font-size:24px">📚</span>${rows.map((row,k)=>`<div class="shelfrow">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${row.length<4?`<span class="deco" aria-hidden="true">${DECO[k%DECO.length]}</span>`:''}</div><div class="board"></div>`).join('')}</div>`;
+    const DECO=['<span class="deco stack" style="right:16px" aria-hidden="true"><i></i><i></i><i></i></span>','<span class="deco plant" style="right:18px" aria-hidden="true"><i></i><i></i><i></i><i></i></span>','<span class="deco lamp" style="right:22px" aria-hidden="true"></span>'];
+    sh.innerHTML=`<div class="case"><span class="deco plant" style="right:20px" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="left:22px" aria-hidden="true"><i></i><i></i><i></i></span>${rows.map((row,k)=>`<div class="shelfrow">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${row.length<5?DECO[k%DECO.length]:''}</div><div class="board"></div>`).join('')}</div>`;
   }
   justAdded=null;renderAccount();
 }
@@ -798,7 +819,7 @@ function openSheet(id,refocus=true,opts={}){
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
   const deal=pickDeal&&!done;pickDeal=false;
-  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${[1,2,3,4].map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pe">${RAR[n].e}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
+  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${[1,2,3,4].map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
     <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span><h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -926,7 +947,7 @@ function reveal(id){
   const w=WK[id],r=rateOf(id),el=$('#reveal');
   el.style.setProperty('--rc',`var(--r${r})`);
   el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,r)}<div class="cardback"></div></div><div class="burst"></div>
-    <div class="cap">${RAR[r].e} ${esc(RAR[r].s)}<span class="rname">Carte ${RAR[r].n.toLowerCase()}</span></div><div class="tap">Direction ta collection…</div></div>`;
+    <div class="cap">${esc(RAR[r].s)}<span class="rname">Carte ${RAR[r].n.toLowerCase()}</span></div><div class="tap">Direction ta collection…</div></div>`;
   el.classList.add('open');el.focus();revealId=id;
   clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),2600);
 }
