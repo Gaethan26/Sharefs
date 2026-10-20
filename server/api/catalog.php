@@ -74,7 +74,7 @@ function from_book(array $x): array {
     'c' => implode(', ', array_slice($v['authors'] ?? [], 0, 2)), 'img' => $img,
     'g' => array_slice(array_map(fn($c) => trim(explode('/', $c)[0]), $v['categories'] ?? []), 0, 2), 'd' => $v['pageCount'] ?? null]);
 }
-function search_books(string $q, int $page, int $lim): array {
+function search_google_books(string $q, int $page, int $lim): array {
   $p = ['q' => $q !== '' ? $q : 'subject:fiction', 'maxResults' => min(40, $lim), 'startIndex' => ($page - 1) * $lim, 'printType' => 'books', 'orderBy' => $q !== '' ? 'relevance' : 'newest'];
   $d = gbooks('/volumes', $p + ['langRestrict' => 'fr']);
   if (empty($d['items']) && $q !== '') $d = gbooks('/volumes', $p);
@@ -89,6 +89,48 @@ function work_book(string $id): array {
   $imgs = array_values(array_unique(array_filter([$big, gb_img($im['thumbnail'] ?? ''), $isbn ? "https://covers.openlibrary.org/b/isbn/$isbn-L.jpg?default=false" : ''])));
   $w = from_book($x);
   return clean(array_merge($w, ['syn' => mb_substr($syn, 0, 800), 'pub' => $v['publisher'] ?? '', 'img' => $big ?: ($w['img'] ?? ''), 'imgs' => $imgs]));
+}
+
+/* Open Library : sans clé, utilisé quand Google Books ne répond pas (quota partagé sur l'IP de l'hébergeur) */
+function from_ol(array $x): array {
+  $key = basename((string) ($x['key'] ?? ''));
+  return clean(['id' => 'ol-' . $key, 't' => 'l', 'ti' => $x['title'] ?? '', 'y' => !empty($x['first_publish_year']) ? (int) $x['first_publish_year'] : null,
+    'c' => implode(', ', array_slice($x['author_name'] ?? [], 0, 2)),
+    'img' => !empty($x['cover_i']) ? 'https://covers.openlibrary.org/b/id/' . $x['cover_i'] . '-M.jpg' : '',
+    'g' => array_slice($x['subject'] ?? [], 0, 2), 'd' => $x['number_of_pages_median'] ?? null]);
+}
+function search_ol(string $q, int $page, int $lim): array {
+  if ($q === '') {
+    $d = http_json('https://openlibrary.org/trending/weekly.json?' . http_build_query(['limit' => $lim, 'page' => $page]));
+    $docs = $d['works'] ?? []; $more = count($docs) >= $lim;
+  } else {
+    $d = http_json('https://openlibrary.org/search.json?' . http_build_query(['q' => $q, 'limit' => $lim, 'page' => $page,
+      'fields' => 'key,title,author_name,first_publish_year,cover_i,number_of_pages_median,subject']));
+    $docs = $d['docs'] ?? []; $more = $page * $lim < ($d['numFound'] ?? 0);
+  }
+  return ['items' => array_values(array_filter(array_map('from_ol', $docs), fn($w) => !empty($w['ti']) && $w['id'] !== 'ol-')), 'more' => $more];
+}
+function work_ol(string $key): array {
+  $x = http_json("https://openlibrary.org/works/$key.json");
+  $desc = $x['description'] ?? '';
+  if (is_array($desc)) $desc = $desc['value'] ?? '';
+  $authors = [];
+  foreach (array_slice($x['authors'] ?? [], 0, 2) as $a) {
+    $ak = $a['author']['key'] ?? '';
+    if ($ak !== '' && preg_match('#^/authors/OL\d+A$#', $ak)) {
+      try { $ad = http_json("https://openlibrary.org$ak.json"); if (!empty($ad['name'])) $authors[] = $ad['name']; } catch (Throwable $e) {}
+    }
+  }
+  $covers = array_values(array_filter($x['covers'] ?? [], fn($c) => (int) $c > 0));
+  return clean(['id' => "ol-$key", 't' => 'l', 'ti' => $x['title'] ?? '', 'y' => yr($x['first_publish_date'] ?? ''), 'c' => implode(', ', $authors),
+    'img' => $covers ? "https://covers.openlibrary.org/b/id/{$covers[0]}-L.jpg" : '',
+    'imgs' => array_map(fn($c) => "https://covers.openlibrary.org/b/id/$c-L.jpg", array_slice($covers, 0, 6)),
+    'g' => array_slice($x['subjects'] ?? [], 0, 3),
+    'syn' => mb_substr(trim((string) preg_replace('/\s+/', ' ', strip_tags((string) $desc))), 0, 800)]);
+}
+function search_books(string $q, int $page, int $lim): array {
+  try { $r = search_google_books($q, $page, $lim); if (!empty($r['items'])) return $r; } catch (Throwable $e) { error_log('[sharefs] Google Books : ' . $e->getMessage()); }
+  return search_ol($q, $page, $lim);
 }
 
 /* IGDB */
@@ -134,7 +176,7 @@ function work_game(string $id): array {
 }
 
 function catalog_search(string $type, string $q, int $page, int $lim): array {
-  $key = "s2|$type|$q|$page|$lim";
+  $key = "s3|$type|$q|$page|$lim";
   if (($c = cache_get($key)) !== null) return $c;
   $r = match ($type) {
     'f' => search_tmdb('movie', $q, $page, $lim), 's' => search_tmdb('tv', $q, $page, $lim),
@@ -143,11 +185,12 @@ function catalog_search(string $type, string $q, int $page, int $lim): array {
   return $r;
 }
 function catalog_work(string $id): array {
-  if (($c = cache_get("w2|$id")) !== null) return $c;
+  if (($c = cache_get("w3|$id")) !== null) return $c;
   if (preg_match('/^tmdb-(movie|tv)-(\d+)$/', $id, $m)) $r = work_tmdb($m[1], $m[2]);
   elseif (preg_match('/^gb-([\w-]+)$/', $id, $m)) $r = work_book($m[1]);
+  elseif (preg_match('/^ol-(OL\d+W)$/', $id, $m)) $r = work_ol($m[1]);
   elseif (preg_match('/^igdb-(\d+)$/', $id, $m)) $r = work_game($m[1]);
   else fail(400, 'bad_id');
-  cache_set("w2|$id", $r, 7 * 86400);
+  cache_set("w3|$id", $r, 7 * 86400);
   return $r;
 }
