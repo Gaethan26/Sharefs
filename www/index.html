@@ -454,6 +454,38 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .lamp{width:28px;height:40px}
 .lamp::before{content:"";position:absolute;top:0;left:2px;width:24px;height:16px;background:#E8DCC2;clip-path:polygon(20% 0,80% 0,100% 100%,0 100%)}
 .lamp::after{content:"";position:absolute;bottom:0;left:6px;width:16px;height:24px;background:linear-gradient(#3D5A80,#2F4858);border-radius:8px 8px 3px 3px}
+/* ---------- touches de couleur ---------- */
+:root{--brandbar:linear-gradient(90deg,var(--film) 0 25%,var(--serie) 25% 50%,var(--livre) 50% 75%,var(--jeu) 75%)}
+.t-f{--tc:var(--film);--tci:#18213A}.t-s{--tc:var(--serie);--tci:#fff}.t-l{--tc:var(--livre);--tci:#fff}.t-j{--tc:var(--jeu);--tci:#fff}
+.ev{background:var(--surface);padding:0 0 16px;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--tc) 35%,transparent)}
+.ev .who{background:var(--tc);color:color-mix(in srgb,var(--tci) 78%,transparent);padding:12px 16px}
+.ev .who b{color:var(--tci)}
+.ev .who .rname{color:var(--tci);font-weight:800;text-decoration:underline;text-decoration-color:var(--rc);text-decoration-thickness:3px;text-underline-offset:3px}
+.ev .who .av{background:rgba(255,255,255,.92);color:#18213A}
+.ev .del{color:var(--tci);opacity:.85}
+.ev .work{margin:14px 16px 0;width:auto}
+.ev .note{margin:12px 16px 0;border-left-color:var(--tc)}
+.ev .acts{margin:14px 16px 0}
+.ev .btn.tc{background:var(--tc);color:var(--tci)}
+.ev .btn.tc.done{background:color-mix(in srgb,var(--tc) 16%,var(--surface));color:var(--ink);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--tc) 50%,transparent)}
+.ev .btn.icon{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--tc) 50%,transparent)}
+.ev .btn.icon.saved{background:var(--tc);color:var(--tci);box-shadow:none}
+.res li{background:none;box-shadow:inset 4px 0 0 var(--tc)}
+.sheet{border-top:4px solid var(--tc,transparent)}
+.chip[data-type="f"][aria-pressed="true"],.chip[data-ctype="f"][aria-pressed="true"]{background:var(--film);border-color:var(--film);color:#18213A}
+.chip[data-type="s"][aria-pressed="true"],.chip[data-ctype="s"][aria-pressed="true"]{background:var(--serie);border-color:var(--serie);color:#fff}
+.chip[data-type="l"][aria-pressed="true"],.chip[data-ctype="l"][aria-pressed="true"]{background:var(--livre);border-color:var(--livre);color:#fff}
+.chip[data-type="j"][aria-pressed="true"],.chip[data-ctype="j"][aria-pressed="true"]{background:var(--jeu);border-color:var(--jeu);color:#fff}
+.chip[aria-pressed="true"] .tm{box-shadow:0 0 0 2px #fff}
+.rank,.join,.account{position:relative;overflow:hidden}
+.rank::before,.join::before,.account::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--brandbar)}
+.account{padding-top:10px}
+nav.tabs button{position:relative}
+nav.tabs button[aria-current="page"]::after{content:"";position:absolute;bottom:5px;width:24px;height:3px;border-radius:2px;background:var(--brandbar)}
+.field input:focus{border-color:var(--serie)}
+.sheet .sh-acts .btn.pri{background:var(--tc,var(--act));color:var(--tci,var(--act-ink))}
+.sheet .sh-acts .btn.on{background:color-mix(in srgb,var(--tc) 16%,var(--surface));color:var(--ink);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--tc) 50%,transparent)}
+.sheet .btn.icon.saved{background:var(--tc);color:var(--tci)}
 </style>
 </head>
 <body>
@@ -531,7 +563,7 @@ const T={
   j:{n:'Jeu',p:'Jeux',done:'Fini',act:'J’ai fini',did:'a fini',fmt:()=>''}
 };
 const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Étonnant\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
-const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Pape de la pop culture']];
+const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Zidane']];
 const ICON={
   f:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10h18v10H3z"/><path d="M2.6 5.3 19.8 2.6l.6 3.9L3.2 9.2z"/></svg>',
   s:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 2.5 12 6.5l4-4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
@@ -657,7 +689,7 @@ function renderResults(){
     if(isWant(w.id))b.push(`<span class="bdg bm" title="Dans ta liste">${BM(true)}</span>`);
     if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec bm">${BM(true)}${esc(who)}</span>`);
     if(n)b.push(`<span class="bdg rec">Conseillé par ${n} ami${n>1?'s':''}</span>`);
-    return `<li><button data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${hl(w.ti,q)}</span><br><span class="meta">${metaLine(w)}</span>${b.length?`<span class="badges">${b.join('')}</span>`:''}</span></button></li>`}).join('');
+    return `<li class="t-${w.t}"><button data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${hl(w.ti,q)}</span><br><span class="meta">${metaLine(w)}</span>${b.length?`<span class="badges">${b.join('')}</span>`:''}</span></button></li>`}).join('');
   $('#resMore').innerHTML=(SR.loading?'<p class="loading">Chargement…</p>':(!localMode()&&SR.moreT.size?'<button class="btn more" data-more>Voir plus d’œuvres</button>':''))+
     `<p class="meta" style="text-align:center;margin:22px 0 0">Tu ne trouves pas ton œuvre ?</p><button class="btn more" style="margin-top:8px" data-manual="">Envoyer une œuvre à la main</button>`;
 }
@@ -747,9 +779,9 @@ function renderFeed(){
   el.innerHTML=ev.slice(0,80).map(e=>{
     const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who);
     const line=e.k==='rec'?recLine(e.r):`<b>${esc(nameOf(e.who))}</b> ${T[w.t].did} et en fait une carte <span class="rname r${r}">${RAR[r].n}</span>`;
-    const acts=me?'':`<div class="acts">${wantBtn(w.id)}<button class="btn ${isDone(w.id)?'on':'pri'}" data-quickdone="${esc(w.id)}">${isDone(w.id)?T[w.t].done+' ✓':T[w.t].act}</button></div>`;
+    const acts=me?'':`<div class="acts"><button class="btn tc${isDone(w.id)?' done':''}" data-quickdone="${esc(w.id)}">${isDone(w.id)?T[w.t].done+' ✓':T[w.t].act}</button>${wantBtn(w.id)}</div>`;
     const badge=e.k==='rec'&&r?`<span class="badges">${rarityTag(r)}</span>`:'';
-    return `<article class="ev"><div class="who">${avatar(e.who)}<span>${line}<br>${ago(e.ts)}</span>${me&&e.k==='rec'?`<button class="del" data-delrec="${esc(e.r.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
+    return `<article class="ev t-${w.t}"><div class="who">${avatar(e.who)}<span>${line}<br>${ago(e.ts)}</span>${me&&e.k==='rec'?`<button class="del" data-delrec="${esc(e.r.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
       <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${badge}</span></button>
       ${e.k==='rec'&&e.r.note?`<p class="note">« ${esc(e.r.note)} »</p>`:''}${acts}</article>`}).join('');
 }
@@ -816,6 +848,8 @@ function openSheet(id,refocus=true,opts={}){
   if(sheetId!==id){recOpen=false;recTo=new Set();recNote='';pickOpen=!!opts.pick;pickDeal=!!opts.pick;
     if(F.forWho&&others().includes(F.forWho)&&$('#v-search').classList.contains('on')&&!opts.pick){recTo=new Set([F.forWho]);recOpen=true}}
   sheetId=id;if(refocus)lastFocus=document.activeElement;
+  $('#sheet').style.setProperty('--tc',`var(--${{f:'film',s:'serie',l:'livre',j:'jeu'}[w.t]})`);
+  $('#sheet').style.setProperty('--tci',w.t==='f'?'#18213A':'#fff');
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
   const deal=pickDeal&&!done;pickDeal=false;
@@ -856,7 +890,7 @@ function closeSheet(){if(!sheetId)return;sheetId=null;$('#scrim').classList.remo
 const MAN={title:'',t:'',note:'',to:new Set(),err:''};
 function openManual(title=''){
   MAN.title=title;MAN.t=F.types.size===1?[...F.types][0]:'';MAN.note='';MAN.to=new Set();MAN.err='';
-  lastFocus=document.activeElement;sheetId='__manual';closeAC();renderManual();
+  lastFocus=document.activeElement;sheetId='__manual';$('#sheet').style.setProperty('--tc','var(--line)');closeAC();renderManual();
   $('#scrim').classList.add('open');$('#sheet').classList.add('open');
   setTimeout(()=>$(MAN.title?'#mNote':'#mTitle')?.focus(),60);
 }
