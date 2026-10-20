@@ -239,36 +239,26 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .rar b{color:var(--ink);font-size:17px}
 .rar .rg{width:14px;height:17px}
 
-/* grille de cartes */
-.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}
-@media (min-width:480px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
-.card{position:relative;display:block;width:100%;aspect-ratio:5/7;container-type:inline-size;color:var(--card-ink);text-align:center;filter:drop-shadow(0 6px 6px rgba(10,15,35,.28))}
-.card .frame{position:absolute;inset:0;border-radius:9cqw 9cqw 7cqw 7cqw;
-  background:radial-gradient(90% 60% at 50% 22%,rgba(255,255,255,.3),transparent 70%),linear-gradient(165deg,color-mix(in srgb,var(--tc) 60%,#fff),var(--tc) 42%,color-mix(in srgb,var(--tc) 60%,#000));
-  box-shadow:inset 0 0 0 1.4cqw var(--gold),inset 0 0 0 2.4cqw rgba(0,0,0,.18)}
+/* grille de cartes : l'image de l'œuvre, un contour à la couleur de la rareté */
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 12px}
+@media (min-width:520px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cards button{border:0;background:none;padding:0;text-align:left;color:inherit;min-width:0}
+.card{position:relative;display:block;width:100%;aspect-ratio:2/3;border-radius:12px;overflow:hidden;background:var(--tc,var(--surface2));
+  border:3px solid var(--rc,var(--line));box-shadow:0 6px 14px rgba(10,15,35,.18)}
 .card.t-f{--tc:var(--film)}.card.t-s{--tc:var(--serie)}.card.t-l{--tc:var(--livre)}.card.t-j{--tc:var(--jeu)}
-.card .art{position:absolute;left:12%;right:12%;top:7%;height:51%;overflow:hidden;background:#151A2B;border-radius:50% 50% 14% 14%/40% 40% 10% 10%;border:1.4cqw solid var(--gold);box-shadow:inset 0 0 6cqw rgba(0,0,0,.5)}
-.card .art img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1}
-.card .art .noimg{position:absolute;inset:0;display:grid;place-items:center;padding:12%;font-weight:800;font-size:9cqw;color:#fff;line-height:1.05}
-.card .tg{position:absolute;left:-2%;top:-1%;width:20%;aspect-ratio:1;display:grid;place-items:center;transform:rotate(45deg);border-radius:2cqw;
-  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),transparent 50%),var(--tc);box-shadow:inset 0 0 0 1.1cqw var(--gold),0 1cqw 2cqw rgba(0,0,0,.3)}
-.card .tg svg{width:56%;height:56%;transform:rotate(-45deg);color:#fff}
-.card .banner{position:absolute;left:5%;right:5%;top:54%;height:12%;display:grid;place-items:center;padding:0 11%;background:linear-gradient(#262E4A,#161B2E);color:#fff;
-  font-weight:800;font-size:8cqw;line-height:1;font-variation-settings:"wdth" 78;clip-path:polygon(0 20%,7% 0,93% 0,100% 20%,95% 50%,100% 80%,93% 100%,7% 100%,0 80%,5% 50%)}
-.card .banner span{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.card .rgem{position:absolute;left:50%;top:66.5%;width:10cqw;height:12cqw;transform:translateX(-50%);clip-path:polygon(50% 0,100% 40%,50% 100%,0 40%);
-  background:radial-gradient(circle at 40% 30%,rgba(255,255,255,.75),transparent 50%),var(--rc,var(--r1))}
-.card .desc{position:absolute;left:11%;right:11%;top:76%;bottom:7%;display:grid;place-items:center;padding:0 4%;font-size:6.4cqw;line-height:1.15;font-weight:600;background:#fff;border-radius:3cqw;overflow:hidden}
-.card.r3 .frame{box-shadow:inset 0 0 0 1.4cqw var(--gold),inset 0 0 0 2.4cqw rgba(0,0,0,.18),0 0 5cqw rgba(155,75,224,.5)}
-.card.r4::before{content:"";position:absolute;z-index:2;left:50%;top:-6%;width:50%;height:14%;transform:translateX(-50%);background:radial-gradient(circle at 50% 70%,var(--gold-l),var(--gold) 45%,var(--gold-d));
-  clip-path:polygon(50% 0,58% 35%,78% 10%,74% 45%,100% 30%,86% 70%,60% 100%,40% 100%,14% 70%,0 30%,26% 45%,22% 10%,42% 35%)}
-.card.r4 .frame{animation:legend 3.2s ease-in-out infinite}
-@keyframes legend{0%,100%{box-shadow:inset 0 0 0 1.4cqw var(--gold),inset 0 0 0 2.4cqw rgba(0,0,0,.18),0 0 4cqw rgba(240,138,18,.45)}50%{box-shadow:inset 0 0 0 1.4cqw var(--gold-l),inset 0 0 0 2.4cqw rgba(0,0,0,.18),0 0 9cqw rgba(240,138,18,.9)}}
-.card.ghost{filter:grayscale(1) opacity(.7)}
+.card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.card .ph{position:absolute;inset:0;display:flex;align-items:flex-end;padding:10%;color:#fff;font-weight:800;font-size:14px;line-height:1.1}
+.card.t-f .ph{color:#18213A}
+.card .rgem{position:absolute;right:6px;top:6px;width:13px;height:16px;clip-path:polygon(50% 0,100% 40%,50% 100%,0 40%);background:radial-gradient(circle at 40% 30%,rgba(255,255,255,.8),transparent 55%),var(--rc);filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)}
+.card.r4{box-shadow:0 6px 14px rgba(10,15,35,.18),0 0 14px rgba(240,138,18,.45)}
+.card.r3{box-shadow:0 6px 14px rgba(10,15,35,.18),0 0 10px rgba(155,75,224,.3)}
+.card.ghost{border-color:var(--line)}
 .card.new{animation:pop .7s cubic-bezier(.2,1.5,.4,1)}
 @keyframes pop{from{transform:scale(.6) rotate(-6deg);opacity:0}}
-.cards button{border:0;background:none;padding:0}
-.sh-top .card{width:116px;flex:none}
+.cards .gt{font-size:13px;font-weight:700;line-height:1.2;margin-top:6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cards .gm{font-size:12px;color:var(--muted)}
+.sh-top .card{width:96px;flex:none}
+.reveal .flip .card{border-width:4px}
 
 /* dos de carte */
 .cardback{position:relative;aspect-ratio:5/7;border-radius:10px;
@@ -330,6 +320,33 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 .forwho::after{content:"";position:absolute;right:12px;top:50%;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-70%) rotate(45deg);pointer-events:none}
 .forwho.on{background:var(--act);color:var(--act-ink);border-color:var(--act)}
 .forwho .lbl{color:inherit;opacity:.7;font-weight:600}
+.btn.icon{display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;flex:0 0 auto}
+.btn.icon.saved{background:var(--serie);color:#fff}
+.sh-acts .btn.icon{flex:0 0 auto;padding:12px 15px}
+.bdg.bm{display:inline-flex;align-items:center;gap:4px;padding:2px 7px}
+.bdg.bm svg{width:12px;height:12px}
+.chip svg{width:16px;height:16px}
+.hero{position:relative;overflow:hidden;background:var(--surface);border-radius:var(--r-lg);padding:26px 20px 22px;text-align:center}
+.hero::before{content:"";position:absolute;inset:-40% -20% auto;height:90%;pointer-events:none;opacity:.22;
+  background:radial-gradient(circle at 15% 60%,var(--film),transparent 35%),radial-gradient(circle at 40% 30%,var(--serie),transparent 35%),radial-gradient(circle at 65% 60%,var(--livre),transparent 35%),radial-gradient(circle at 88% 35%,var(--jeu),transparent 35%)}
+.hero>*{position:relative}
+.fan{display:flex;justify-content:center;height:100px;margin:2px 0 16px}
+.fan span{width:58px;height:84px;border-radius:10px;display:grid;place-items:center;color:#fff;margin:0 -7px;border:3px solid var(--surface);box-shadow:0 10px 18px rgba(10,15,35,.22);animation:deal .7s cubic-bezier(.2,1.3,.4,1) both}
+.fan svg{width:28px;height:28px}
+.fan .t-f{background:var(--film);color:#18213A;--rot:-14deg;--y:12px}.fan .t-s{background:var(--serie);--rot:-5deg;--y:0px;animation-delay:.08s}
+.fan .t-l{background:var(--livre);--rot:5deg;--y:0px;animation-delay:.16s}.fan .t-j{background:var(--jeu);--rot:14deg;--y:12px;animation-delay:.24s}
+.fan span{transform:rotate(var(--rot)) translateY(var(--y))}
+@keyframes deal{from{transform:translateY(40px) rotate(0);opacity:0}}
+.hero .ht{font-size:25px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variation-settings:"wdth" 88}
+.hero p{color:var(--muted);margin:8px auto 0;max-width:34ch}
+.fakeq{width:100%;height:58px;margin-top:18px;border:2px solid var(--ink);border-radius:var(--r-lg);background:var(--surface);display:flex;align-items:center;gap:12px;padding:0 18px;font-size:17px;font-weight:600;color:var(--muted);box-shadow:0 4px 0 var(--ink);text-align:left}
+.fakeq svg{color:var(--ink);flex:none}
+.fakeq:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.tries{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}
+.tries .chip{font-size:14px;padding:6px 12px}
+.hero .links{margin-top:16px;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;white-space:nowrap;font-size:14px;color:var(--muted)}
+.hero .links button{border:0;background:none;padding:2px;color:var(--ink);font-weight:650;text-decoration:underline;text-underline-offset:3px}
+@media (prefers-reduced-motion:reduce){.fan span{animation:none}}
 </style>
 </head>
 <body>
@@ -469,11 +486,10 @@ const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
 const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'');
 const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('has-img');this.remove()">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
 function card(w,r=0,cls=''){
-  return `<span class="card t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="frame"></span>
-    <span class="art"><span class="noimg">${esc(short(w.ti))}</span>${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="position:relative;z-index:1" onerror="this.remove()">`:''}</span>
-    <span class="tg">${ICON[w.t]||''}</span><span class="banner"><span>${esc(w.ti)}</span></span>${r?'<span class="rgem"></span>':''}
-    <span class="desc">${esc([w.c,w.y].filter(Boolean).join(', ')||T[w.t]?.n||'')}</span></span>`;
+  return `<span class="card t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="ph">${esc(short(w.ti))}</span>${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}${r?'<span class="rgem"></span>':''}</span>`;
 }
+const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
+const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
 const rarityTag=r=>`<span class="bdg rar r${r}">${gem(r)}<span class="rname r${r}">${RAR[r].n}</span></span>`;
 const metaLine=w=>[T[w.t]?.n,w.y,w.c].filter(Boolean).map(esc).join(', ');
@@ -529,8 +545,8 @@ function renderResults(){
   ul.innerHTML=list.map(w=>{
     const n=new Set(recsAbout(w.id).map(r=>r.from_id)).size,b=[];
     if(isDone(w.id))b.push(rarityTag(rateOf(w.id)));
-    if(isWant(w.id))b.push(`<span class="bdg">Plus tard</span>`);
-    if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec">Dans la liste de ${esc(who)}</span>`);
+    if(isWant(w.id))b.push(`<span class="bdg bm" title="Dans ta liste">${BM(true)}</span>`);
+    if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec bm">${BM(true)}${esc(who)}</span>`);
     if(n)b.push(`<span class="bdg rec">Conseillé par ${n} ami${n>1?'s':''}</span>`);
     return `<li><button data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${hl(w.ti,q)}</span><br><span class="meta">${metaLine(w)}</span>${b.length?`<span class="badges">${b.join('')}</span>`:''}</span></button></li>`}).join('');
   $('#resMore').innerHTML=(SR.loading?'<p class="loading">Chargement…</p>':(!localMode()&&SR.moreT.size?'<button class="btn more" data-more>Voir plus d’œuvres</button>':''))+
@@ -607,11 +623,18 @@ function renderFeed(){
   if(feedMode==='sent')ev=ev.filter(e=>e.who===uid);
   ev.sort((a,b)=>b.ts-a.ts);
   const el=$('#feed');
-  if(!ev.length){el.innerHTML=feedMode==='all'?`<div class="empty"><b>Ton fil est encore vide.</b>Recommande une œuvre que tu as aimée, puis invite tes amis avec ton code (onglet Collection).<br><button class="btn pri" data-tab="search">Trouver une œuvre</button> <button class="btn" data-manual="">Envoyer à la main</button></div>`:`<div class="empty"><b>${feedMode==='me'?'Personne ne t’a encore recommandé d’œuvre en direct.':'Tu n’as encore rien recommandé.'}</b></div>`;return}
+  if(!ev.length){el.innerHTML=feedMode==='all'?`<div class="hero">
+    <div class="fan" aria-hidden="true">${['f','s','l','j'].map(t=>`<span class="t-${t}">${ICON[t]}</span>`).join('')}</div>
+    <div class="ht">Qu’est-ce qui t’a marqué récemment ?</div>
+    <p>Un film, une série, un livre, un jeu : recommande-le à tes amis. Leurs conseils apparaîtront ici.</p>
+    <button class="fakeq" data-gosearch><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cherche une œuvre…</button>
+    <div class="tries">${[['Dune','l'],['Breaking Bad','s'],['Interstellar','f'],['Zelda','j']].map(([q,t])=>`<button class="chip" data-try="${q}"><span class="tm t-${t}"></span>${q}</button>`).join('')}</div>
+    <div class="links"><button data-gocoll>Inviter des amis</button><span aria-hidden="true">·</span><button data-manual="">Ajouter à la main</button></div>
+  </div>`:`<div class="empty"><b>${feedMode==='me'?'Personne ne t’a encore recommandé d’œuvre en direct.':'Tu n’as encore rien recommandé.'}</b></div>`;return}
   el.innerHTML=ev.slice(0,80).map(e=>{
     const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who);
     const line=e.k==='rec'?recLine(e.r):`<b>${esc(nameOf(e.who))}</b> ${T[w.t].did} et en fait une carte <span class="rname r${r}">${RAR[r].n}</span>`;
-    const acts=me?'':`<div class="acts"><button class="btn ${isWant(w.id)?'on':''}" data-want="${esc(w.id)}">${isWant(w.id)?'Dans ma liste':'Plus tard'}</button><button class="btn ${isDone(w.id)?'on':'pri'}" data-quickdone="${esc(w.id)}">${isDone(w.id)?T[w.t].done+' ✓':T[w.t].act}</button></div>`;
+    const acts=me?'':`<div class="acts">${wantBtn(w.id)}<button class="btn ${isDone(w.id)?'on':'pri'}" data-quickdone="${esc(w.id)}">${isDone(w.id)?T[w.t].done+' ✓':T[w.t].act}</button></div>`;
     const badge=e.k==='rec'&&r?`<span class="badges">${rarityTag(r)}</span>`:'';
     return `<article class="ev"><div class="who">${avatar(e.who)}<span>${line}<br>${ago(e.ts)}</span>${me&&e.k==='rec'?`<button class="del" data-delrec="${esc(e.r.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
       <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${badge}</span></button>
@@ -637,8 +660,8 @@ function renderColl(){
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
   $('#bookmarks').innerHTML=chip(`Tout <span class="n">${n}</span>`,!collType,'data-ctype=""','chip')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p} <span class="n">${per[k]}</span>`,collType===k,`data-ctype="${k}"`,'chip')).join('');
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"');
-  $('#collList').innerHTML=chip('Cartes obtenues',collList==='done','data-clist="done"')+(isMe?chip(`Plus tard (${Object.keys(mine.want).length})`,collList==='want','data-clist="want"'):'');
-  $('#collTitle').textContent=collList==='want'?'À découvrir':collView==='shelf'?'L’étagère':'Mes cartes';
+  $('#collList').innerHTML=chip('Cartes obtenues',collList==='done','data-clist="done"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-clist="want" aria-label="Ma liste pour plus tard"'):'');
+  $('#collTitle').textContent=collList==='want'?'Ma liste':collView==='shelf'?'L’étagère':'Mes cartes';
   $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0"><span class="all">∗</span>Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${gem(r)}${RAR[r].n}</button>`).join('');
   const q=norm($('#collQ').value);
   let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
@@ -646,10 +669,10 @@ function renderColl(){
   const sh=$('#shelf'),raw=$('#collQ').value.trim();
   if(!items.length){
     sh.innerHTML=raw?`<div style="text-align:center;padding:10px 0"><p class="meta">Aucune carte de ce nom ici.</p><button class="btn pri" data-searchall>Chercher « ${esc(raw)} » dans toutes les œuvres</button></div>`:
-      `<div style="text-align:center;padding:14px 0"><div class="cardback" style="width:90px;margin:0 auto 12px"></div><p class="meta" style="margin:0">${collList==='want'?'Ajoute des œuvres à voir plus tard depuis la recherche.':isMe?'Chaque œuvre terminée devient une carte de ta collection.':'Aucune carte pour l’instant.'}</p></div>`;
+      `<div style="text-align:center;padding:14px 0"><div class="cardback" style="width:90px;margin:0 auto 12px"></div><p class="meta" style="margin:0">${collList==='want'?'Touche le signet d’une œuvre pour la garder ici.':isMe?'Chaque œuvre terminée devient une carte de ta collection.':'Aucune carte pour l’instant.'}</p></div>`;
   }else if(collView==='book'){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
-    sh.innerHTML=`<div class="cards">${items.map(({w,r})=>`<button data-open="${esc(w.id)}" style="border:0;background:none;padding:0" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}</button>`).join('')}</div>`;
+    sh.innerHTML=`<div class="cards">${items.map(({w,r})=>`<button data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`;
   }else{
     items.sort((a,b)=>a.ts-b.ts);
     const rows=[];for(let i=0;i<items.length;i+=10)rows.push(items.slice(i,i+10));
@@ -668,7 +691,7 @@ function openSheet(id,refocus=true,opts={}){
   sheetId=id;if(refocus)lastFocus=document.activeElement;
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
-  const pick=done||pickOpen?`<div class="pick"><p>${done?'Rareté de ta carte':'Quelle rareté pour cette carte ?'}</p><div class="opts">${[1,2,3,4].map(n=>`<button class="r${n}" aria-pressed="${r===n}" data-rate="${n}">${gem(n)}${RAR[n].n}<small>${RAR[n].s}</small></button>`).join('')}</div></div>`:'';
+  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="opts">${[1,2,3,4].map(n=>`<button class="r${n}" aria-pressed="${r===n}" data-rate="${n}">${gem(n)}${RAR[n].s}<small>${RAR[n].n}</small></button>`).join('')}</div></div>`:'';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
     <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span><h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -676,7 +699,7 @@ function openSheet(id,refocus=true,opts={}){
     ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></button>`).join('')}</div>`:''}
     <div class="sh-acts">
       <button class="btn ${done?'on':'pri'}" data-done="${esc(id)}">${done?T[w.t].done+' ✓':T[w.t].act}</button>
-      <button class="btn ${isWant(id)?'on':''}" data-want="${esc(id)}">${isWant(id)?'Dans ma liste':'Plus tard'}</button>
+      ${wantBtn(id)}
       <button class="btn" id="recBtn" aria-expanded="${recOpen}">Recommander</button>
     </div>
     ${pick}
@@ -693,7 +716,7 @@ function openSheet(id,refocus=true,opts={}){
   $('#scrim').classList.add('open');$('#sheet').classList.add('open');
   if(refocus)setTimeout(()=>$('#sheet').querySelector(pickOpen&&!done?'[data-rate]':'button[data-done]')?.focus(),50);
   if(!w.full&&detailsLoading!==id){detailsLoading=id;
-    api('work',{id}).then(x=>{reg({...x,full:true});if(mine.works[id]){mine.works[id]=snap(WK[id]);save()}})
+    api('work',{id}).then(x=>{reg({...x,id,full:true});if(mine.works[id]){mine.works[id]=snap(WK[id]);save()}})
       .catch(()=>{WK[id].full=true})
       .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
   }
@@ -807,6 +830,9 @@ document.addEventListener('click',e=>{
   if(d.i!==undefined&&b.classList.contains('opt')){pickAC(+d.i);return}
   if(d.tab!==undefined){closeSheet();setTab(d.tab);return}
   if(d.gal!==undefined){openGallery(+d.gal);return}
+  if('gosearch' in d){setTab('search');return}
+  if(d.try){$('#q').value=d.try;setTab('search');setTimeout(()=>{$('#q').focus();onQuery()},40);return}
+  if('gocoll' in d){collWho=uid;setTab('coll');setTimeout(()=>$('#account')?.scrollIntoView({behavior:'smooth'}),60);return}
   if(d.manual!==undefined){openManual(d.manual||$('#q').value.trim());return}
   if(d.mtype){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;MAN.t=d.mtype;MAN.err='';renderManual();return}
   if(d.mto!==undefined){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;if(!d.mto)MAN.to.clear();else MAN.to.has(d.mto)?MAN.to.delete(d.mto):MAN.to.add(d.mto);renderManual();return}
