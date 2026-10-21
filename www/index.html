@@ -812,6 +812,66 @@ nav.tabs button{position:relative}
 .gfoot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-family:Georgia,serif;font-size:13px;color:#7A6446}
 .gfoot button{width:40px;height:40px;border-radius:50%;border:0;background:rgba(122,100,70,.16);color:#3A2A18;font-size:22px;line-height:1}
 .gfoot button:disabled{opacity:.3}
+/* ===== raretés : plaques gravées (sans étoiles) ===== */
+.rtag{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:5px;font-family:var(--rfont);font-weight:800;font-size:10.5px;letter-spacing:.12em;color:#fff;
+  background:var(--rf);text-shadow:0 1px 1px rgba(0,0,0,.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.2),0 3px 8px -4px var(--rc)}
+.rtag::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 6px 1px rgba(255,255,255,.9)}
+.rtag.r3{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.2),0 0 10px -1px var(--rc)}
+.rtag.r4{box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -2px 0 rgba(0,0,0,.2),0 0 14px -1px var(--rc)}
+.rtag.r4::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.6) 50%,transparent 65%);transform:translateX(-120%);animation:rshine 3s ease-in-out infinite}
+@keyframes rshine{60%,100%{transform:translateX(120%)}}
+.gfilter button{border-radius:6px;font-size:10.5px;letter-spacing:.1em;border:1.5px solid color-mix(in srgb,var(--rc,var(--line)) 55%,transparent);color:var(--ink)}
+.gfilter .gf-all{border-color:var(--line);letter-spacing:0}
+.gfilter button[aria-pressed="true"]{background:var(--rf,var(--act));color:#fff;border-color:transparent;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.2)}
+.pface small{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.14em}
+.pface small::before,.pface small::after{content:"";width:10px;height:1.5px;background:currentColor;opacity:.6}
+.reveal .cap .rname{font-size:30px;letter-spacing:.14em;display:flex;align-items:center;justify-content:center;gap:12px}
+.reveal .cap .rname::before,.reveal .cap .rname::after{content:"";width:36px;height:2px;background:var(--rf);-webkit-background-clip:border-box;background-clip:border-box}
+@media (prefers-reduced-motion:reduce){.rtag.r4::after{animation:none}}
+/* ===== bouton « Mon grimoire » ===== */
+.gclosed{position:relative;display:block;width:100%;height:92px;margin:0 0 20px;border:0;padding:0 12px 0 0;background:none;perspective:900px;cursor:pointer}
+.gclosed::before{content:"";position:absolute;right:4px;top:6px;bottom:5px;width:16px;border-radius:0 6px 6px 0;background:repeating-linear-gradient(#F4EBD6 0 2px,#D8C8A0 2px 3px);box-shadow:inset -2px 0 3px rgba(0,0,0,.15)}
+.gcv{position:absolute;inset:0 12px 0 0;display:flex;align-items:center;justify-content:center;gap:14px;border-radius:5px 12px 12px 5px;transform-origin:left center;transition:transform .35s cubic-bezier(.3,.8,.2,1);
+  background:
+    linear-gradient(135deg,#E8C46A 0 13px,transparent 13px) top left/40px 40px no-repeat,
+    linear-gradient(225deg,#E8C46A 0 13px,transparent 13px) top right/40px 40px no-repeat,
+    linear-gradient(45deg,#E8C46A 0 13px,transparent 13px) bottom left/40px 40px no-repeat,
+    linear-gradient(315deg,#E8C46A 0 13px,transparent 13px) bottom right/40px 40px no-repeat,
+    radial-gradient(90% 120% at 50% 40%,rgba(255,255,255,.1),transparent 70%),
+    repeating-radial-gradient(circle at 30% 40%,rgba(0,0,0,.05) 0 2px,transparent 2px 5px),
+    linear-gradient(135deg,#7E4E2E,#4B2B17);
+  box-shadow:inset 14px 0 0 rgba(0,0,0,.28),inset 16px 0 0 rgba(232,196,106,.35),inset 0 0 0 5px #5A361F,inset 0 0 0 6.5px rgba(232,196,106,.7),0 14px 26px -14px rgba(40,20,5,.75)}
+.gclosed:hover .gcv,.gclosed:focus-visible .gcv{transform:rotateY(-14deg)}
+.gcv-t{font-family:var(--rfont);font-weight:800;font-size:22px;letter-spacing:.1em;color:#E8C46A;text-shadow:0 1px 0 rgba(0,0,0,.55),0 -1px 0 rgba(255,236,190,.25)}
+.gcv-em{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;font-family:var(--rfont);font-weight:800;font-size:14px;color:#4B2B17;background:radial-gradient(circle at 35% 30%,#FFE6A6,#E8C46A 55%,#B88A2E);box-shadow:0 0 0 3px #5A361F,0 0 0 4.5px rgba(232,196,106,.7)}
+/* ===== intérieur du grimoire ===== */
+.gtab{background:color-mix(in srgb,var(--tc) 82%,#000);color:var(--tci);opacity:.92;transform:translateY(7px)}
+.gtab[aria-pressed="true"]{background:var(--tc);color:var(--tci);opacity:1;transform:none}
+.gbook{background:
+    linear-gradient(135deg,#E8C46A 0 12px,transparent 12px) top left/34px 34px no-repeat,
+    linear-gradient(225deg,#E8C46A 0 12px,transparent 12px) top right/34px 34px no-repeat,
+    linear-gradient(45deg,#E8C46A 0 12px,transparent 12px) bottom left/34px 34px no-repeat,
+    linear-gradient(315deg,#E8C46A 0 12px,transparent 12px) bottom right/34px 34px no-repeat,
+    repeating-radial-gradient(circle at 30% 40%,rgba(0,0,0,.05) 0 2px,transparent 2px 5px),linear-gradient(135deg,#6B4429,#4E2F1B);
+  border-top:4px solid var(--tc);padding:14px}
+.gclasp{position:absolute;right:-6px;top:50%;width:16px;height:46px;transform:translateY(-50%);border-radius:4px;background:linear-gradient(90deg,#B88A2E,#FFE6A6 45%,#B88A2E);box-shadow:0 2px 4px rgba(0,0,0,.4);z-index:4}
+.gpage{background:linear-gradient(90deg,rgba(90,60,25,.24),transparent 7%),radial-gradient(130% 100% at 60% 30%,#FBF4E2,#E9D9B4);
+  box-shadow:inset 0 0 26px rgba(120,80,30,.28),0 0 0 1px rgba(90,60,25,.25);border-radius:4px 8px 8px 4px}
+.gpage::before{content:"";position:absolute;top:-6px;right:28px;width:16px;height:46px;background:var(--tc);clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%);box-shadow:0 2px 3px rgba(0,0,0,.25);z-index:1}
+.ghead{color:color-mix(in srgb,var(--tc) 70%,#2B1B10);margin-bottom:4px;padding-right:46px}
+.gorn{position:relative;height:12px;margin:0 0 12px}
+.gorn::before{content:"";position:absolute;left:0;right:0;top:50%;height:1.5px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--tc) 70%,#7A6446),transparent)}
+.gorn i{position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:var(--tc);box-shadow:0 0 0 3px #F4EAD2}
+.gslot{border-color:color-mix(in srgb,var(--tc) 45%,transparent);background:color-mix(in srgb,var(--tc) 6%,transparent)}
+.gfoot span{font-family:var(--rfont);font-weight:700;letter-spacing:.1em;color:color-mix(in srgb,var(--tc) 60%,#5A4630)}
+.gfoot button{background:color-mix(in srgb,var(--tc) 22%,transparent);color:#3A2A18}
+.gcards .card{box-shadow:0 6px 12px -6px rgba(60,35,10,.5)}
+/* ===== défis : jaquettes en couleur ===== */
+.chw .card{opacity:1;border-color:var(--tc)}
+.evc-w button{opacity:1}
+.evc-w .cover{box-shadow:0 0 0 2px var(--tc)}
+.evc-w button.ok{position:relative}
+.evc-w button.ok::after{content:"✓";position:absolute;right:-4px;top:-4px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--act);color:var(--act-ink)}
 </style>
 </head>
 <body>
@@ -970,8 +1030,7 @@ const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tg
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
-const STARS=r=>'★'.repeat(r)+'<i>'+'★'.repeat(4-r)+'</i>';
-const rarityTag=r=>`<span class="rtag r${r}"><span class="rst">${STARS(r)}</span>${RAR[r].n}</span>`;
+const rarityTag=r=>`<span class="rtag r${r}">${RAR[r].n}</span>`;
 const metaLine=w=>[T[w.t]?.n,w.y,w.c].filter(Boolean).map(esc).join(', ');
 const isDone=(id,who=uid)=>!!dataOf(who).done?.[id];
 const isWant=id=>!!mine.want?.[id];
@@ -1337,7 +1396,8 @@ function renderColl(){
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
   $('#collTitle').textContent=collList==='want'?'Mes signets':collView==='shelf'?'L’étagère':'Mes cartes';
-  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0" class="gf-all">Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}"><span class="rst">${STARS(r)}</span>${RAR[r].n}</button>`).join('');
+  $('#collQ').placeholder=collView==='shelf'&&collList!=='want'?'T’as pas vu ma cassette !?':'Fouiner dans mon grimoire';
+  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0" class="gf-all">Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${RAR[r].n}</button>`).join('');
   const q=norm($('#collQ').value);
   let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
   items=items.filter(x=>(!collType||x.w.t===collType)&&(!collRar||x.r===collRar)&&(!q||norm(x.w.ti+' '+(x.w.c||'')+' '+(x.w.g||[]).join(' ')).includes(q)));
@@ -1377,8 +1437,7 @@ function shelfHTML(items,max,expand){
   return `<div class="case${expand?' zoomable':''}"${expand?' data-fsshelf':''}>${expand?'<button class="case-zoom" data-fsshelf aria-label="Ouvrir l’étagère en plein écran"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>':''}${html}</div>`;
 }
 function grimClosedHTML(n){
-  return `<button class="gclosed" data-grim aria-label="Ouvrir mon grimoire"><span class="gbk" aria-hidden="true"><span class="gbk-c"><span class="gbk-t">Grimoire</span><span class="gbk-o"></span></span></span>
-    <span class="gcl-t"><b>Mon grimoire</b><span>Feuillette tes ${n} carte${n>1?'s':''} page par page</span></span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>`;
+  return `<button class="gclosed" data-grim aria-label="Ouvrir mon grimoire (${n} carte${n>1?'s':''})"><span class="gcv"><span class="gcv-em" aria-hidden="true">${n}</span><span class="gcv-t">Mon grimoire</span></span></button>`;
 }
 const G={type:'f',page:0};
 const gPer=()=>innerWidth>=700?8:9;
@@ -1386,17 +1445,17 @@ const gList=()=>COLL.items.filter(x=>x.w.t===G.type);
 const gPages=()=>Math.max(1,Math.ceil(gList().length/gPer()));
 function gPageHTML(p=G.page){
   const list=gList(),pp=gPer(),slice=list.slice(p*pp,p*pp+pp),n=gPages();
-  return `<div class="ghead"><span>${T[G.type].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div>
+  return `<div class="ghead"><span>${T[G.type].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div><div class="gorn" aria-hidden="true"><i></i></div>
     ${list.length?`<div class="gcards">${slice.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"></span>'.repeat(Math.max(0,pp-slice.length))}</div>`
       :`<div class="gempty"><div class="cardback"></div><p>Aucune carte ici… pour l’instant.</p></div>`}
-    <div class="gfoot"><button data-gturn="-1" aria-label="Page précédente" ${p<=0?'disabled':''}>‹</button><span>Page ${p+1} / ${n}</span><button data-gturn="1" aria-label="Page suivante" ${p>=n-1?'disabled':''}>›</button></div>`;
+    <div class="gfoot"><button data-gturn="-1" aria-label="Page précédente" ${p<=0?'disabled':''}>‹</button><span>${p+1} / ${n}</span><button data-gturn="1" aria-label="Page suivante" ${p>=n-1?'disabled':''}>›</button></div>`;
 }
 function grimHTML(){
   const cnt=t=>COLL.items.filter(x=>x.w.t===t).length;
   if(!cnt(G.type)){const t=TYPE_ORDER.find(cnt);if(t)G.type=t}
   G.page=Math.min(G.page,gPages()-1);
   return `<div class="grim"><div class="gtabs">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" aria-pressed="${G.type===t}" data-gtab="${t}">${T[t].p}<b>${cnt(t)}</b></button>`).join('')}</div>
-    <div class="gbook" id="gbook"><div class="gpage" id="gpage">${gPageHTML()}</div></div></div>`;
+    <div class="gbook" id="gbook" style="--tc:var(--${{f:'film',s:'serie',l:'livre',j:'jeu'}[G.type]});--tci:${G.type==='f'?'#18213A':'#fff'}"><span class="gclasp" aria-hidden="true"></span><div class="gpage" id="gpage">${gPageHTML()}</div></div></div>`;
 }
 function turnPage(dir){
   const np=G.page+dir,book=$('#gbook'),pg=$('#gpage');
@@ -1449,7 +1508,7 @@ function openSheet(id,refocus=true,opts={}){
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
   const deal=pickDeal&&!done;pickDeal=false;
-  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${[1,2,3,4].map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pst">${STARS(n)}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
+  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${[1,2,3,4].map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
     <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span><h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -1585,7 +1644,7 @@ function reveal(id){
   const w=WK[id],r=rateOf(id),el=$('#reveal');
   el.style.setProperty('--rc',`var(--r${r})`);
   el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,r)}<div class="cardback"></div></div><div class="burst"></div>
-    <div class="cap"><span class="cst">${STARS(r)}</span><span class="rname">${RAR[r].n}</span>${esc(RAR[r].s)}</div><div class="tap">Direction ta collection…</div></div>`;
+    <div class="cap"><span class="rname">${RAR[r].n}</span>${esc(RAR[r].s)}</div><div class="tap">Direction ta collection…</div></div>`;
   el.classList.add('open');el.focus();revealId=id;
   clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),2600);
 }
