@@ -3,3 +3,4 @@ server/api/config.php
 ios/App/Pods/
 android/.gradle/
 android/app/build/
+server/api/.schema-v2

@@ -89,3 +89,24 @@ function cache_set(string $k, $v, int $ttl): void {
   q('REPLACE INTO cache (k, v, exp) VALUES (?, ?, ?)', [hash('sha256', $k), json_encode($v, JSON_UNESCAPED_UNICODE), time() + $ttl]);
   if (random_int(1, 200) === 1) q('DELETE FROM cache WHERE exp < ?', [time()]);
 }
+
+/* ---------- Mise à niveau automatique du schéma (défis, commentaires) ---------- */
+function ensure_schema(): void {
+  static $done = false;
+  if ($done) return;
+  $done = true;
+  $flag = __DIR__ . '/.schema-v2';
+  if (is_file($flag)) return;
+  db()->exec("CREATE TABLE IF NOT EXISTS challenges (
+    id CHAR(36) PRIMARY KEY, from_id CHAR(36) NOT NULL, to_id CHAR(36) NOT NULL, works TEXT NOT NULL, note VARCHAR(280) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, deadline DATETIME NOT NULL, INDEX (from_id), INDEX (to_id),
+    FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (to_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  db()->exec("CREATE TABLE IF NOT EXISTS comments (
+    id CHAR(36) PRIMARY KEY, rec_id CHAR(36) NOT NULL, from_id CHAR(36) NOT NULL, text VARCHAR(500) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX (rec_id),
+    FOREIGN KEY (rec_id) REFERENCES recs(id) ON DELETE CASCADE, FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  @file_put_contents($flag, date('c'));
+}
+

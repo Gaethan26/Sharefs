@@ -24,7 +24,7 @@ Mises à jour suivantes : `git push`, puis dans cPanel > Git Version Control : U
 
 ## Mise à jour : défis et commentaires
 
-Une seule fois, dans phpMyAdmin : sélectionner la base > Importer > `server/migration-002-defis-commentaires.sql`.
+Les tables des défis et des commentaires sont créées automatiquement par l'API au premier appel. Le fichier `server/migration-002-defis-commentaires.sql` reste disponible pour une installation manuelle.
 
 ## Catalogue (clés dans `api/config.php`)
 

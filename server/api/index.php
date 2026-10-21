@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $M = $_SERVER['REQUEST_METHOD'];
 $path = trim((string) preg_replace('#^.*?/api(/|$)#', '', (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)), '/');
 
+if (preg_match('#^(state|challenges|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
+
 const EMAIL_RE = '/^[^\s@]+@[^\s@]+\.[^\s@]+$/';
 
 function mates(string $uid): array {
