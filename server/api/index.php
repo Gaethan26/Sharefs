@@ -22,6 +22,18 @@ function rec_out(array $r): array {
   return ['id' => $r['id'], 'from_id' => $r['from_id'], 'to_ids' => $r['to_ids'] ? explode(',', $r['to_ids']) : [],
     'work' => json_decode($r['work']), 'note' => $r['note'], 'created_at' => iso($r['created_at'])];
 }
+function chal_out(array $c): array {
+  return ['id' => $c['id'], 'from_id' => $c['from_id'], 'to_id' => $c['to_id'], 'works' => json_decode($c['works']), 'note' => $c['note'],
+    'created_at' => iso($c['created_at']), 'deadline' => iso($c['deadline'])];
+}
+function visible_rec(string $uid, string $recId): bool {
+  $r = q('SELECT from_id, (SELECT GROUP_CONCAT(user_id) FROM rec_targets WHERE rec_id = recs.id) AS t FROM recs WHERE id = ?', [$recId])->fetch();
+  if (!$r) return false;
+  if ($r['from_id'] === $uid) return true;
+  $to = $r['t'] ? explode(',', $r['t']) : [];
+  if ($to) return in_array($uid, $to, true);
+  return in_array($r['from_id'], mates($uid), true);
+}
 function login_out(string $uid): void {
   $u = q('SELECT id, name, data FROM users WHERE id = ?', [$uid])->fetch();
   out(['token' => new_session($uid), 'user' => user_out($u)]);
@@ -117,7 +129,15 @@ try {
            OR EXISTS (SELECT 1 FROM rec_targets t WHERE t.rec_id = r.id AND t.user_id = ?)
            OR (NOT EXISTS (SELECT 1 FROM rec_targets t WHERE t.rec_id = r.id) AND r.from_id IN ($in))
         ORDER BY r.created_at DESC LIMIT 300", array_merge([$me, $me], $ids))->fetchAll();
-      out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'recs' => array_map('rec_out', $recs)]);
+      $recIds = array_column($recs, 'id');
+      $comments = [];
+      if ($recIds) {
+        $rin = implode(',', array_fill(0, count($recIds), '?'));
+        $comments = array_map(fn($c) => ['id' => $c['id'], 'rec_id' => $c['rec_id'], 'from_id' => $c['from_id'], 'text' => $c['text'], 'created_at' => iso($c['created_at'])],
+          q("SELECT * FROM comments WHERE rec_id IN ($rin) ORDER BY created_at", $recIds)->fetchAll());
+      }
+      $chals = array_map('chal_out', q("SELECT * FROM challenges WHERE from_id IN ($in) AND to_id IN ($in) ORDER BY created_at DESC LIMIT 300", array_merge($ids, $ids))->fetchAll());
+      out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'recs' => array_map('rec_out', $recs), 'comments' => $comments, 'challenges' => $chals]);
 
     /* ---------- Cercles ---------- */
     case $M === 'POST' && $path === 'circles':
@@ -154,6 +174,41 @@ try {
     case $M === 'DELETE' && preg_match('#^recs/([0-9a-f-]{36})$#', $path, $m):
       $u = need_user();
       q('DELETE FROM recs WHERE id = ? AND from_id = ?', [$m[1], $u['id']]);
+      out(['ok' => true]);
+
+    /* ---------- Défis ---------- */
+    case $M === 'POST' && $path === 'challenges':
+      $u = need_user(); $b = body(); throttle('chal|' . $u['id'], 30, 3600);
+      $to = (string) ($b['to_id'] ?? '');
+      if ($to === $u['id'] || !in_array($to, mates($u['id']), true)) fail(400, 'bad_recipient');
+      $works = body_obj()->works ?? null;
+      if (!is_array($works) || count($works) < 1 || count($works) > 4) fail(400, 'bad_works');
+      foreach ($works as $w) if (!is_object($w) || empty($w->id) || empty($w->ti)) fail(400, 'bad_works');
+      $note = mb_substr(trim((string) ($b['note'] ?? '')), 0, 280) ?: null;
+      $id = uuid();
+      q('INSERT INTO challenges (id, from_id, to_id, works, note, deadline) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL 30 DAY)',
+        [$id, $u['id'], $to, enc(array_values($works)), $note]);
+      out(chal_out(q('SELECT * FROM challenges WHERE id = ?', [$id])->fetch()));
+
+    case $M === 'DELETE' && preg_match('#^challenges/([0-9a-f-]{36})$#', $path, $m):
+      $u = need_user();
+      q('DELETE FROM challenges WHERE id = ? AND from_id = ?', [$m[1], $u['id']]);
+      out(['ok' => true]);
+
+    /* ---------- Commentaires ---------- */
+    case $M === 'POST' && preg_match('#^recs/([0-9a-f-]{36})/comments$#', $path, $m):
+      $u = need_user(); throttle('cmt|' . $u['id'], 120, 3600);
+      if (!visible_rec($u['id'], $m[1])) fail(404, 'not_found');
+      $text = mb_substr(trim((string) (body()['text'] ?? '')), 0, 500);
+      if ($text === '') fail(400, 'empty');
+      $id = uuid();
+      q('INSERT INTO comments (id, rec_id, from_id, text) VALUES (?, ?, ?, ?)', [$id, $m[1], $u['id'], $text]);
+      $c = q('SELECT * FROM comments WHERE id = ?', [$id])->fetch();
+      out(['id' => $c['id'], 'rec_id' => $c['rec_id'], 'from_id' => $c['from_id'], 'text' => $c['text'], 'created_at' => iso($c['created_at'])]);
+
+    case $M === 'DELETE' && preg_match('#^comments/([0-9a-f-]{36})$#', $path, $m):
+      $u = need_user();
+      q('DELETE FROM comments WHERE id = ? AND from_id = ?', [$m[1], $u['id']]);
       out(['ok' => true]);
 
     /* ---------- Catalogue ---------- */

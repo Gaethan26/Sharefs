@@ -22,6 +22,10 @@ Tout tourne sur un hébergement mutualisé o2switch : site web, API PHP (8.1 min
 
 Mises à jour suivantes : `git push`, puis dans cPanel > Git Version Control : Update from Remote, puis Deploy HEAD Commit.
 
+## Mise à jour : défis et commentaires
+
+Une seule fois, dans phpMyAdmin : sélectionner la base > Importer > `server/migration-002-defis-commentaires.sql`.
+
 ## Catalogue (clés dans `api/config.php`)
 
 | Clé | Où l'obtenir |
