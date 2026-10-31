@@ -1,0 +1,1071 @@
+// Images en erreur (remplace les gestionnaires en ligne, interdits par la CSP)
+document.addEventListener('error',e=>{const t=e.target;if(!t||t.tagName!=='IMG'||!t.dataset.err)return;
+  if(t.dataset.err==='cover'){t.parentNode?.classList.remove('has-img');t.remove()}else if(t.dataset.err==='gal')t.parentNode?.remove();else t.remove()},true);
+/* ---------- Base ---------- */
+const CFG=window.SHAREFS_CONFIG||{};
+const API=(CFG.apiBase||'').replace(/\/$/,'')+'/api';
+const T={
+  f:{n:'Film',p:'Films',done:'Vu',act:'J’ai vu',did:'a vu',fmt:m=>`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`},
+  s:{n:'Série',p:'Séries',done:'Terminée',act:'J’ai terminé',did:'a terminé',fmt:x=>x+(x>1?' saisons':' saison')},
+  l:{n:'Livre',p:'Livres',done:'Lu',act:'J’ai lu',did:'a lu',fmt:x=>x+' pages'},
+  j:{n:'Jeu',p:'Jeux',done:'Fini',act:'J’ai fini',did:'a fini',fmt:()=>''}
+};
+const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Étonnant\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
+const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Zidane']];
+const ICON={
+  f:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10h18v10H3z"/><path d="M2.6 5.3 19.8 2.6l.6 3.9L3.2 9.2z"/></svg>',
+  s:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 2.5 12 6.5l4-4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
+  l:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.5 5c3.2-1.2 6.3-1 9 .7V21c-2.7-1.6-5.8-1.8-9-.7zM21.5 5c-3.2-1.2-6.3-1-9 .7V21c2.7-1.6 5.8-1.8 9-.7z"/></svg>',
+  j:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10a5 5 0 015 5v.5a4 4 0 01-7.2 2.4L13.6 13h-3.2l-1.2 1.9A4 4 0 012 12.5V12a5 5 0 015-5z"/></svg>'
+};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’'`]/g,' ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+const REG=(()=>{try{return new Intl.DisplayNames(['fr'],{type:'region'})}catch(e){return null}})();
+const country=c=>{if(!c)return'';try{return REG?REG.of(c):c}catch(e){return c}};
+
+/* ---------- Serveur ---------- */
+let token=lsGet('sharefs-token','');
+async function call(method,path,body){
+  let r;
+  try{r=await fetch(API+'/'+path,{method,headers:{'Content-Type':'application/json',...(token?{'X-Sharefs-Token':token}:{})},body:body?JSON.stringify(body):undefined})}
+  catch(e){throw Object.assign(new Error('offline'),{code:'offline'})}
+  let j={};try{j=await r.json()}catch(e){}
+  if(r.status===401&&!path.startsWith('auth/')){token='';lsSet('sharefs-token','');stepEmail('Ta session a expiré, reconnecte-toi.')}
+  if(!r.ok)throw Object.assign(new Error(j.error||'http_'+r.status),{code:j.error||'http_'+r.status,status:r.status});
+  return j;
+}
+function api(path,params){const qs=new URLSearchParams(Object.entries(params||{}).filter(([,v])=>v!==''&&v!=null)).toString();return call('GET',path+(qs?'?'+qs:''))}
+const ERR={bad_email:'Cette adresse e-mail n’est pas valide.',weak_password:'Le mot de passe doit faire au moins 10 caractères.',pwned_password:'Ce mot de passe a déjà fuité sur internet : choisis-en un autre.',email_taken:'Un compte existe déjà avec cet e-mail.',
+  bad_credentials:'E-mail ou mot de passe incorrect.',too_many_attempts:'Trop d’essais. Réessaie dans un quart d’heure.',bad_code:'Code incorrect ou expiré.',
+  unknown_code:'Aucun cercle ne correspond à ce code.',bad_recipients:'Un destinataire ne fait pas partie de tes cercles.',offline:'Pas de connexion au serveur.',server_error:'Erreur du serveur. Réessaie.'};
+const msg=e=>ERR[e?.code]||('Erreur : '+(e?.code||e?.message||'inconnue'));
+
+/* ---------- État ---------- */
+let uid=null,myName='',myCircles=[];
+let members={};
+let mine={done:{},want:{},works:{},rate:{}};
+let recs=[];
+let names={};
+const WK={};
+function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
+function reg(w){
+  if(!w||!w.id)return w;
+  const o=WK[w.id];if(!o){WK[w.id]={...w};return WK[w.id]}
+  for(const [k,v] of Object.entries(w))if(v!==''&&v!=null&&!(Array.isArray(v)&&!v.length))o[k]=v;
+  return o;
+}
+const snap=w=>Object.fromEntries(Object.entries({id:w.id,t:w.t,ti:w.ti,y:w.y,c:w.c,img:w.img,g:(w.g||[]).slice(0,3),d:w.d,p:w.p}).filter(([,v])=>v!=null&&v!==''&&!(Array.isArray(v)&&!v.length)));
+
+let saving=false,dirty=false;
+async function save(){
+  if(!uid)return;dirty=true;if(saving)return;saving=true;
+  while(dirty){dirty=false;try{await call('PUT','me',{data:mine})}catch(e){toast(msg(e));break}}
+  saving=false;
+}
+const others=()=>Object.keys(members).filter(k=>k!==uid);
+const nameOf=id=>id===uid?(myName||'Toi'):(names[id]||'Un ami');
+function avatar(id){const n=nameOf(id);return `<span class="av" aria-hidden="true">${esc((n[0]||'?').toUpperCase())}</span>`}
+const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
+
+/* ---------- Œuvres et cartes ---------- */
+const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'');
+const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="cover">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
+const GEM=(r,s=14)=>`<svg class="gem" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true"><path d="M12 2 21.5 9.5 12 22 2.5 9.5z" fill="var(--rc)"/><path d="M12 2 16.6 9.5H7.4z" fill="#fff" opacity=".6"/><path d="M2.5 9.5h4.9L12 22z" fill="#000" opacity=".2"/><path d="M21.5 9.5h-4.9L12 22z" fill="#fff" opacity=".25"/><path d="M7.4 9.5h9.2L12 22z" fill="#fff" opacity=".1"/></svg>`;
+const CROWN='<svg viewBox="0 0 34 22" width="30" height="20" aria-hidden="true"><path d="M3 19 1.5 6l8 6.5L17 2l7.5 10.5 8-6.5L31 19z" fill="url(#crg)" stroke="#9A5A06" stroke-width="1.2" stroke-linejoin="round"/><rect x="3" y="18" width="28" height="3" rx="1" fill="#C77A0B"/><circle cx="17" cy="12.5" r="2" fill="#fff" opacity=".8"/><defs><linearGradient id="crg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A6"/><stop offset="1" stop-color="#F2A21B"/></linearGradient></defs></svg>';
+let cardStyle=lsGet('sharefs-cardstyle','holo');
+// Deux styles de cartes : « holo » (image pleine, panneau vitré) et « case » (jaquette avec tranche)
+function card(w,r=0,cls=''){
+  const img=w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="rm">`:'';
+  const meta=[w.c,w.y].filter(Boolean).map(esc).join(', ');
+  const rs=r?`--rc:var(--r${r})`:'';
+  if(cardStyle==='case')return `<span class="card cs-case t-${w.t}${r?' r'+r:''} ${cls}" style="${rs}" aria-hidden="true">
+    <span class="cc-sp"><span>${esc(w.ti)}</span></span>
+    <span class="cc-main"><span class="cc-art"><span class="ph">${esc(short(w.ti))}</span>${img}</span>
+      <span class="cc-info"><b>${esc(w.ti)}</b><i>${meta||T[w.t]?.n||''}</i>${r?`<q>${esc(RAR[r].s)}</q>`:''}</span>${r?'<span class="cc-bar"></span>':''}</span>
+    ${r?`<span class="cc-stk">${r>1?GEM(r,10):''}<span>${RAR[r].n}</span></span>`:''}</span>`;
+  return `<span class="card cs-holo t-${w.t}${r?' r'+r:''} ${cls}" style="${rs}" aria-hidden="true"><span class="ch-in">
+    <span class="ph">${esc(short(w.ti))}</span>${img}${r>=3?'<span class="ch-foil"></span>':''}<span class="ch-shade"></span>
+    <span class="ch-type"><i></i>${T[w.t]?.n||''}</span>${r?`<span class="ch-rar">${GEM(r,11)}<span>${RAR[r].n}</span></span>`:''}
+    <span class="ch-panel"><b>${esc(w.ti)}</b><i>${meta}</i>${r?`<q>${esc(RAR[r].s)}</q>`:''}</span></span></span>`;
+}
+const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
+const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
+const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮'};
+const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tgl${on?' on':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
+const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
+const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
+const gem=r=>`<span class="rg r${r}"></span>`;
+const rarityTag=r=>`<span class="rtag r${r}">${GEM(r,12)}${RAR[r].n}</span>`;
+const metaLine=w=>[T[w.t]?.n,w.y,w.c].filter(Boolean).map(esc).join(', ');
+const isDone=(id,who=uid)=>!!dataOf(who).done?.[id];
+const isWant=id=>!!mine.want?.[id];
+const rateOf=(id,who=uid)=>isDone(id,who)?(dataOf(who).rate?.[id]||1):0;
+const recsAbout=id=>recs.filter(r=>r.work?.id===id&&r.from_id!==uid);
+const finishers=id=>others().filter(k=>isDone(id,k));
+const popularity=id=>new Set(recsAbout(id).map(r=>r.from_id)).size*2+finishers(id).length;
+function ago(ts){const s=(Date.now()-ts)/1000;if(s<60)return'à l’instant';if(s<3600)return`il y a ${Math.floor(s/60)} min`;if(s<86400)return`il y a ${Math.floor(s/3600)} h`;const d=Math.floor(s/86400);return d<30?`il y a ${d} j`:new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}
+function hl(text,q){
+  text=String(text||'');if(!q)return esc(text);
+  const flat=[...text].map(c=>{const n=(c.normalize('NFD')[0]||'').toLowerCase();return /[a-z0-9]/.test(n)?n:' '}).join('');
+  const i=flat.indexOf(q);if(i<0)return esc(text);
+  return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length));
+}
+const dec=y=>!y?'':y<1960?'Avant 1960':Math.floor(y/10)*10+'s';
+const decLabel=d=>d==='Avant 1960'?d:'Années '+d.slice(2);
+
+/* ---------- Recherche ---------- */
+const F={types:new Set(),mine:false,forWho:''};
+let SR={q:null,items:[],pages:{},moreT:new Set(),loading:false,err:'',seq:0};
+const typesSel=()=>F.types.size?[...F.types]:['f','s','l','j'];
+const rr=lists=>{const out=[],max=Math.max(0,...lists.map(l=>l.length));for(let i=0;i<max;i++)for(const l of lists)if(l[i])out.push(l[i]);return out};
+const localMode=()=>F.mine;
+// Ma collection : les meilleures cartes d'abord, ce sont celles qu'on a le plus envie de recommander
+function localItems(){return Object.keys(mine.done).map(id=>WK[id]).filter(Boolean).sort((a,b)=>rateOf(b.id)-rateOf(a.id)||mine.done[b.id]-mine.done[a.id])}
+async function runSearch(more=false){
+  if(localMode()){renderSearch();return}
+  const q=$('#q').value.trim();const seq=++SR.seq;
+  if(!more)SR={q,items:[],pages:{},moreT:new Set(),loading:true,err:'',seq};else SR.loading=true;
+  renderResults();
+  const ts=more?[...SR.moreT]:typesSel(),lim=typesSel().length>1?10:20;
+  const res=await Promise.all(ts.map(t=>{const p=(SR.pages[t]||0)+1;return api('search',{type:t,q,page:p,limit:lim}).then(r=>({t,p,r})).catch(err=>({t,err}))}));
+  if(seq!==SR.seq)return;
+  const lists=[];let errs=0;
+  res.forEach(x=>{if(x.err){errs++;SR.moreT.delete(x.t);return}SR.pages[x.t]=x.p;x.r.more?SR.moreT.add(x.t):SR.moreT.delete(x.t);lists.push((x.r.items||[]).map(reg))});
+  const seen=new Set(SR.items.map(w=>w.id));
+  SR.items=SR.items.concat(rr(lists).filter(w=>!seen.has(w.id)));
+  SR.err=errs&&errs===res.length?'Le catalogue ne répond pas. Vérifie les clés API dans config.php (README, section Catalogue).':'';
+  SR.loading=false;renderSearch();
+}
+// « Pour [ami] » masque ce que l'ami a déjà terminé
+function filtered(list){return list.filter(w=>(!F.types.size||F.types.has(w.t))&&(!F.forWho||!isDone(w.id,F.forWho)))}
+const sorted=list=>list;
+function baseList(){const q=norm($('#q').value);return localMode()?localItems().filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q)):SR.items}
+function renderResults(){
+  const q=norm($('#q').value),list=sorted(filtered(baseList())),ul=$('#results'),who=F.forWho?nameOf(F.forWho):'';
+  $('#count').textContent=SR.loading&&!list.length&&!F.mine?'Recherche…':`${list.length} œuvre${list.length>1?'s':''}${F.mine?' de ta collection':(!q?' en tendance':'')}${who?`, encore inconnue${list.length>1?'s':''} de ${who}`:''}`;
+  if(F.mine&&!Object.keys(mine.done).length){ul.innerHTML=`<li><div class="empty"><b>Ta collection est vide.</b>Marque des œuvres comme vues, lues ou finies pour les retrouver ici et les recommander.</div></li>`;$('#resMore').innerHTML='';return}
+  if(SR.err&&!localMode()){ul.innerHTML=`<li><div class="empty"><b>Recherche indisponible.</b>${esc(SR.err)}</div></li>`;$('#resMore').innerHTML='';return}
+  if(!list.length&&!SR.loading){ul.innerHTML=`<li><div class="empty"><b>Aucune œuvre ne correspond.</b>Retire un filtre, essaie un autre titre ou ajoute-la toi-même.<br><button class="btn pri" data-manual="">Envoyer « ${esc($('#q').value.trim()||'une œuvre')} » à la main</button>${activeCount()?' <button class="btn" data-act="reset">Effacer les filtres</button>':''}</div></li>`;$('#resMore').innerHTML='';return}
+  ul.innerHTML=list.map(w=>{
+    const n=new Set(recsAbout(w.id).map(r=>r.from_id)).size,b=[];
+    if(isDone(w.id))b.push(rarityTag(rateOf(w.id)));
+    if(isWant(w.id))b.push(`<span class="bdg bm" title="Dans ta liste">${BM(true)}</span>`);
+    if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec bm">${BM(true)}${esc(who)}</span>`);
+    if(n)b.push(`<span class="bdg rec">Conseillé par ${n} ami${n>1?'s':''}</span>`);
+    return `<li class="t-${w.t}"><button data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${hl(w.ti,q)}</span><br><span class="meta">${metaLine(w)}</span>${b.length?`<span class="badges">${b.join('')}</span>`:''}</span></button></li>`}).join('');
+  $('#resMore').innerHTML=(SR.loading?'<p class="loading">Chargement…</p>':(!localMode()&&SR.moreT.size?'<button class="btn more" data-more>Voir plus d’œuvres</button>':''))+
+    `<p class="meta" style="text-align:center;margin:22px 0 0">Tu ne trouves pas ton œuvre ?</p><button class="btn more" style="margin-top:8px" data-manual="">Envoyer une œuvre à la main</button>`;
+}
+
+/* autocomplétion */
+let acItems=[],acIdx=-1,acApi=[],acSeq=0,acT=null,acLoading=false,srT=null;
+function onQuery(){
+  acIdx=-1;const q=$('#q').value.trim();
+  clearTimeout(acT);clearTimeout(srT);
+  if(q.length<2){acApi=[];acLoading=false;renderAC()}
+  else{acLoading=true;renderAC();acT=setTimeout(async()=>{
+    const s=++acSeq,ts=typesSel();
+    const res=await Promise.all(ts.map(t=>api('search',{type:t,q,limit:ts.length>1?3:6}).catch(()=>({items:[]}))));
+    if(s!==acSeq)return;acApi=rr(res.map(r=>(r.items||[]).map(reg))).slice(0,8);acLoading=false;renderAC();
+  },220)}
+  srT=setTimeout(()=>runSearch(),450);
+}
+function renderAC(){
+  const raw=$('#q').value,q=norm(raw),ac=$('#ac');
+  $('#field').classList.toggle('has',!!raw);
+  let html='';acItems=[];
+  const opt=inner=>{const i=acItems.length-1;return `<div class="opt" role="option" id="ao${i}" data-i="${i}" aria-selected="${i===acIdx}">${inner}</div>`};
+  if(!q){
+  }else{
+    const local=Object.values(WK).filter(w=>(isDone(w.id)||isWant(w.id)||recsAbout(w.id).length||finishers(w.id).length)&&norm(w.ti+' '+(w.c||'')).includes(q)).slice(0,3);
+    if(local.length){html+='<div class="grp">Chez toi et tes amis</div>';local.forEach(w=>{acItems.push({k:'w',v:w.id});html+=opt(`<span class="tm t-${w.t}"></span><span><span class="ot">${hl(w.ti,q)}</span><br><span class="om">${metaLine(w)}</span></span>`)})}
+    const ids=new Set(local.map(w=>w.id)),apiL=acApi.filter(w=>!ids.has(w.id));
+    if(apiL.length){html+='<div class="grp">Œuvres</div>';apiL.forEach(w=>{acItems.push({k:'w',v:w.id});html+=opt(`${w.img?`<span class="cover t-${w.t} has-img" style="width:32px;min-height:46px;height:46px;padding:0"><img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`:`<span class="tm t-${w.t}"></span>`}<span><span class="ot">${hl(w.ti,q)}</span><br><span class="om">${metaLine(w)}</span></span>`)})}
+    if(!acItems.length)html=`<div class="grp">${acLoading?'Recherche…':'Aucune suggestion. Valide pour lancer la recherche.'}</div>`;
+    if(!acLoading){acItems.push({k:'m',v:raw.trim()});html+=opt(`<span class="tm" style="background:var(--surface2)"></span><span><span class="ot">Envoyer « ${esc(raw.trim())} » à la main</span><br><span class="om">Si l’œuvre n’est dans aucun catalogue</span></span>`)}
+  }
+  ac.innerHTML=html;const open=!!html&&document.activeElement===$('#q');
+  ac.classList.toggle('open',open);$('#q').setAttribute('aria-expanded',open);
+}
+function pickAC(i){
+  const it=acItems[i];if(!it)return;
+  if(it.k==='w'){remember($('#q').value);closeAC();openSheet(it.v);return}
+  if(it.k==='m'){closeAC();openManual(it.v);return}
+  $('#q').value=it.v;closeAC();runSearch();
+}
+function closeAC(){acIdx=-1;$('#ac').classList.remove('open');$('#q').setAttribute('aria-expanded','false');$('#q').removeAttribute('aria-activedescendant')}
+function remember(v){v=v.trim();if(v.length<2)return;const r=lsGet('sharefs-recent',[]).filter(x=>x!==v);r.unshift(v);lsSet('sharefs-recent',r.slice(0,5))}
+
+/* filtres */
+const chip=(label,pressed,data,cls='chip')=>`<button class="${cls}" aria-pressed="${pressed}" ${data}>${label}</button>`;
+const activeCount=()=>F.types.size+(F.mine?1:0);
+function renderFilters(){
+  const n=Object.keys(mine.done).length;
+  $('#typeChips').innerHTML=chip('Tout',!F.types.size&&!F.mine,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('')+
+    chip(CARDS_ICON,F.mine,'data-mine aria-label="Seulement ma collection" title="Seulement ma collection"');
+}
+function renderSearch(){renderFilters();renderResults()}
+
+/* ---------- Défis ---------- */
+let comments=[],challenges=[],openCmts=new Set(),cmDraft={},chalTab='live';
+const DAY=86400000;
+const SWORDS='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4M7 17l-3 3M3 19l2 2"/></svg>';
+const TROPHY='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
+const CHAT='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+const SEND='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
+const CHECK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const fmtDate=ts=>new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+// Une œuvre compte pour le défi si elle est terminée entre le lancement et l'échéance
+function chalState(c){
+  const d=dataOf(c.to_id).done||{},a=Date.parse(c.created_at)-120000,b=Date.parse(c.deadline);
+  const ok=(c.works||[]).filter(w=>{const t=d[w.id];return t&&t>=a&&t<=b});
+  const won=ok.length===c.works.length,st=won?'won':Date.now()>b?'lost':'live';
+  return {ok:new Set(ok.map(w=>w.id)),n:ok.length,total:c.works.length,st,wonAt:won?Math.max(...ok.map(w=>d[w.id])):0,left:Math.ceil((b-Date.now())/DAY),end:b};
+}
+// Classement : on y entre en remportant un défi ; 1 point par œuvre terminée dans les temps lors d'un défi
+function ranking(){
+  return [uid,...others()].filter(Boolean).map(id=>{const st=challenges.filter(c=>c.to_id===id).map(chalState);
+    return {id,pts:st.reduce((s,x)=>s+x.n,0),wins:st.filter(x=>x.st==='won').length,coll:Object.keys(dataOf(id).done||{}).length}})
+    .filter(x=>x.wins>0).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||b.coll-a.coll);
+}
+function rankTable(rk,limit=99){
+  if(!rk.length)return `<div class="rk-empty">${TROPHY}<p>Personne n’est encore classé. Remporte un défi pour entrer dans la course.</p></div>`;
+  return `<div class="rk"><div class="rk-h"><span>Nom</span><span>1V1</span><span class="rk-c">Collection</span></div>${rk.slice(0,limit).map((x,i)=>`<div class="rk-r${x.id===uid?' me':''}"><span class="rk-n"><i>${i+1}</i>${avatar(x.id)}<b>${esc(nameOf(x.id))}</b></span><span class="rk-p">${x.pts}<small> pt${x.pts>1?'s':''}</small></span><span class="rk-c">${x.coll}</span></div>`).join('')}</div>`;
+}
+const liveForMe=()=>challenges.filter(c=>c.to_id===uid&&chalState(c).st==='live').length;
+function chalCard(c,s){
+  const toMe=c.to_id===uid,fromMe=c.from_id===uid;
+  const head=toMe?`<b>${esc(nameOf(c.from_id))}</b> te défie`:fromMe?`Tu défies <b>${esc(nameOf(c.to_id))}</b>`:`<b>${esc(nameOf(c.from_id))}</b> défie <b>${esc(nameOf(c.to_id))}</b>`;
+  const tag=s.st==='live'?`<span class="ch-tag live">J-${Math.max(0,s.left)}</span>`:s.st==='won'?`<span class="ch-tag won">${CHECK}Réussi</span>`:`<span class="ch-tag lost">Raté</span>`;
+  return `<article class="chal st-${s.st}"><div class="ch-top">${avatar(c.from_id)}<span class="ch-vs">${SWORDS}</span>${avatar(c.to_id)}<span class="ch-l">${head}</span>${tag}</div>
+    <div class="ch-works">${c.works.map(w=>{const W=WK[w.id]||reg(w),ok=s.ok.has(w.id);return `<button class="chw${ok?' ok':''}" data-open="${esc(w.id)}" aria-label="${esc(W.ti)}">${card(W,0)}${ok?`<span class="chk">${CHECK}</span>`:''}<span class="chw-t">${esc(W.ti)}</span></button>`}).join('')}${'<span class="chw empty" aria-hidden="true"></span>'.repeat(4-c.works.length)}</div>
+    <div class="ch-bar"><i style="width:${s.n/s.total*100}%"></i></div>
+    <div class="ch-meta"><span>${s.n}/${s.total} terminée${s.n>1?'s':''}</span><span>${s.st==='live'?`avant le ${fmtDate(s.end)}`:s.st==='won'?`+${s.n} point${s.n>1?'s':''}`:`terminé le ${fmtDate(s.end)}`}</span></div>
+    ${c.note?`<p class="note">« ${esc(c.note)} »</p>`:''}
+    ${fromMe&&s.st==='live'?`<button class="ch-x" data-delchal="${esc(c.id)}">Annuler le défi</button>`:''}</article>`;
+}
+function renderChal(){
+  const el=$('#chalBody');if(!el)return;
+  const mineCh=challenges.filter(c=>c.to_id===uid||c.from_id===uid).map(c=>({c,s:chalState(c)}));
+  const live=mineCh.filter(x=>x.s.st==='live'),done=mineCh.filter(x=>x.s.st!=='live'),list=chalTab==='live'?live:done;
+  el.innerHTML=`<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
+    <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
+    <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>
+    <h2 class="rk-title">${TROPHY}Classement 1V1</h2>
+    ${rankTable(ranking())}
+    <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi. On entre au classement en remportant un défi.</p>`;
+  const b=liveForMe(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}
+}
+// Formulaire de défi
+const CH={to:'',works:[],note:'',q:'',res:[],err:'',open:false,anim:false};let chT=null,chSeq=0;
+function openChallenge(pre){
+  CH.to=F.forWho&&others().includes(F.forWho)?F.forWho:(others().length===1?others()[0]:'');CH.works=[];CH.note='';CH.q='';CH.res=[];CH.err='';CH.open=false;CH.anim=false;
+  if(pre&&WK[pre])CH.works=[snap(WK[pre])];
+  lastFocus=document.activeElement;sheetId='__chal';closeAC();renderChalForm();
+  $('#sheet').style.setProperty('--tc','var(--ink)');$('#scrim').classList.add('open');$('#sheet').classList.add('open');
+}
+function chalAddable(w){return !CH.works.some(x=>x.id===w.id)&&!(CH.to&&isDone(w.id,CH.to))}
+function chalResHTML(){
+  if(!CH.q.trim())return '';
+  if(!CH.res.length)return '<p class="meta" style="margin:8px 2px">Recherche…</p>';
+  return CH.res.slice(0,8).map(w=>{const ok=chalAddable(w),seen=CH.to&&isDone(w.id,CH.to);
+    return `<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${seen?`Déjà vu par ${esc(nameOf(CH.to))}`:metaLine(w)}</span></span><button class="btn icon" data-chadd="${esc(w.id)}" ${ok&&CH.works.length<4?'':'disabled'} aria-label="Ajouter">+</button></div>`}).join('');
+}
+function renderChalForm(){
+  const friends=others(),end=Date.now()+30*DAY;
+  const mineTop=Object.keys(mine.done).map(id=>WK[id]).filter(Boolean).sort((a,b)=>rateOf(b.id)-rateOf(a.id)).filter(chalAddable).slice(0,12);
+  $('#sheetIn').innerHTML=`<div class="grab"></div>
+    <div class="chf-h"><span class="chf-i">${SWORDS}</span><div><h3 id="shTitle">Lancer un défi</h3><p class="meta">Jusqu’à 4 œuvres à finir avant le ${fmtDate(end)}.</p></div></div>
+    <div class="to">Qui défies-tu ?</div>
+    ${friends.length?`<div class="rto">${friends.map(f=>`<button class="pickw" aria-pressed="${CH.to===f}" data-chto="${f}">${avatar(f)}<span class="pn">${esc(nameOf(f))}</span></button>`).join('')}</div>`:'<p class="meta">Invite des amis avec ton code (onglet Collection) pour les défier.</p>'}
+    <div class="to">Les œuvres <span class="meta">(${CH.works.length}/4)</span></div>
+    <div class="chslots">${CH.works.map(w=>`<div class="chs">${card(WK[w.id]||w,0)}<button class="chs-x" data-chrm="${esc(w.id)}" aria-label="Retirer">×</button><span class="chw-t">${esc(w.ti)}</span></div>`).join('')}${'<button class="chs empty" data-chopen aria-label="Ajouter une œuvre">+</button>'.repeat(4-CH.works.length)}</div>
+    ${CH.works.length<4?`<div class="chsrch${CH.open&&!CH.anim?' open':''}"><div><input class="mini" id="chq" type="search" autocomplete="off" placeholder="Ajouter une œuvre : titre, auteur…" value="${esc(CH.q)}" style="margin-top:12px;width:100%">
+      <div id="chres">${chalResHTML()}</div>
+      ${mineTop.length?`<div class="to">Depuis ma collection</div><div class="chcoll">${mineTop.map(w=>`<button data-chadd="${esc(w.id)}" aria-label="Ajouter ${esc(w.ti)}">${card(w,rateOf(w.id))}</button>`).join('')}</div>`:''}</div></div>`:''}
+    <label class="to" for="chNote" style="display:block">Un petit mot ?</label>
+    <textarea id="chNote" maxlength="280" placeholder="Régale toi 🫡">${esc(CH.note)}</textarea>
+    <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.2em;margin:6px 0">${esc(CH.err)}</p>
+    <button class="btn pri send" data-chsend style="width:100%;padding:13px;display:flex;align-items:center;justify-content:center;gap:8px">${SWORDS}Lancer le défi</button>`;
+}
+function chalSearch(){
+  clearTimeout(chT);const q=CH.q.trim();if(!q){CH.res=[];$('#chres').innerHTML='';return}
+  $('#chres').innerHTML=chalResHTML();
+  chT=setTimeout(async()=>{const s=++chSeq;const res=await Promise.all(['f','s','l','j'].map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
+    if(s!==chSeq||sheetId!=='__chal')return;CH.res=rr(res.map(r=>(r.items||[]).map(reg)));const box=$('#chres');if(box)box.innerHTML=chalResHTML()},250);
+}
+async function sendChallenge(btn){
+  CH.note=$('#chNote').value.trim();
+  if(!CH.to){CH.err='Choisis qui tu défies.';renderChalForm();return}
+  if(!CH.works.length){CH.err='Ajoute au moins une œuvre.';renderChalForm();return}
+  btn.disabled=true;
+  try{const c=await call('POST','challenges',{to_id:CH.to,works:CH.works,note:CH.note});challenges.unshift(c);toast('Défi lancé');closeSheet();chalTab='live';setTab('chal');renderAll()}
+  catch(e){CH.err=msg(e);renderChalForm()}
+}
+// Fête quand un défi est relevé
+function confetti(){
+  if(RM)return;const c=document.createElement('div');c.className='confetti';c.setAttribute('aria-hidden','true');
+  const cols=['var(--ink)','#A7B2C0','var(--r3)','var(--r4)'];
+  c.innerHTML=Array.from({length:80},(_,i)=>`<i style="left:${Math.random()*100}%;background:${cols[i%4]};animation-delay:${(Math.random()*.7).toFixed(2)}s;animation-duration:${(1.8+Math.random()*1.6).toFixed(2)}s;--r:${Math.round(Math.random()*720-360)}deg"></i>`).join('');
+  document.body.appendChild(c);setTimeout(()=>c.remove(),4200);
+}
+function checkWins(silent){
+  const prev=lsGet('sharefs-wins',null),seen=new Set(prev||[]);let fresh=null;
+  for(const c of challenges){if(c.to_id!==uid)continue;const s=chalState(c);if(s.st==='won'&&!seen.has(c.id)){seen.add(c.id);fresh={c,s}}}
+  lsSet('sharefs-wins',[...seen]);
+  if(fresh&&prev!==null&&!silent){setTimeout(()=>{confetti();toast(`Défi relevé ! +${fresh.s.n} point${fresh.s.n>1?'s':''}`)},400)}
+}
+function chalProgressToast(id){
+  const c=challenges.find(c=>c.to_id===uid&&c.works.some(w=>w.id===id)&&chalState(c).st!=='lost');
+  if(c){const s=chalState(c);if(s.st==='live')setTimeout(()=>toast(`Défi de ${nameOf(c.from_id)} : ${s.n}/${s.total}`),2900)}
+}
+async function delChal(id){
+  if(!confirm('Annuler ce défi ?'))return;
+  try{await call('DELETE','challenges/'+id);challenges=challenges.filter(c=>c.id!==id);renderAll()}catch(e){toast(msg(e))}
+}
+// Commentaires
+async function sendComment(recId){
+  const inp=document.getElementById('cmi-'+recId),text=(inp?.value||'').trim();if(!text)return;
+  inp.disabled=true;
+  try{const c=await call('POST',`recs/${recId}/comments`,{text});comments.push(c);cmDraft[recId]='';renderFeed();const n=document.getElementById('cmi-'+recId);n?.focus()}
+  catch(e){toast(msg(e));inp.disabled=false}
+}
+async function delComment(id){
+  try{await call('DELETE','comments/'+id);comments=comments.filter(c=>c.id!==id);renderFeed()}catch(e){toast(msg(e))}
+}
+// Easter egg : 7 touches sur le logo (ou le code Konami) révèlent une carte secrète
+let eggTaps=[];
+function easterEgg(){
+  const w={id:'egg-zz',t:'f',ti:'Le coup de boule',y:2006,c:'Zidane'},el=$('#reveal');
+  el.style.setProperty('--rc','var(--r4)');revealId=null;
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,4,'egg')}<div class="cardback"></div></div><div class="burst"></div>
+    <div class="cap">Carte secrète<span class="rname">Zidane, 9 juillet 2006</span></div><div class="tap">Tu verras, c’est d’la frappe.</div></div>`;
+  el.classList.add('open');el.focus();confetti();
+  clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),4200);
+}
+document.addEventListener('click',e=>{if(!e.target.closest('header.top .brand'))return;const now=Date.now();eggTaps=eggTaps.filter(t=>now-t<2500);eggTaps.push(now);if(eggTaps.length>=7){eggTaps=[];easterEgg()}});
+(()=>{const K=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];let i=0;
+  document.addEventListener('keydown',e=>{i=e.key===K[i]?i+1:(e.key===K[0]?1:0);if(i===K.length){i=0;easterEgg()}})})();
+
+/* ---------- Côtés du site (ordinateur) ---------- */
+function renderSide(){
+  const l=$('#sideL'),r=$('#sideR');if(!l||!r||!uid)return;
+  const last=Object.entries(mine.done).filter(([id])=>WK[id]).sort((a,b)=>b[1]-a[1]).slice(0,30).map(([id])=>({w:WK[id],r:rateOf(id)}));
+  const rows=TYPE_ORDER.map(t=>last.filter(x=>x.w.t===t).slice(0,7));
+  l.innerHTML=`<div class="side-h">Mon étagère</div><div class="case side-case">${rows.map((row,k)=>`<div class="shelfrow" data-t="${TYPE_ORDER[k]}">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${SHELF_DECO[TYPE_ORDER[k]]}</div><div class="board"></div>`).join('')}</div>
+    <button class="btn" data-tab="coll" style="width:100%;margin-top:14px">Ouvrir ma collection</button>`;
+  const live=challenges.filter(c=>(c.to_id===uid||c.from_id===uid)&&chalState(c).st==='live').map(c=>({c,s:chalState(c)})).sort((a,b)=>a.s.end-b.s.end);
+  r.innerHTML=`<div class="sbox2 rank"><h3>${TROPHY}Classement 1V1</h3>${rankTable(ranking(),5)}</div>
+    <div class="sbox2"><h3>${SWORDS}Défis en cours</h3>${live.length?live.slice(0,4).map(({c,s})=>`<button class="sch" data-tab="chal"><span>${c.to_id===uid?`${esc(nameOf(c.from_id))} te défie`:`Tu défies ${esc(nameOf(c.to_id))}`}</span><b>${s.n}/${s.total}</b><small>J-${Math.max(0,s.left)}</small></button>`).join(''):'<p class="meta" style="margin:0">Aucun défi en cours.</p>'}<button class="btn pri" data-newchal style="width:100%;margin-top:12px">Lancer un défi</button></div>
+    ${myCircles[0]?`<div class="sbox2 account"><h3>Ton code d’invitation</h3><div class="scode">${esc(myCircles[0])}</div><button class="btn" data-invite="${esc(myCircles[0])}" style="width:100%">Inviter des amis</button></div>`:''}`;
+}
+
+/* ---------- Fil ---------- */
+let feedMode='all';
+function recLine(r){
+  const from=r.from_id,to=r.to_ids||[];
+  if(from===uid)return `<b>Tu</b> as recommandé ${to.length?'à '+to.map(id=>`<b>${esc(nameOf(id))}</b>`).join(', '):'à tout le cercle'}`;
+  if(to.includes(uid))return `<b>${esc(nameOf(from))}</b> te recommande${to.length>1?' (avec '+to.filter(i=>i!==uid).map(i=>esc(nameOf(i))).join(', ')+')':''}`;
+  return `<b>${esc(nameOf(from))}</b> recommande au cercle`;
+}
+function dayLabel(ts){const d=new Date(ts),t=new Date();t.setHours(0,0,0,0);const diff=Math.round((t-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/DAY);
+  return diff<=0?'Aujourd’hui':diff===1?'Hier':diff<7?d.toLocaleDateString('fr-FR',{weekday:'long'}):d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
+function cmtBlock(r){
+  const list=comments.filter(c=>c.rec_id===r.id);
+  return `<div class="cmts">${list.map(c=>`<div class="cm">${avatar(c.from_id)}<div class="cb"><b>${esc(nameOf(c.from_id))}</b> ${esc(c.text)}<span class="ct">${ago(Date.parse(c.created_at))}</span></div>${c.from_id===uid?`<button class="cmx" data-delcmt="${esc(c.id)}" aria-label="Supprimer mon commentaire">×</button>`:''}</div>`).join('')}
+    <div class="cmw">${avatar(uid)}<input class="cmi" id="cmi-${esc(r.id)}" data-rec="${esc(r.id)}" maxlength="500" autocomplete="off" placeholder="Ajoute ton grain de sel…" value="${esc(cmDraft[r.id]||'')}"><button class="cms" data-sendcmt="${esc(r.id)}" aria-label="Envoyer">${SEND}</button></div></div>`;
+}
+function renderFeed(){
+  const forMe=recs.filter(r=>(r.to_ids||[]).includes(uid)).length;
+  if(!others().length){
+    const code=myCircles[0]||'';
+    $('#feedMode').innerHTML=`<div class="join"><div><b>Rejoins tes amis 🤌</b><span>${code?`Ton code : <strong>${esc(code)}</strong>`:'Partage ton code ou entre le leur.'}</span></div>${code?`<button class="btn pri" data-invite="${esc(code)}">Inviter</button>`:''}<button class="btn" data-acc="join">J’ai un code</button></div>`;
+  }else $('#feedMode').innerHTML=chip('Tout',feedMode==='all','data-feed="all"')+chip(`Pour moi${forMe?` <span class="cnt">${forMe}</span>`:''}`,feedMode==='me','data-feed="me"')+chip('Mes envois',feedMode==='sent','data-feed="sent"');
+  let ev=recs.filter(r=>r.work&&r.work.id).map(r=>({k:'rec',r,w:WK[r.work.id]||reg(r.work),who:r.from_id,ts:Date.parse(r.created_at)}));
+  if(feedMode==='all'){
+    for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
+    for(const c of challenges){const s=chalState(c);ev.push({k:'chal',c,s,who:c.from_id,ts:Date.parse(c.created_at)});if(s.st==='won')ev.push({k:'won',c,s,who:c.to_id,ts:s.wonAt})}
+  }
+  if(feedMode==='me')ev=ev.filter(e=>e.k==='rec'&&(e.r.to_ids||[]).includes(uid));
+  if(feedMode==='sent')ev=ev.filter(e=>e.who===uid&&e.k==='rec');
+  ev.sort((a,b)=>b.ts-a.ts);
+  const el=$('#feed');
+  // garder la saisie d'un commentaire pendant les rafraîchissements
+  const act=document.activeElement,keep=act&&act.classList.contains('cmi')?{id:act.id,s:act.selectionStart}:null;
+  if(!ev.length){el.innerHTML=feedMode==='all'?`<div class="hero">
+    <div class="fan" aria-hidden="true">${['f','s','l','j'].map(t=>`<span class="t-${t}">${ICON[t]}</span>`).join('')}</div>
+    <div class="ht">Qu’est-ce qui t’a marqué récemment ?</div>
+    <p>Un film, une série, un livre, un jeu : recommande-le à tes amis. Leurs petites perles apparaîtront ici.</p>
+    <button class="fakeq" data-gosearch><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cherche une œuvre…</button>
+    <div class="tries">${[['Dune','l'],['Breaking Bad','s'],['Interstellar','f'],['Zelda','j']].map(([q,t])=>`<button class="chip" data-try="${q}"><span class="tm t-${t}"></span>${q}</button>`).join('')}</div>
+    <div class="links"><button data-gocoll>Inviter des amis</button><span aria-hidden="true">·</span><button data-manual="">Ajouter à la main</button></div>
+  </div>`:`<div class="empty"><b>${feedMode==='me'?'Personne ne t’a encore recommandé d’œuvre en direct.':'Tu n’as encore rien recommandé.'}</b></div>`;return}
+  let last='',html='';
+  for(const e of ev.slice(0,90)){
+    const day=dayLabel(e.ts);if(day!==last){html+=`<div class="day"><span>${day}</span></div>`;last=day}
+    if(e.k==='done'){const w=e.w,r=rateOf(w.id,e.who);
+      html+=`<button class="evm t-${w.t}" data-open="${esc(w.id)}">${avatar(e.who)}<span class="evm-t"><b>${esc(nameOf(e.who))}</b> ${T[w.t].did} <b>${esc(w.ti)}</b><span class="evm-r r${r}"><span class="rg"></span>${RAR[r].s}</span></span>${cover(w)}</button>`;continue}
+    if(e.k==='chal'){const c=e.c,s=e.s;
+      html+=`<article class="evc"><div class="evc-h"><span class="chf-i">${SWORDS}</span><span>${c.to_id===uid?`<b>${esc(nameOf(c.from_id))}</b> te lance un défi`:c.from_id===uid?`<b>Tu</b> lances un défi à <b>${esc(nameOf(c.to_id))}</b>`:`<b>${esc(nameOf(c.from_id))}</b> lance un défi à <b>${esc(nameOf(c.to_id))}</b>`}<br><small>${c.works.length} œuvre${c.works.length>1?'s':''}, ${s.st==='live'?`J-${Math.max(0,s.left)}`:s.st==='won'?'relevé':'raté'}, ${s.n}/${s.total}</small></span></div>
+        <div class="evc-w">${c.works.map(w=>{const W=WK[w.id]||reg(w);return `<button data-open="${esc(w.id)}" class="${s.ok.has(w.id)?'ok':''}">${cover(W)}</button>`}).join('')}</div>
+        <button class="btn" data-tab="chal">Voir le défi</button></article>`;continue}
+    if(e.k==='won'){const c=e.c;
+      html+=`<button class="evm evw" data-tab="chal"><span class="evm-i">${TROPHY}</span><span class="evm-t"><b>${esc(nameOf(c.to_id))}</b> a relevé le défi de <b>${esc(nameOf(c.from_id))}</b> : +${e.s.n} point${e.s.n>1?'s':''}</span></button>`;continue}
+    const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who),rr2=e.r,toMe=(rr2.to_ids||[]).includes(uid),nc=comments.filter(c=>c.rec_id===rr2.id).length,open=openCmts.has(rr2.id);
+    html+=`<article class="ev t-${w.t}${me?'':' hasbm'}${toMe?' forme':''}">${me?'':`<span class="bmk">${wantBtn(w.id)}</span>`}
+      <div class="who">${avatar(e.who)}<span>${recLine(rr2)}<br>${ago(e.ts)}${toMe?' <span class="pt">Pour toi</span>':''}</span>${me?`<button class="del" data-delrec="${esc(rr2.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
+      <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>
+      ${rr2.note?`<p class="note">« ${esc(rr2.note)} »</p>`:''}
+      <div class="evf">${me?'':doneTgl(w.id,'data-quickdone')}<button class="cmtb${open?' on':''}" data-cmt="${esc(rr2.id)}" aria-expanded="${open}">${CHAT}<span>${nc?nc:'Commenter'}</span></button></div>
+      ${open?cmtBlock(rr2):''}</article>`;
+  }
+  el.innerHTML=html+`<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
+  if(keep){const n=document.getElementById(keep.id);if(n){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(_){}}}
+}
+
+/* ---------- Collection ---------- */
+let collWho=null,collView=lsGet('sharefs-collview','book'),collList='done',collType='',collRar=0,justAdded=null;
+const TYPE_ORDER=['f','s','j','l'];
+const SHELF_DECO={
+  f:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 52 46" width="50" height="44"><rect x="3" y="17" width="46" height="27" rx="3" fill="#2A2D36"/><rect x="8" y="24" width="36" height="3" rx="1.5" fill="#4C5260"/><rect x="8" y="31" width="24" height="3" rx="1.5" fill="#4C5260"/><path d="M3 17 45 8.5l2 8.5H3z" fill="#2A2D36"/><path d="M8 16.3 15 9.5l6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7z" fill="#EEF1F5"/><circle cx="6" cy="17" r="2" fill="#8A909C"/></svg></span>`,
+  s:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 54 50" width="52" height="48"><path d="M19 4l8 9 9-11" fill="none" stroke="#3A3F4B" stroke-width="2.4" stroke-linecap="round"/><rect x="3" y="13" width="48" height="31" rx="6" fill="#5A4A3C"/><rect x="8" y="17" width="31" height="23" rx="4" fill="#1E2433"/><rect x="8" y="17" width="31" height="23" rx="4" fill="url(#tvg)" opacity=".85"/><circle cx="45" cy="23" r="2.6" fill="#D9C7A8"/><circle cx="45" cy="31" r="2.6" fill="#D9C7A8"/><rect x="10" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><rect x="39" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><defs><radialGradient id="tvg" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#9CC3F5"/><stop offset="1" stop-color="#2F6FDB" stop-opacity=".2"/></radialGradient></defs></svg></span>`,
+  j:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 60 40" width="58" height="38"><path d="M16 6h28c8 0 13 6 14 15l1 7c.6 6-6.5 9.5-11 4.5L42 27H18l-6 5.5C7.5 37.5.4 34 1 28l1-7C3 12 8 6 16 6z" fill="#23262E"/><path d="M16 6h28c8 0 13 6 14 15" fill="none" stroke="#3B3F4A" stroke-width="1.5"/><rect x="12" y="15" width="10" height="3.4" rx="1.2" fill="#5E6472"/><rect x="15.3" y="11.7" width="3.4" height="10" rx="1.2" fill="#5E6472"/><circle cx="43" cy="13" r="2.4" fill="#E0453A"/><circle cx="48" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="38" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="43" cy="22" r="2.4" fill="#5E6472"/><circle cx="24" cy="24" r="3.6" fill="#353943"/><circle cx="36" cy="24" r="3.6" fill="#353943"/></svg></span>`,
+  l:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 76 50" width="72" height="47"><ellipse cx="38" cy="47" rx="34" ry="3" fill="rgba(0,0,0,.28)"/>
+    <path d="M5 33 47 25 71 31 29 40z" fill="#1E7A52"/><path d="M5 33 29 40 29 46 5 39z" fill="#0F4A32"/><path d="M29 40 71 31 71 37 29 46z" fill="#F1E6CC"/><path d="M31 42 69 34M31 44 69 36" stroke="#CDBB92" stroke-width=".8"/>
+    <path d="M8 35.2 26 40.6M8 38 26 43.4" stroke="#E8C46A" stroke-width="1.4"/><path d="M33 33.5 55 29.5 61 31.2 39 35.4z" fill="none" stroke="#E8C46A" stroke-width="1.2"/>
+    <path d="M14 21 43 15.5 62 20 33 26z" fill="#7A3E22"/><path d="M14 21 33 26 33 31 14 26z" fill="#4E2412"/><path d="M33 26 62 20 62 25 33 31z" fill="#F4EAD4"/>
+    <path d="M17 23.4 30 27.2M17 25.6 30 29.4" stroke="#E8C46A" stroke-width="1.2"/><circle cx="44" cy="20.6" r="2.6" fill="none" stroke="#E8C46A" stroke-width="1.1"/>
+    <path d="M50 24.5 51 34 53 31.5 55 33.6 54 23.8z" fill="#C98A22"/></svg></span>`
+};
+const hsh=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return h};
+const PAL={l:['#2F5D3A','#4F6D5B','#86A788','#1C9662','#5B7F3A','#7A8B4A','#E8DCC2','#D8CBA8','#8C6B4A','#3E6B5A','#A8B88A','#6E5A44'],
+  f:['#E3A900','#D98E04','#F2C14E','#C9900A','#EAD27A'],s:['#2F6FDB','#3D86E8','#1F57B8','#5B9BF0','#2A4F9E'],j:['#E0453A','#C7362C','#F06A5E','#A82A22','#F28B82']};
+const isLight=c=>{const n=parseInt(c.slice(1),16);return ((n>>16)*299+((n>>8)&255)*587+(n&255)*114)/1000>160};
+const spW=w=>w.t==='l'?24+(hsh(w.id)>>3)%5*4:w.t==='s'?30:w.t==='f'?22:20;
+function spine(w,r,i){
+  const h=hsh(w.id),pal=PAL[w.t]||PAL.l,c=pal[h%pal.length];
+  let cls={l:'book',f:'disc',s:'box',j:'game'}[w.t]||'book',st=`--bk:${c};--bt:${isLight(c)?'#1B2238':'#fff'};`;
+  if(w.img){cls+=' im';st+=`--im:url('${String(w.img).replace(/'/g,'%27').replace(/"/g,'%22')}');`}
+  if(w.t==='l'){cls+=' v'+((h>>5)%4);st+=`height:${104+h%5*11}px;width:${spW(w)}px;`}
+  st+=`--tilt:${(((h>>9)%2?1:-1)*(1.2+((h>>11)%3)*.8)).toFixed(1)}deg;`;
+  return `<button class="sp ${cls}${r?' r'+r:''}" style="${st}${r?`--rc:var(--r${r})`:''}" data-box="${esc(w.id)}" aria-label="${esc(w.ti)}" title="${esc(w.ti)}"></button>`;
+}
+function renderColl(){
+  const ids=[uid,...others()].filter(Boolean);
+  if(!collWho||!ids.includes(collWho))collWho=uid;
+  const isMe=collWho===uid;if(!isMe&&collList==='want')collList='done';
+  $('#whoRow').innerHTML=ids.length>1?ids.map(id=>`<button class="chip" aria-pressed="${id===collWho}" data-who="${id}">${avatar(id)}${esc(id===uid?'Moi':nameOf(id))}</button>`).join(''):'';
+  const d=dataOf(collWho);
+  const done=Object.keys(d.done).filter(id=>WK[id]);
+  const n=done.length,cur=[...RANKS].reverse().find(l=>n>=l[0]),next=RANKS.find(l=>n<l[0]),prev=cur[0];
+  const rc=[0,0,0,0,0];done.forEach(id=>rc[rateOf(id,collWho)]++);
+  $('#rank').innerHTML=`<div class="medal">${n}</div><div style="flex:1;min-width:0"><div class="rt">${esc(cur[1])}</div>
+    <div class="meta">${n} carte${n>1?'s':''} dans ${isMe?'ta':'sa'} collection${next?`, rang «\u00a0${next[1]}\u00a0» à\u00a0${next[0]}`:''}</div>
+    <div class="bar"><i style="width:${next?((n-prev)/(next[0]-prev))*100:100}%"></i></div>
+    <div class="rarities">${[1,2,3,4].map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
+  const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
+  $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
+  $('#collTitle').textContent=collList==='want'?'Mes signets':collView==='shelf'?'L’étagère':'Mes cartes';
+  $('#collQ').placeholder=collView==='shelf'&&collList!=='want'?'T’as pas vu ma cassette !?':'Fouiner dans mon grimoire';
+  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0" class="gf-all">Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${GEM(r,12)}${RAR[r].n}</button>`).join('');
+  const q=norm($('#collQ').value);
+  let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
+  items=items.filter(x=>(!collType||x.w.t===collType)&&(!collRar||x.r===collRar)&&(!q||norm(x.w.ti+' '+(x.w.c||'')+' '+(x.w.g||[]).join(' ')).includes(q)));
+  const sh=$('#shelf'),raw=$('#collQ').value.trim();
+  if(collList==='want'){
+    items.sort((a,b)=>b.ts-a.ts);
+    sh.innerHTML=items.length?`<ul class="wl">${items.map(({w,ts})=>{const by=[...new Set(recsAbout(w.id).map(r=>r.from_id))];
+      return `<li class="t-${w.t}"><button class="wl-open" data-open="${esc(w.id)}">${cover(w)}<span class="wl-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span><span class="meta wl-d">Gardé ${ago(ts)}${by.length?`, conseillé par ${by.map(k=>esc(nameOf(k))).join(', ')}`:''}</span></span></button>${isMe?wantBtn(w.id):''}</li>`}).join('')}</ul>`
+      :`<div class="wl-empty">${BM(false)}<p>${raw?'Aucun signet de ce nom.':'Touche le signet d’une œuvre pour la retrouver ici.'}</p></div>`;
+    justAdded=null;renderAccount();return;
+  }
+  if(!items.length&&!(collView==='shelf'&&!raw&&collList!=='want')){
+    sh.innerHTML=raw?`<div style="text-align:center;padding:10px 0"><p class="meta">Aucune carte de ce nom ici.</p><button class="btn pri" data-searchall>Chercher « ${esc(raw)} » dans toutes les œuvres</button></div>`:
+      `<div style="text-align:center;padding:14px 0"><div class="cardback" style="width:90px;margin:0 auto 12px"></div><p class="meta" style="margin:0">${collList==='want'?'Touche le signet d’une œuvre pour la garder ici.':isMe?'Chaque œuvre terminée devient une carte de ta collection.':'Aucune carte pour l’instant.'}</p></div>`;
+  }else if(collView==='book'){
+    items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
+    COLL.items=items;
+    sh.innerHTML=grimClosedHTML(items.length)+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
+      return `<section class="crow"><div class="crh"><span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span></div><div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div></section>`}).join('');
+  }else{
+    COLL.items=items;
+    sh.innerHTML=shelfHTML(items,Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44),true);
+  }
+  justAdded=null;renderAccount();
+}
+
+/* ---------- Grimoire et étagère en plein écran ---------- */
+const COLL={items:[]};
+function shelfHTML(items,max,expand){
+  items=[...items].sort((a,b)=>a.ts-b.ts);let html='';
+  for(const t of TYPE_ORDER){
+    const its=items.filter(x=>x.w.t===t),rows=[];let cur=[],acc=0;
+    for(const it of its){const ww=spW(it.w)+7;if(acc+ww>max-(rows.length?0:64)&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
+    if(cur.length||!rows.length)rows.push(cur);
+    rows.forEach((row,k)=>{html+=`<div class="shelfrow" data-t="${t}">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${k===0?SHELF_DECO[t]:''}</div><div class="board"></div>`});
+  }
+  return `<div class="case${expand?' zoomable':''}"${expand?' data-fsshelf':''}>${expand?'<button class="case-zoom" data-fsshelf aria-label="Ouvrir l’étagère en plein écran"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>':''}${html}</div>`;
+}
+const GRIM_SVG=`<svg class="gsvg" viewBox="0 0 140 104" width="112" height="83" aria-hidden="true">
+  <defs><linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8A5230"/><stop offset=".55" stop-color="#5E3218"/><stop offset="1" stop-color="#3E1F0D"/></linearGradient>
+  <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE9AE"/><stop offset="1" stop-color="#C98A22"/></linearGradient>
+  <radialGradient id="gw" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE3A0" stop-opacity=".55"/><stop offset="1" stop-color="#FFE3A0" stop-opacity="0"/></radialGradient></defs>
+  <ellipse cx="72" cy="96" rx="56" ry="6" fill="rgba(40,20,5,.28)"/>
+  <circle cx="74" cy="48" r="46" fill="url(#gw)"/>
+  <path d="M30 22 112 12 124 22 124 88 42 98 30 88z" fill="#2E1608"/>
+  <path d="M112 12 124 22 124 88 112 79z" fill="#F2E7CF"/><path d="M114 20v58M117 22v58M120 24v58" stroke="#CDBB92" stroke-width="1"/>
+  <path d="M42 98 124 88 124 92 42 102z" fill="#E9DCBC"/>
+  <path d="M30 22 112 12 112 79 30 88z" fill="url(#gl)"/>
+  <path d="M30 22 40 21 40 87 30 88z" fill="#3A1C0B"/><path d="M30 34h10M30 50h10M30 66h10M30 80h10" stroke="url(#gg)" stroke-width="2.4"/>
+  <path d="M44 25 106 17.5 106 74 44 81.5z" fill="none" stroke="url(#gg)" stroke-width="1.6" opacity=".9"/>
+  <path d="M40 21 52 19.6 40 31.5z M112 12 99 13.6 112 25z M40 87 52 85.6 40 76z M112 79 99 80.5 112 69z" fill="url(#gg)"/>
+  <circle cx="75" cy="49.5" r="15" fill="none" stroke="url(#gg)" stroke-width="3"/><circle cx="75" cy="49.5" r="9.5" fill="#2E1608" stroke="url(#gg)" stroke-width="1.4"/>
+  <circle cx="75" cy="33" r="3.2" fill="#E3A900" stroke="#FFE9AE" stroke-width=".8"/><circle cx="91.5" cy="49.5" r="3.2" fill="#2F6FDB" stroke="#FFE9AE" stroke-width=".8"/>
+  <circle cx="75" cy="66" r="3.2" fill="#1C9662" stroke="#FFE9AE" stroke-width=".8"/><circle cx="58.5" cy="49.5" r="3.2" fill="#E0453A" stroke="#FFE9AE" stroke-width=".8"/>
+  <path d="M75 43.5 79 49.5 75 55.5 71 49.5z" fill="#FFE9AE"/>
+  <path d="M106 42h16v15h-16z" fill="#3A1C0B"/><rect x="113" y="44" width="11" height="11" rx="2" fill="url(#gg)"/><rect x="116" y="47" width="5" height="5" rx="1" fill="#3A1C0B"/>
+  <path class="spark s1" d="M20 20l1.6 4.4L26 26l-4.4 1.6L20 32l-1.6-4.4L14 26l4.4-1.6z" fill="#FFD978"/>
+  <path class="spark s2" d="M128 4l1 2.8 2.8 1-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1z" fill="#FFD978"/>
+  <path class="spark s3" d="M16 70l1 2.8 2.8 1-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1z" fill="#FFD978"/>
+</svg>`;
+function grimClosedHTML(n){
+  return `<button class="gclosed" data-grim aria-label="Ouvrir mon grimoire (${n} carte${n>1?'s':''})">${GRIM_SVG}<span class="gcl-t">Mon grimoire</span><span class="gcl-go" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>`;
+}
+const G={type:'f',page:0};
+const gPer=()=>innerWidth>=700?8:9;
+const gList=()=>COLL.items.filter(x=>x.w.t===G.type);
+const gPages=()=>Math.max(1,Math.ceil(gList().length/gPer()));
+function gPageHTML(p=G.page){
+  const list=gList(),pp=gPer(),slice=list.slice(p*pp,p*pp+pp),n=gPages();
+  return `<div class="ghead"><span>${T[G.type].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div><div class="gorn" aria-hidden="true"><i></i></div>
+    ${list.length?`<div class="gcards">${slice.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"></span>'.repeat(Math.max(0,pp-slice.length))}</div>`
+      :`<div class="gempty"><div class="cardback"></div><p>Aucune carte ici… pour l’instant.</p></div>`}
+    <div class="gfoot"><button data-gturn="-1" aria-label="Page précédente" ${p<=0?'disabled':''}>‹</button><span>${p+1} / ${n}</span><button data-gturn="1" aria-label="Page suivante" ${p>=n-1?'disabled':''}>›</button></div>`;
+}
+function grimHTML(){
+  const cnt=t=>COLL.items.filter(x=>x.w.t===t).length;
+  if(!cnt(G.type)){const t=TYPE_ORDER.find(cnt);if(t)G.type=t}
+  G.page=Math.min(G.page,gPages()-1);
+  return `<div class="grim"><div class="gtabs">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" aria-pressed="${G.type===t}" data-gtab="${t}">${T[t].p}<b>${cnt(t)}</b></button>`).join('')}</div>
+    <div class="gbook" id="gbook" style="--tc:var(--${{f:'film',s:'serie',l:'livre',j:'jeu'}[G.type]});--tci:${G.type==='f'?'#18213A':'#fff'}"><span class="gclasp" aria-hidden="true"></span><div class="gpage" id="gpage">${gPageHTML()}</div></div></div>`;
+}
+function turnPage(dir){
+  const np=G.page+dir,book=$('#gbook'),pg=$('#gpage');
+  if(!book||!pg||np<0||np>=gPages())return;
+  const html=gPageHTML(np);
+  if(RM){G.page=np;pg.innerHTML=html;return}
+  const ov=document.createElement('div');ov.className='gpage gturn';
+  if(dir>0){ov.innerHTML=pg.innerHTML;book.appendChild(ov);G.page=np;pg.innerHTML=html;
+    ov.animate([{transform:'rotateY(0)',filter:'brightness(1)'},{transform:'rotateY(-100deg)',filter:'brightness(.7)'}],{duration:520,easing:'cubic-bezier(.4,.1,.3,1)',fill:'forwards'}).onfinish=()=>ov.remove()}
+  else{ov.innerHTML=html;book.appendChild(ov);
+    ov.animate([{transform:'rotateY(-100deg)',filter:'brightness(.7)'},{transform:'rotateY(0)',filter:'brightness(1)'}],{duration:520,easing:'cubic-bezier(.4,.1,.3,1)'}).onfinish=()=>{G.page=np;pg.innerHTML=html;ov.remove()}}
+}
+let fsSrc=null,fsKind='';
+const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,r.top)}px ${Math.max(0,innerWidth-r.right)}px ${Math.max(0,innerHeight-r.bottom)}px ${Math.max(0,r.left)}px round 14px)`};
+function openFs(kind,src){
+  const fs=$('#fs'),body=$('#fsBody');fsSrc=src;fsKind=kind;
+  $('#fsTitle').textContent=kind==='grim'?'Mon grimoire':'Mon étagère';
+  if(kind==='grim'){G.page=0;body.innerHTML=grimHTML()}
+  else body.innerHTML=shelfHTML(COLL.items,Math.min(innerWidth,900)-80,false);
+  fs.classList.add('open');fs.dataset.kind=kind;document.body.style.overflow='hidden';
+  if(!RM&&src){fs.animate([{clipPath:clipOf(src)},{clipPath:'inset(0 0 0 0 round 0)'}],{duration:480,easing:'cubic-bezier(.3,.8,.2,1)'})}
+  if(kind==='grim'&&!RM){
+    const book=$('#gbook');if(book){const cv=document.createElement('div');cv.className='gcover';cv.innerHTML='<span class="gbk-t">Grimoire</span><span class="gbk-o"></span>';book.appendChild(cv);
+      cv.animate([{transform:'rotateY(0)'},{transform:'rotateY(0)',offset:.35},{transform:'rotateY(-165deg)'}],{duration:1100,easing:'cubic-bezier(.5,0,.2,1)',fill:'forwards'}).onfinish=()=>cv.remove()}
+  }
+  if(kind==='grim')bindGrim();
+  setTimeout(()=>$('#fs .fs-x')?.focus({preventScroll:true}),120);
+}
+function closeFs(){
+  const fs=$('#fs');if(!fs.classList.contains('open'))return;
+  const end=()=>{fs.classList.remove('open');$('#fsBody').innerHTML='';document.body.style.overflow='';fsSrc?.focus?.({preventScroll:true})};
+  if(!RM&&fsSrc&&fsSrc.isConnected)fs.animate([{clipPath:'inset(0 0 0 0 round 0)'},{clipPath:clipOf(fsSrc)}],{duration:380,easing:'cubic-bezier(.4,0,.2,1)'}).onfinish=end;else end();
+}
+function bindGrim(){
+  const b=$('#gbook');if(!b)return;let x0=null;
+  b.addEventListener('pointerdown',e=>{x0=e.clientX});
+  b.addEventListener('pointerup',e=>{if(x0==null)return;const dx=e.clientX-x0;x0=null;if(Math.abs(dx)>45)turnPage(dx<0?1:-1)});
+}
+
+/* ---------- Sortir une œuvre de l'étagère et regarder son dos ---------- */
+const BOXDIM={f:[176,250,24],s:[180,252,34],j:[170,226,20],l:[176,262,30]};
+let boxSrc=null,boxId=null;
+function boxBack(w,r){
+  const syn=w.syn?(w.syn.length>280?w.syn.slice(0,270)+'…':w.syn):'';
+  return `<span class="bx-band"></span><span class="bx-in"><b class="bx-t">${esc(w.ti)}</b><span class="bx-m">${[T[w.t].n,w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?rarityTag(r):''}
+    <span class="bx-s">${syn?esc(syn):(w.g||[]).map(esc).join(', ')||'&nbsp;'}</span><span class="bx-code" aria-hidden="true"></span></span>`;
+}
+function boxStart(src,box){const a=src.getBoundingClientRect(),b=box.getBoundingClientRect();return `translate(${a.left+a.width/2-(b.left+b.width/2)}px,${a.top+a.height/2-(b.top+b.height/2)}px) scale(${a.height/b.height})`}
+function openBox(id,src){
+  const w=WK[id];if(!w)return;
+  const who=collWho||uid,r=collList==='want'?0:rateOf(id,who),[W,H,D]=BOXDIM[w.t]||BOXDIM.l;
+  const h=hsh(w.id),pal=PAL[w.t]||PAL.l,c=pal[h%pal.length],img=w.img?String(w.img).replace(/'/g,'%27').replace(/"/g,'%22'):'';
+  const sideBg=img?`linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.05) 40%,rgba(0,0,0,.45)),url('${img}') center/cover`:c;
+  const ov=$('#box');boxSrc=src;boxId=id;
+  ov.innerHTML=`<div class="bx-stage"><div class="bx3 t-${w.t}" style="--w:${W}px;--h:${H}px;--d:${D}px">
+      <div class="bx-f front">${img?`<img src="${esc(w.img)}" alt="" referrerpolicy="no-referrer">`:`<span class="ph">${esc(w.ti)}</span>`}</div>
+      <div class="bx-f back bk-${w.t}">${boxBack(w,r)}</div>
+      <div class="bx-f side" style="background:${sideBg}"></div><div class="bx-f side2"></div>
+      <div class="bx-f top"></div><div class="bx-f bottom"></div></div></div>
+    <div class="bx-acts"><button class="btn" data-boxflip>Retourner</button><button class="btn pri" data-boxsheet="${esc(id)}">Voir la fiche</button><button class="btn icon" data-boxclose aria-label="Fermer">×</button></div>`;
+  ov.classList.add('open');
+  const box=ov.querySelector('.bx3');box.dataset.side='back';
+  if(!w.full)api('work',{id}).then(x=>{reg({...x,id,full:true});const bk=ov.querySelector('.back');if(bk&&boxId===id)bk.innerHTML=boxBack(WK[id],r)}).catch(()=>{});
+  if(RM||!src){box.style.transform='rotateY(180deg)';return}
+  src.style.visibility='hidden';
+  const from=boxStart(src,box);
+  ov.querySelector('.bx-acts').animate([{opacity:0},{opacity:0,offset:.7},{opacity:1}],{duration:1500,fill:'backwards'});
+  box.animate([{transform:`${from} rotateY(90deg)`},{transform:`${from.replace(/translate\(([^,]+),([^)]+)\)/,(m,x,y)=>`translate(${x},calc(${y} - 70px))`)} rotateY(90deg)`,offset:.28},
+    {transform:'translate(0,0) scale(1) rotateY(-12deg)',offset:.62},{transform:'rotateY(0deg)',offset:.72},{transform:'rotateY(0deg)',offset:.82},{transform:'rotateY(180deg)'}],
+    {duration:1900,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=()=>{box.style.transform='rotateY(180deg)'};
+}
+function flipBox(){const box=$('#box .bx3');if(!box)return;const back=box.dataset.side!=='front';box.dataset.side=back?'front':'back';
+  box.getAnimations().forEach(a=>a.cancel());box.style.transition='transform .7s cubic-bezier(.4,0,.2,1)';box.style.transform=`rotateY(${back?0:180}deg)`}
+function closeBox(then){
+  const ov=$('#box');if(!ov.classList.contains('open'))return;
+  const box=ov.querySelector('.bx3'),src=boxSrc;
+  const end=()=>{ov.classList.remove('open');ov.innerHTML='';if(src)src.style.visibility='';boxSrc=null;boxId=null;if(then)then()};
+  if(RM||!src||!src.isConnected||then){end();return}
+  box.getAnimations().forEach(a=>a.cancel());const cur=box.style.transform||'rotateY(180deg)';box.style.transition='';
+  ov.querySelector('.bx-acts').style.opacity=0;
+  box.animate([{transform:cur},{transform:`${boxStart(src,box)} rotateY(90deg)`}],{duration:650,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=end;
+}
+$('#box').addEventListener('click',e=>{
+  const b=e.target.closest('button');
+  if(b&&b.dataset.boxsheet){const id=b.dataset.boxsheet;closeBox(()=>openSheet(id));return}
+  if(b&&'boxflip' in b.dataset){flipBox();return}
+  if(b&&'boxclose' in b.dataset){closeBox();return}
+  if(e.target.closest('.bx3')){flipBox();return}
+  closeBox();
+});
+
+/* ---------- Fiche ---------- */
+let pickDeal=false,sheetId=null,lastFocus=null,recOpen=false,recTo=new Set(),recNote='',pickOpen=false,detailsLoading=null;
+function openSheet(id,refocus=true,opts={}){
+  const w=WK[id];if(!w)return;
+  if(String(id).startsWith('man-'))w.full=true;
+  if(sheetId!==id){recOpen=false;recTo=new Set();recNote='';pickOpen=!!opts.pick;pickDeal=!!opts.pick;
+    if(F.forWho&&others().includes(F.forWho)&&$('#v-search').classList.contains('on')&&!opts.pick){recTo=new Set([F.forWho]);recOpen=true}}
+  sheetId=id;if(refocus)lastFocus=document.activeElement;
+  $('#sheet').style.setProperty('--tc',`var(--${{f:'film',s:'serie',l:'livre',j:'jeu'}[w.t]})`);
+  $('#sheet').style.setProperty('--tci',w.t==='f'?'#18213A':'#fff');
+  const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
+  const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
+  const deal=pickDeal&&!done;pickDeal=false;
+  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${[1,2,3,4].map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pgem">${GEM(n,22)}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
+  $('#sheetIn').innerHTML=`<div class="grab"></div>
+    <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span><h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
+    <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    ${w.syn?`<p class="syn">${esc(w.syn)}</p>`:(!w.full?'<p class="meta">Chargement de la fiche…</p>':'')}
+    ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="gal"></button>`).join('')}</div>`:''}
+    <div class="sh-acts">
+      ${doneTgl(id,'data-done')}
+      ${wantBtn(id)}
+      <button class="btn recb" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button>
+      <button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button>
+    </div>
+    ${pick}
+    <div id="recForm" class="recf" ${recOpen?'':'hidden'}>
+      <div class="rh">Recommander à</div>
+      ${friends.length?`<div class="rto">
+        <button class="pickw" aria-pressed="${!recTo.size}" data-to=""><span class="av all" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.6"/><path d="M3 19c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M15 14.6c2.6-.4 4.8.9 5.6 3.9"/></svg></span><span class="pn">Tout le cercle</span></button>
+        ${friends.map(f=>`<button class="pickw" aria-pressed="${recTo.has(f)}" data-to="${f}">${avatar(f)}<span class="pn">${esc(nameOf(f))}</span></button>`).join('')}
+      </div>`:'<p class="meta" style="margin:4px 0 10px">Invite des amis avec ton code (onglet Collection) pour leur recommander des œuvres.</p>'}
+      <div class="ta"><label class="sr" for="recNote">Ton mot</label><textarea id="recNote" maxlength="280" placeholder="Dis-leur pourquoi c’est d’la frappe… (facultatif)">${esc(recNote)}</textarea><span class="cc" id="recCount">${recNote.length}/280</span></div>
+      <button class="btn pri send" data-share="${esc(id)}">${PLANE}${recTo.size?`Envoyer à ${recTo.size} ami${recTo.size>1?'s':''}`:'Envoyer au cercle'}</button>
+    </div>
+    ${about.length||fins.length?`<div class="social">
+      ${about.map(x=>`<div class="line">${avatar(x.from_id)}<span><b>${esc(nameOf(x.from_id))}</b>${x.note?' : « '+esc(x.note)+' »':' le recommande'}</span></div>`).join('')}
+      ${fins.map(k=>`<div class="line">${avatar(k)}<span>${esc(nameOf(k))} : ${gem(rateOf(id,k))} <span class="rname r${rateOf(id,k)}">${RAR[rateOf(id,k)].n}</span></span></div>`).join('')}</div>`:''}`;
+  $('#scrim').classList.add('open');$('#sheet').classList.add('open');
+  if(refocus)setTimeout(()=>$('#sheet').querySelector(pickOpen&&!done?'[data-rate]':'button[data-done]')?.focus(),50);
+  if(!w.full&&detailsLoading!==id){detailsLoading=id;
+    api('work',{id}).then(x=>{reg({...x,id,full:true});if(mine.works[id]){mine.works[id]=snap(WK[id]);save()}})
+      .catch(()=>{WK[id].full=true})
+      .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
+  }
+}
+function refreshSheet(){if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
+function closeSheet(){if(!sheetId)return;sheetId=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
+
+/* ---------- Œuvre ajoutée à la main ---------- */
+const MAN={title:'',t:'',note:'',to:new Set(),err:''};
+function openManual(title=''){
+  MAN.title=title;MAN.t=F.types.size===1?[...F.types][0]:'';MAN.note='';MAN.to=new Set();MAN.err='';
+  lastFocus=document.activeElement;sheetId='__manual';$('#sheet').style.setProperty('--tc','var(--line)');closeAC();renderManual();
+  $('#scrim').classList.add('open');$('#sheet').classList.add('open');
+  setTimeout(()=>$(MAN.title?'#mNote':'#mTitle')?.focus(),60);
+}
+function renderManual(){
+  const friends=others(),t=MAN.t||'',ti=MAN.title.trim()||'Ton œuvre';
+  $('#sheetIn').innerHTML=`<div class="grab"></div>
+    <h3 id="shTitle" style="font-size:24px;margin:2px 0 4px;letter-spacing:-.02em">Envoyer une œuvre</h3>
+    <p class="meta" style="margin:0 0 6px">Pour une œuvre absente des catalogues.</p>
+    <div class="ledge mledge" aria-hidden="true"><span class="deco stack" style="left:12px"><i></i><i></i><i></i></span><span class="minisp" style="left:76px"><i class="t-f"></i><i class="t-s"></i><i class="t-l"></i><i class="t-j"></i></span><span class="mspine${t?' t-'+t:''}" id="mpSpine" title="${esc(ti)}"></span><span class="deco lamp" style="right:16px"></span></div>
+    <label class="to" for="mTitle" style="display:block">Titre</label>
+    <input class="mini" id="mTitle" maxlength="120" autocomplete="off" value="${esc(MAN.title)}" placeholder="Titre de l’œuvre" style="margin-top:6px">
+    <div class="to">Type<div class="wrap">${Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.n}`,MAN.t===k,`data-mtype="${k}"`)).join('')}</div></div>
+    <label class="to" for="mNote" style="display:block">Commentaire</label>
+    <textarea id="mNote" maxlength="280" placeholder="Qu’est-ce c’est !?">${esc(MAN.note)}</textarea>
+    <div class="to">À qui ?<div class="wrap">${chip('Tout le cercle',!MAN.to.size,'data-mto=""')}${friends.map(f=>chip(esc(nameOf(f)),MAN.to.has(f),`data-mto="${f}"`)).join('')}</div></div>
+    <div class="to">Aperçu dans le fil</div>
+    <div class="ev mprev${t?' t-'+t:''}"><div class="who">${avatar(uid)}<span><b>Tu</b> as recommandé ${MAN.to.size?'à '+[...MAN.to].map(f=>`<b>${esc(nameOf(f))}</b>`).join(', '):'à tout le cercle'}<br>à l’instant</span></div>
+      <div class="work"><span class="cover${t?' t-'+t:''}"><span class="ct" id="mpCover">${esc(ti)}</span></span><span><span class="ti" id="mpTitle">${esc(ti)}</span><br><span class="meta">${t?T[t].n:'Choisis un type'}</span></span></div>
+      <p class="note" id="mpNote" ${MAN.note.trim()?'':'hidden'}>« ${esc(MAN.note.trim())} »</p></div>
+    <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.3em;margin:10px 0 4px">${esc(MAN.err)}</p>
+    <button class="btn pri" data-msend style="width:100%;padding:13px">${MAN.to.size?`Envoyer à ${MAN.to.size} ami${MAN.to.size>1?'s':''}`:'Envoyer au cercle'}</button>`;
+}
+async function sendManual(btn){
+  MAN.title=$('#mTitle').value.trim();MAN.note=$('#mNote').value.trim();
+  if(!MAN.title){MAN.err='Indique un titre.';renderManual();$('#mTitle').focus();return}
+  if(!MAN.t){MAN.err='Choisis un type.';renderManual();return}
+  const w=reg({id:'man-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),t:MAN.t,ti:MAN.title.slice(0,120),full:true,man:true});
+  btn.disabled=true;
+  try{const rec=await call('POST','recs',{to_ids:[...MAN.to],work:snap(w),note:MAN.note.slice(0,280)});
+    recs.unshift(rec);toast(MAN.to.size?'Œuvre envoyée':'Œuvre partagée au cercle');closeSheet();renderAll()}
+  catch(e){MAN.err=msg(e);renderManual()}
+}
+
+/* ---------- Inspection d'une carte ---------- */
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let insp=null;
+const flipFrom=(src,el)=>{const a=src.getBoundingClientRect(),b=el.getBoundingClientRect();return `translate(${a.left+a.width/2-(b.left+b.width/2)}px,${a.top+a.height/2-(b.top+b.height/2)}px) scale(${a.width/b.width},${a.height/b.height})`};
+function inspect(id,src){
+  const w=WK[id];if(!w)return;
+  const who=collWho||uid,want=collList==='want',r=want?0:rateOf(id,who),ts=(want?dataOf(who).want:dataOf(who).done)[id];
+  const ov=$('#insp');
+  ov.innerHTML=`<div class="istage"><div class="iwrap"><div class="itilt">${card(w,r)}<span class="glare"></span></div></div>
+    <div class="iinfo"><div class="it">${esc(w.ti)}</div><div class="meta">${metaLine(w)}</div>
+    ${r?`<div class="irar2">${rarityTag(r)}<span>${esc(RAR[r].s)}</span></div>`:''}
+    ${ts?`<div class="meta">${want?'Gardée':'Ajoutée'} le ${new Date(ts).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
+    <div class="iacts"><button class="btn pri" data-isheet="${esc(id)}">Voir la fiche</button><button class="btn" data-iclose>Fermer</button></div></div></div>`;
+  ov.classList.add('open');document.body.style.overflow='hidden';insp={id,src};
+  const wrap=ov.querySelector('.iwrap'),tilt=ov.querySelector('.itilt');
+  if(src&&!RM){
+    wrap.animate([{transform:flipFrom(src,wrap)},{transform:'translateY(-14px) scale(1.05) rotateY(-14deg)',offset:.62},{transform:'none'}],{duration:640,easing:'cubic-bezier(.2,.8,.2,1)'});
+    ov.querySelector('.iinfo').animate([{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'none'}],{duration:380,delay:300,fill:'backwards',easing:'ease-out'});
+    ov.animate([{backgroundColor:'rgba(8,10,20,0)'},{backgroundColor:'rgba(8,10,20,.9)'}],{duration:320});
+  }
+  wrap.onpointermove=e=>{if(RM)return;const b=tilt.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;
+    tilt.style.transform=`rotateY(${x*20}deg) rotateX(${-y*20}deg)`;tilt.style.setProperty('--mx',(x+.5)*100+'%');tilt.style.setProperty('--my',(y+.5)*100+'%')};
+  wrap.onpointerleave=()=>{tilt.style.transform=''};
+  setTimeout(()=>ov.querySelector('[data-isheet]')?.focus({preventScroll:true}),120);
+}
+function closeInspect(then){
+  const ov=$('#insp');if(!ov.classList.contains('open'))return;
+  const done=()=>{ov.classList.remove('open');ov.innerHTML='';document.body.style.overflow='';const s=insp?.src;insp=null;if(then)then();else s?.focus?.({preventScroll:true})};
+  const src=insp?.src,wrap=ov.querySelector('.iwrap');
+  if(src&&src.isConnected&&!RM&&!then){
+    ov.querySelector('.iinfo').animate([{opacity:1},{opacity:0}],{duration:140,fill:'forwards'});
+    ov.animate([{backgroundColor:'rgba(8,10,20,.9)'},{backgroundColor:'rgba(8,10,20,0)'}],{duration:380,fill:'forwards'});
+    wrap.animate([{transform:'none'},{transform:flipFrom(src,wrap)}],{duration:380,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=done;
+  }else done();
+}
+$('#insp').addEventListener('click',e=>{
+  const b=e.target.closest('button');
+  if(b&&b.dataset.isheet){const id=b.dataset.isheet;closeInspect(()=>openSheet(id));return}
+  if(b&&'iclose' in b.dataset){closeInspect();return}
+  if(!e.target.closest('.iwrap')&&!e.target.closest('.iinfo'))closeInspect();
+});
+
+/* ---------- Galerie ---------- */
+function openGallery(i){
+  const w=WK[sheetId];if(!w||!w.imgs)return;
+  const strip=$('#lbStrip'),n=w.imgs.length;
+  strip.innerHTML=w.imgs.map(u=>`<div><img src="${esc(u)}" alt="" referrerpolicy="no-referrer"></div>`).join('');
+  $('#lb').classList.add('open');
+  requestAnimationFrame(()=>{strip.scrollLeft=i*strip.clientWidth;upd()});
+  function upd(){$('#lbPos').textContent=`${Math.round(strip.scrollLeft/strip.clientWidth)+1} / ${n}`}
+  strip.onscroll=upd;$('#lbClose').focus();
+}
+function closeGallery(){$('#lb').classList.remove('open');$('#lbStrip').innerHTML=''}
+$('#lbClose').addEventListener('click',closeGallery);
+$('#lb').addEventListener('click',e=>{if(e.target.id==='lb'||e.target.parentNode?.parentNode?.id==='lbStrip'&&e.target.tagName==='DIV')closeGallery()});
+
+/* ---------- Révélation ---------- */
+let revealId=null,revealT=null;
+function reveal(id){
+  const w=WK[id],r=rateOf(id),el=$('#reveal');
+  el.style.setProperty('--rc',`var(--r${r})`);
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,r)}<div class="cardback"></div></div><div class="burst"></div>
+    <div class="cap"><span class="cgem">${GEM(r,34)}</span><span class="rname">${RAR[r].n}</span>${esc(RAR[r].s)}</div><div class="tap">Direction ta collection…</div></div>`;
+  el.classList.add('open');el.focus();revealId=id;
+  clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),2600);
+}
+// La carte quitte l'écran de révélation et vient se ranger à sa place dans la collection
+function closeReveal(){
+  const el=$('#reveal');if(!el.classList.contains('open'))return;
+  clearTimeout(revealT);const id=revealId;revealId=null;
+  const end=()=>{el.classList.remove('open');el.innerHTML=''};
+  if(!id){end();return}
+  collWho=uid;collList='done';collType='';collRar=0;$('#collQ').value='';
+  setTab('coll');
+  const target=document.querySelector(`#shelf [data-inspect="${CSS.escape(id)}"],#shelf [data-box="${CSS.escape(id)}"]`),flip=el.querySelector('.flip');
+  if(!target||!flip||RM){end();if(target){target.classList.add('landed');setTimeout(()=>target.classList.remove('landed'),1500)}return}
+  target.scrollIntoView({block:'center'});
+  const tEl=target.querySelector('.card')||target;tEl.style.visibility='hidden';
+  flip.style.animation='none';el.querySelectorAll('.cap,.tap,.burst').forEach(x=>x.style.display='none');
+  const a=flip.getBoundingClientRect(),t=tEl.getBoundingClientRect();
+  el.querySelector('.rbg').animate([{opacity:1},{opacity:0}],{duration:600,fill:'forwards'});
+  flip.animate([{transform:'none'},{transform:`translate(${t.left+t.width/2-(a.left+a.width/2)}px,${t.top+t.height/2-(a.top+a.height/2)}px) scale(${t.width/a.width},${t.height/a.height})`}],{duration:700,easing:'cubic-bezier(.55,0,.2,1)',fill:'forwards'})
+    .onfinish=()=>{tEl.style.visibility='';end();target.classList.add('landed');setTimeout(()=>target.classList.remove('landed'),1500)};
+}
+
+/* ---------- Actions ---------- */
+function keepWork(id){const w=WK[id];if(!w)return;if(isDone(id)||isWant(id))mine.works[id]=snap(w);else delete mine.works[id]}
+function setRate(id,n){
+  const was=isDone(id);
+  mine.rate[id]=n;
+  if(!was){mine.done[id]=Date.now();delete mine.want[id];justAdded=id}
+  keepWork(id);save();
+  if(!was){pickOpen=false;closeSheet();renderAll();reveal(id);chalProgressToast(id);checkWins()}
+  else{toast(`Carte ${RAR[n].n.toLowerCase()}`);renderAll()}
+}
+function toggleDone(id){
+  if(!isDone(id)){pickOpen=true;pickDeal=true;refreshSheet();setTimeout(()=>$('#sheet .pick')?.scrollIntoView({behavior:'smooth',block:'center'}),60);setTimeout(()=>$('#sheet [data-rate]')?.focus(),30);return}
+  if(!confirm('Retirer cette carte de ta collection ?'))return;
+  delete mine.done[id];delete mine.rate[id];keepWork(id);save();toast('Carte retirée');renderAll();
+}
+function toggleWant(id){if(mine.want[id])delete mine.want[id];else mine.want[id]=Date.now();keepWork(id);save();renderAll()}
+async function share(id,btn){
+  const w=WK[id];if(!w)return;btn.disabled=true;
+  try{const rec=await call('POST','recs',{to_ids:[...recTo],work:snap(w),note:recNote.trim().slice(0,280)});
+    recs.unshift(rec);toast(recTo.size?'Recommandation envoyée':'Recommandation publiée');recOpen=false;closeSheet();renderAll()}
+  catch(e){toast(msg(e));btn.disabled=false}
+}
+async function delRec(id){
+  if(!confirm('Supprimer cette recommandation ?'))return;
+  try{await call('DELETE','recs/'+id);recs=recs.filter(r=>r.id!==id);renderAll()}catch(e){toast(msg(e))}
+}
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
+
+function renderAll(){
+  if(uid)members[uid]={name:myName,data:mine};
+  renderFeed();renderSearch();renderColl();renderChal();renderSide();
+  if(sheetId&&$('#sheet').classList.contains('open'))refreshSheet();
+}
+let searchStarted=false;
+function setTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+t));
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.dataset.tab===t?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
+  window.scrollTo(0,0);
+  if(t==='coll')renderColl();
+  if(t==='chal')renderChal();
+  if(t==='search'){if(!searchStarted){searchStarted=true;runSearch()}setTimeout(()=>$('#q').focus(),30)}
+}
+
+/* ---------- Événements ---------- */
+$('#reveal').addEventListener('click',closeReveal);
+document.addEventListener('click',e=>{
+  if(e.target.closest('#gate')||e.target.closest('#reveal')||e.target.closest('#lb')||e.target.closest('#insp')||e.target.closest('#box'))return;
+  const b=e.target.closest('button,[data-i]');if(!b)return;const d=b.dataset;
+  if(d.i!==undefined&&b.classList.contains('opt')){pickAC(+d.i);return}
+  if(d.tab!==undefined){closeSheet();setTab(d.tab);return}
+  if('newchal' in d){openChallenge();return}
+  if(d.chalwith){const w=d.chalwith;closeSheet();setTimeout(()=>openChallenge(w),220);return}
+  if(d.chtab){chalTab=d.chtab;renderChal();return}
+  if(d.chto){CH.to=d.chto;CH.works=CH.works.filter(w=>!isDone(w.id,CH.to));CH.err='';refreshSheet();return}
+  if(d.chadd){const w=WK[d.chadd];if(w&&CH.works.length<4&&chalAddable(w)){CH.works.push(snap(w));CH.err=''}refreshSheet();return}
+  if(d.chrm){CH.works=CH.works.filter(x=>x.id!==d.chrm);refreshSheet();return}
+  if('chopen' in d){const first=!CH.open;CH.open=true;CH.anim=first;refreshSheet();
+    const box=$('.chsrch');if(first&&box){requestAnimationFrame(()=>requestAnimationFrame(()=>box.classList.add('open')));CH.anim=false}
+    setTimeout(()=>{const q=$('#chq');if(q){q.focus({preventScroll:true});box?.scrollIntoView({behavior:'smooth',block:'center'})}},first?260:30);return}
+  if('chsend' in d){sendChallenge(b);return}
+  if(d.delchal){delChal(d.delchal);return}
+  if(d.cmt){openCmts.has(d.cmt)?openCmts.delete(d.cmt):openCmts.add(d.cmt);renderFeed();if(openCmts.has(d.cmt))setTimeout(()=>document.getElementById('cmi-'+d.cmt)?.focus(),30);return}
+  if(d.sendcmt){sendComment(d.sendcmt);return}
+  if(d.delcmt){delComment(d.delcmt);return}
+  if('grim' in d){openFs('grim',b.querySelector('.gbk')||b);return}
+  if('fsshelf' in d){if(e.target.closest('.sp'))return;openFs('shelf',b.closest('.case')||b);return}
+  if('fsclose' in d){closeFs();return}
+  if(d.gturn){turnPage(+d.gturn);return}
+  if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
+  if(d.cstyle){cardStyle=d.cstyle;lsSet('sharefs-cardstyle',cardStyle);renderAll();return}
+  if(d.box){openBox(d.box,b);return}
+  if(d.inspect){inspect(d.inspect,b.querySelector('.card')||b);return}
+  if(d.acrm!==undefined){lsSet('sharefs-recent',lsGet('sharefs-recent',[]).filter(x=>x!==d.acrm));acIdx=-1;renderAC();return}
+  if('acclear' in d){lsSet('sharefs-recent',[]);closeAC();return}
+  if('acclose' in d){closeAC();$('#q').blur();return}
+  if(d.gal!==undefined){openGallery(+d.gal);return}
+  if('gosearch' in d){setTab('search');return}
+  if(d.try){$('#q').value=d.try;setTab('search');setTimeout(()=>{$('#q').focus();onQuery()},40);return}
+  if('gocoll' in d){collWho=uid;setTab('coll');setTimeout(()=>$('#account')?.scrollIntoView({behavior:'smooth'}),60);return}
+  if(d.manual!==undefined){openManual(d.manual||$('#q').value.trim());return}
+  if(d.mtype){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;MAN.t=d.mtype;MAN.err='';renderManual();return}
+  if(d.mto!==undefined){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;if(!d.mto)MAN.to.clear();else MAN.to.has(d.mto)?MAN.to.delete(d.mto):MAN.to.add(d.mto);renderManual();return}
+  if('msend' in d){sendManual(b);return}
+  if(d.open){openSheet(d.open);return}
+  if(d.quickdone){isDone(d.quickdone)?toggleDone(d.quickdone):openSheet(d.quickdone,true,{pick:true});return}
+  if(d.done){toggleDone(d.done);return}
+  if(d.rate){const id=sheetId,n=+d.rate;if(isDone(id)||RM){setRate(id,n);return}
+    const deck=b.closest('.deck');deck.classList.add('choosing');b.classList.add('chosen');deck.querySelectorAll('button').forEach(x=>x.disabled=true);
+    setTimeout(()=>setRate(id,n),420);return}
+  if(d.want){toggleWant(d.want);return}
+  if(d.share){share(d.share,b);return}
+  if(d.delrec){delRec(d.delrec);return}
+  if(d.to!==undefined){if(!d.to)recTo.clear();else recTo.has(d.to)?recTo.delete(d.to):recTo.add(d.to);refreshSheet();return}
+  if(d.feed){feedMode=d.feed;renderFeed();return}
+  if(d.who){collWho=d.who;renderColl();return}
+  if('cwant' in d){collList=collList==='want'?'done':'want';renderColl();return}
+  if(d.cview){collView=d.cview;lsSet('sharefs-collview',collView);renderColl();return}
+  if(d.ctype!==undefined){collType=d.ctype;renderColl();return}
+  if(d.crar!==undefined){collRar=+d.crar;renderColl();return}
+  if('searchall' in d){$('#q').value=$('#collQ').value;F.mine=false;setTab('search');runSearch();return}
+  if('explore' in d){$('#q').value='';F.mine=false;F.types.clear();setTab('search');runSearch();return}
+  if('more' in d){runSearch(true);return}
+  if(b.id==='recBtn'){recOpen=!recOpen;refreshSheet();if(recOpen)$('#recNote')?.focus();return}
+  if(d.type!==undefined){if(!d.type){F.types.clear();F.mine=false}else F.types.has(d.type)?F.types.delete(d.type):F.types.add(d.type);F.mine?renderSearch():runSearch();return}
+  if('mine' in d){F.mine=!F.mine;F.mine?renderSearch():runSearch();return}
+  if(b.id==='reset'||d.act==='reset'){F.types.clear();F.mine=false;F.forWho='';runSearch();return}
+  if(b.id==='clear'){$('#q').value='';onQuery();$('#q').focus();return}
+  if(b.id==='goSearch'){setTab('search');return}
+});
+document.addEventListener('click',e=>{const c=e.target.closest('#shelf .case.zoomable');if(c&&!e.target.closest('.sp')&&!e.target.closest('button'))openFs('shelf',c)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('cmi')){e.preventDefault();sendComment(e.target.dataset.rec)}});
+document.addEventListener('input',e=>{const tg=e.target;
+  if(tg.classList&&tg.classList.contains('cmi'))cmDraft[tg.dataset.rec]=tg.value;
+  if(tg.id==='chq'){CH.q=tg.value;chalSearch()}
+  if(tg.id==='chNote')CH.note=tg.value;
+  if(tg.id==='mTitle'){const v=tg.value.trim()||'Ton œuvre';const a=$('#mpSpine'),b2=$('#mpTitle'),c2=$('#mpCover');if(a)a.title=v;if(b2)b2.textContent=v;if(c2)c2.textContent=v}
+  if(tg.id==='mNote'){const n=$('#mpNote');if(n){n.textContent=tg.value.trim()?'« '+tg.value.trim()+' »':'';n.hidden=!tg.value.trim()}}
+});
+document.addEventListener('input',e=>{if(e.target.id==='recNote'){recNote=e.target.value;const c=$('#recCount');if(c)c.textContent=recNote.length+'/280'}if(e.target.id==='collQ')renderColl()});
+$('#scrim').addEventListener('click',closeSheet);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#box').classList.contains('open'))closeBox();else if($('#insp').classList.contains('open'))closeInspect();else if($('#sheet').classList.contains('open'))closeSheet();else if($('#fs').classList.contains('open'))closeFs();else if($('#lb').classList.contains('open'))closeGallery();else if($('#reveal').classList.contains('open'))closeReveal();else if($('#sheet').classList.contains('open'))closeSheet();else closeAC()}else if((e.key==='Enter'||e.key===' ')&&$('#reveal').classList.contains('open')){e.preventDefault();closeReveal()}});
+const qEl=$('#q');
+qEl.addEventListener('input',onQuery);
+qEl.addEventListener('focus',renderAC);
+qEl.addEventListener('blur',()=>setTimeout(closeAC,150));
+qEl.addEventListener('keydown',e=>{
+  const open=$('#ac').classList.contains('open');
+  if(e.key==='ArrowDown'&&acItems.length){e.preventDefault();if(!open)renderAC();acIdx=(acIdx+1)%acItems.length;markAC()}
+  else if(e.key==='ArrowUp'&&acItems.length){e.preventDefault();acIdx=(acIdx-1+acItems.length)%acItems.length;markAC()}
+  else if(e.key==='Enter'){e.preventDefault();if(open&&acIdx>=0)pickAC(acIdx);else{remember(qEl.value);closeAC();qEl.blur();clearTimeout(srT);runSearch()}}
+});
+function markAC(){document.querySelectorAll('#ac .opt').forEach(o=>o.setAttribute('aria-selected',+o.dataset.i===acIdx));const o=$('#ao'+acIdx);if(o){o.scrollIntoView({block:'nearest'});qEl.setAttribute('aria-activedescendant','ao'+acIdx)}}
+$('#ac').addEventListener('mousedown',e=>e.preventDefault());
+
+/* ---------- Accès ---------- */
+const gate=$('#gate'),gIn=$('#gateIn');
+function showGate(html){gIn.innerHTML=`<div class="brand">Sharefs<span aria-hidden="true"></span></div>`+html;gate.classList.add('open');setTimeout(()=>gIn.querySelector('input')?.focus(),60)}
+function hideGate(){gate.classList.remove('open')}
+let pendingEmail='';
+function stepEmail(err='',signup=false){
+  showGate(`<h1 id="gateTitle">${signup?'Crée ton compte.':'Partage ce que tu as aimé.'}</h1><p class="sub">${signup?'Un e-mail et un mot de passe d’au moins 10 caractères.':'Connecte-toi avec ton e-mail et ton mot de passe.'}</p>
+  <label class="sr" for="gEmail">E-mail</label><input id="gEmail" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" value="${esc(pendingEmail)}">
+  <label class="sr" for="gPass">Mot de passe</label><input id="gPass" type="password" autocomplete="${signup?'new-password':'current-password'}" placeholder="Mot de passe">
+  <p class="err" role="alert">${esc(err)}</p>
+  <button class="btn pri" id="${signup?'gSignup':'gLogin'}">${signup?'Créer mon compte':'Me connecter'}</button>
+  <p class="or">${signup?'Déjà inscrit ?':'Pas encore de compte ?'}</p><button class="btn" id="${signup?'gToLogin':'gToSignup'}">${signup?'Me connecter':'Créer un compte'}</button>
+  ${signup?'':'<button class="link" id="gForgot">Mot de passe oublié ?</button>'}`);
+}
+function stepForgot(err=''){
+  showGate(`<h1 id="gateTitle">Mot de passe oublié.</h1><p class="sub">On t’envoie un code à 6 chiffres par e-mail.</p>
+  <label class="sr" for="gEmail">E-mail</label><input id="gEmail" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" value="${esc(pendingEmail)}">
+  <p class="err" role="alert">${esc(err)}</p><button class="btn pri" id="gSendCode">Recevoir le code</button><button class="link" id="gToLogin">Retour</button>`);
+}
+function stepReset(err=''){
+  showGate(`<h1 id="gateTitle">Nouveau mot de passe.</h1><p class="sub">Saisis le code reçu à ${esc(pendingEmail)} (pense aux spams).</p>
+  <label class="sr" for="gCode">Code</label><input id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Code à 6 chiffres">
+  <label class="sr" for="gPass">Nouveau mot de passe</label><input id="gPass" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe">
+  <p class="err" role="alert">${esc(err)}</p><button class="btn pri" id="gReset">Changer le mot de passe</button><button class="link" id="gToLogin">Retour</button>`);
+}
+function stepName(err=''){
+  showGate(`<h1 id="gateTitle">Comment tes amis t’appellent ?</h1><p class="sub">Ce prénom s’affiche à côté de tes recommandations.</p>
+  <label class="sr" for="gName">Prénom</label><input id="gName" maxlength="40" autocomplete="given-name" placeholder="Prénom" value="${esc(myName)}">
+  <p class="err" role="alert">${esc(err)}</p><button class="btn pri" id="gSaveName">Continuer</button>`);
+}
+function stepCircle(err=''){
+  showGate(`<h1 id="gateTitle">Rejoins tes amis.</h1><p class="sub">Un cercle regroupe les amis qui voient tes conseils et ta collection.</p>
+  <label class="sr" for="gJoin">Code d’invitation</label><input id="gJoin" maxlength="6" autocapitalize="characters" placeholder="Code reçu d’un ami">
+  <p class="err" role="alert">${esc(err)}</p><button class="btn pri" id="gJoinBtn">Rejoindre le cercle</button>
+  <p class="or">ou</p><button class="btn" id="gCreate">Créer un cercle</button>${uid&&myCircles.length?'<button class="link" id="gCancel">Annuler</button>':''}`);
+}
+async function busy(btn,fn){btn.disabled=true;try{await fn()}finally{if(btn.isConnected)btn.disabled=false}}
+function loggedIn(res){token=res.token;lsSet('sharefs-token',token);return afterLogin(res.user)}
+gate.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const em=()=>{pendingEmail=($('#gEmail')?.value||pendingEmail).trim()};
+  if(b.id==='gToSignup'){em();stepEmail('',true)}
+  if(b.id==='gToLogin'){em();stepEmail()}
+  if(b.id==='gForgot'){em();stepForgot()}
+  if(b.id==='gCancel')hideGate();
+  if(b.id==='gLogin'||b.id==='gSignup')busy(b,async()=>{
+    const signup=b.id==='gSignup';em();const password=$('#gPass').value;
+    try{await loggedIn(await call('POST',signup?'auth/signup':'auth/login',{email:pendingEmail,password}))}catch(err){stepEmail(msg(err),signup)}});
+  if(b.id==='gSendCode')busy(b,async()=>{em();try{await call('POST','auth/forgot',{email:pendingEmail});stepReset()}catch(err){stepForgot(msg(err))}});
+  if(b.id==='gReset')busy(b,async()=>{try{await loggedIn(await call('POST','auth/reset',{email:pendingEmail,code:$('#gCode').value.trim(),password:$('#gPass').value}))}catch(err){stepReset(msg(err))}});
+  if(b.id==='gSaveName')busy(b,async()=>{const n=$('#gName').value.trim();if(!n)return stepName('Indique un prénom.');
+    try{await call('PUT','me',{name:n});myName=n;await ensureCircle()}catch(err){stepName(msg(err))}});
+  if(b.id==='gJoinBtn')busy(b,async()=>{try{await call('POST','circles/join',{code:$('#gJoin').value.trim()});await enterApp()}catch(err){stepCircle(msg(err))}});
+  if(b.id==='gCreate')busy(b,async()=>{try{await call('POST','circles');await enterApp()}catch(err){stepCircle(msg(err))}});
+});
+gate.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();gate.querySelector('.btn.pri')?.click()}});
+
+async function afterLogin(user){
+  uid=user.id;myName=user.name||'';mine=normData(user.data);Object.values(mine.works).forEach(reg);
+  if(!myName)return stepName();
+  await ensureCircle();
+}
+async function ensureCircle(){
+  const st=await call('GET','state');
+  if(!st.circles.length)return stepCircle();
+  applyState(st);await enterApp(true);
+}
+function applyState(st){
+  members={};names={};
+  st.members.forEach(m=>{const d=normData(m.data);members[m.id]={name:m.name,data:d};names[m.id]=m.name;Object.values(d.works).forEach(reg)});
+  if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
+  myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
+  comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
+  renderAll();
+}
+async function loadAll(){try{applyState(await call('GET','state'))}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
+let poll=null;
+async function enterApp(loaded=false){
+  hideGate();if(!loaded)await loadAll();
+  clearInterval(poll);poll=setInterval(()=>{if(document.visibilityState==='visible'&&uid)loadAll()},25000);
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&uid)loadAll()});
+
+/* ---------- Compte ---------- */
+function renderAccount(){
+  const el=$('#account');if(!el)return;
+  if(!uid||collWho!==uid){el.innerHTML='';return}
+  el.innerHTML=`<h2>Mon compte</h2><div class="account">
+    <div class="line"><span>Prénom</span><b>${esc(myName)}</b></div>
+    ${myCircles.map(c=>`<div class="line"><span>Code d’invitation<br><span class="code">${esc(c)}</span></span><button class="btn" data-invite="${esc(c)}">Inviter</button></div>`).join('')}
+    <div class="stack">
+      <div class="line" style="border:0;padding:4px 0 2px"><span>Style des cartes</span><span style="display:inline-flex;gap:6px">${chip('Holo',cardStyle==='holo','data-cstyle="holo"')}${chip('Jaquette',cardStyle==='case','data-cstyle="case"')}</span></div>
+      <button class="btn" data-acc="name">Changer de prénom</button>
+      <button class="btn" data-acc="join">Rejoindre un autre cercle</button>
+      <button class="btn" data-acc="logout">Me déconnecter</button>
+      <button class="btn" data-acc="logoutall">Déconnecter tous mes appareils</button>
+      <button class="btn danger" data-acc="delete">Supprimer mon compte</button>
+    </div></div><p class="credits">Données des œuvres : TMDB, Google Books et IGDB. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-invite],button[data-acc]');if(!b)return;
+  if(b.dataset.invite){const code=b.dataset.invite,link=CFG.apiBase||location.origin,text=`Rejoins-moi sur Sharefs avec le code ${code} : ${link}`;
+    try{if(navigator.share)await navigator.share({title:'Sharefs',text});else{await navigator.clipboard.writeText(text);toast('Invitation copiée')}}catch(err){}return}
+  const a=b.dataset.acc;
+  if(a==='name')stepName();
+  if(a==='join')stepCircle();
+  if(a==='logout'){try{await call('POST','auth/logout')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
+  if(a==='logoutall'&&confirm('Te déconnecter de tous tes appareils, y compris celui-ci ?')){try{await call('POST','auth/logout-all')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
+  if(a==='delete'&&confirm('Supprimer ton compte, ta collection et tes recommandations ? Cette action est définitive.')){
+    try{await call('DELETE','me');token='';lsSet('sharefs-token','');location.reload()}catch(err){toast(msg(err))}}
+});
+
+let rzT;addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(collView==='shelf'&&$('#v-coll').classList.contains('on'))renderColl()},200)});
+
+/* ---------- Démarrage ---------- */
+renderAll();
+(async()=>{
+  if(!token)return stepEmail();
+  try{await afterLogin(await call('GET','me'))}catch(e){if(e.code!=='unauthorized')stepEmail(msg(e))}
+})();
+

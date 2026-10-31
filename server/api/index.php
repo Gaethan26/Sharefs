@@ -48,8 +48,8 @@ try {
     case $M === 'POST' && $path === 'auth/signup':
       $b = body(); $email = strtolower(trim((string) ($b['email'] ?? ''))); $pass = (string) ($b['password'] ?? '');
       if (!preg_match(EMAIL_RE, $email) || strlen($email) > 190) fail(400, 'bad_email');
-      if (strlen($pass) < 8) fail(400, 'weak_password');
       throttle('signup|' . client_ip(), 10, 3600);
+      check_password($pass);
       if (q('SELECT 1 FROM users WHERE email = ?', [$email])->fetch()) fail(409, 'email_taken');
       $id = uuid();
       q('INSERT INTO users (id, email, pass) VALUES (?, ?, ?)', [$id, $email, password_hash($pass, PASSWORD_DEFAULT)]);
@@ -64,6 +64,11 @@ try {
 
     case $M === 'POST' && $path === 'auth/logout':
       q('DELETE FROM sessions WHERE token_hash = ?', [hash('sha256', token_in())]);
+      out(['ok' => true]);
+
+    case $M === 'POST' && $path === 'auth/logout-all':
+      $u = need_user();
+      q('DELETE FROM sessions WHERE user_id = ?', [$u['id']]);
       out(['ok' => true]);
 
     case $M === 'POST' && $path === 'auth/forgot':
@@ -81,12 +86,12 @@ try {
 
     case $M === 'POST' && $path === 'auth/reset':
       $b = body(); $email = strtolower(trim((string) ($b['email'] ?? ''))); $pass = (string) ($b['password'] ?? '');
-      if (strlen($pass) < 8) fail(400, 'weak_password');
       $r = q('SELECT * FROM resets WHERE email = ?', [$email])->fetch();
       if (!$r || $r['exp'] < time() || $r['tries'] >= 5) fail(400, 'bad_code');
       if (!hash_equals($r['code_hash'], hash('sha256', $email . '|' . trim((string) ($b['code'] ?? ''))))) {
         q('UPDATE resets SET tries = tries + 1 WHERE email = ?', [$email]); fail(400, 'bad_code');
       }
+      check_password($pass);
       $uid = q('SELECT id FROM users WHERE email = ?', [$email])->fetchColumn();
       q('UPDATE users SET pass = ? WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $uid]);
       q('DELETE FROM resets WHERE email = ?', [$email]);
@@ -107,7 +112,7 @@ try {
       if (array_key_exists('data', $b)) {
         $o = body_obj();
         if (!is_object($o->data ?? null)) fail(400, 'bad_data');
-        $json = enc($o->data);
+        $json = enc(clean_data($o->data));
         if (strlen($json) > 500000) fail(413, 'too_large');
         q('UPDATE users SET data = ? WHERE id = ?', [$json, $u['id']]);
       }
@@ -160,14 +165,14 @@ try {
     /* ---------- Recommandations ---------- */
     case $M === 'POST' && $path === 'recs':
       $u = need_user(); $b = body(); throttle('rec|' . $u['id'], 60, 3600);
-      $work = $b['work'] ?? null;
-      if (!is_array($work) || empty($work['id']) || empty($work['ti'])) fail(400, 'bad_work');
+      $work = clean_work($b['work'] ?? null);
+      if (!$work) fail(400, 'bad_work');
       $to = array_values(array_unique(array_filter(array_map('strval', (array) ($b['to_ids'] ?? [])))));
       if (count($to) > 50 || array_diff($to, mates($u['id']))) fail(400, 'bad_recipients');
       $note = mb_substr(trim((string) ($b['note'] ?? '')), 0, 280) ?: null;
       $id = uuid();
       db()->beginTransaction();
-      q('INSERT INTO recs (id, from_id, work, note) VALUES (?, ?, ?, ?)', [$id, $u['id'], enc(body_obj()->work), $note]);
+      q('INSERT INTO recs (id, from_id, work, note) VALUES (?, ?, ?, ?)', [$id, $u['id'], enc($work), $note]);
       foreach ($to as $t) q('INSERT INTO rec_targets (rec_id, user_id) VALUES (?, ?)', [$id, $t]);
       db()->commit();
       $r = q('SELECT r.*, (SELECT GROUP_CONCAT(t.user_id) FROM rec_targets t WHERE t.rec_id = r.id) AS to_ids FROM recs r WHERE id = ?', [$id])->fetch();
@@ -183,13 +188,14 @@ try {
       $u = need_user(); $b = body(); throttle('chal|' . $u['id'], 30, 3600);
       $to = (string) ($b['to_id'] ?? '');
       if ($to === $u['id'] || !in_array($to, mates($u['id']), true)) fail(400, 'bad_recipient');
-      $works = body_obj()->works ?? null;
+      $works = $b['works'] ?? null;
       if (!is_array($works) || count($works) < 1 || count($works) > 4) fail(400, 'bad_works');
-      foreach ($works as $w) if (!is_object($w) || empty($w->id) || empty($w->ti)) fail(400, 'bad_works');
+      $works = array_map('clean_work', array_values($works));
+      if (in_array(null, $works, true)) fail(400, 'bad_works');
       $note = mb_substr(trim((string) ($b['note'] ?? '')), 0, 280) ?: null;
       $id = uuid();
       q('INSERT INTO challenges (id, from_id, to_id, works, note, deadline) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL 30 DAY)',
-        [$id, $u['id'], $to, enc(array_values($works)), $note]);
+        [$id, $u['id'], $to, enc($works), $note]);
       out(chal_out(q('SELECT * FROM challenges WHERE id = ?', [$id])->fetch()));
 
     case $M === 'DELETE' && preg_match('#^challenges/([0-9a-f-]{36})$#', $path, $m):
@@ -215,14 +221,16 @@ try {
 
     /* ---------- Catalogue ---------- */
     case $M === 'GET' && $path === 'search':
+      $u = need_user(); throttle('cat|' . $u['id'], 900, 600);
       $r = catalog_search((string) ($_GET['type'] ?? 'f'), mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100),
         max(1, min(50, (int) ($_GET['page'] ?? 1))), max(1, min(40, (int) ($_GET['limit'] ?? 20))));
-      header('Cache-Control: public, max-age=600');
+      header('Cache-Control: private, max-age=600');
       out($r);
 
     case $M === 'GET' && $path === 'work':
+      $u = need_user(); throttle('cat|' . $u['id'], 900, 600);
       $r = catalog_work((string) ($_GET['id'] ?? ''));
-      header('Cache-Control: public, max-age=86400');
+      header('Cache-Control: private, max-age=86400');
       out($r);
 
     default:

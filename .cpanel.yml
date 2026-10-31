@@ -1,8 +1,7 @@
 ---
 deployment:
   tasks:
-    # À adapter : USER = ton identifiant cPanel, puis le dossier racine du sous-domaine
-    - export DEPLOYPATH=$HOME/sharefs.gaethan-boyer.fr/
+    - export DEPLOYPATH=/home/boga0417/sharefs.gaethan-boyer.fr
     - /bin/mkdir -p $DEPLOYPATH/api
-    - /bin/cp -R www/. $DEPLOYPATH
-    - /bin/cp server/api/index.php server/api/lib.php server/api/catalog.php server/api/config.sample.php server/api/.htaccess $DEPLOYPATH/api/
+    - /bin/cp -f www/index.html www/app.js www/config.js www/.htaccess $DEPLOYPATH/
+    - /bin/cp -f server/api/index.php server/api/lib.php server/api/catalog.php server/api/config.sample.php server/api/.htaccess $DEPLOYPATH/api/

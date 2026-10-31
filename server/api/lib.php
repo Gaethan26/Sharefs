@@ -1,9 +1,21 @@
 <?php
 declare(strict_types=1);
 
+/* ---------- Dossier privé (hors du dossier public) : configuration et journaux ---------- */
+define('PRIVATE_DIR', dirname(__DIR__, 2) . '/app-private');
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+if (is_dir(PRIVATE_DIR) && (is_dir(PRIVATE_DIR . '/logs') || @mkdir(PRIVATE_DIR . '/logs', 0700, true))) {
+  ini_set('error_log', PRIVATE_DIR . '/logs/php-error.log');
+}
+
 function cfg(string $k, $d = null) {
   static $c = null;
-  if ($c === null) $c = is_file(__DIR__ . '/config.php') ? require __DIR__ . '/config.php' : [];
+  if ($c === null) {
+    // Priorité au fichier hors du dossier public ; l'ancien emplacement reste accepté
+    $file = is_file(PRIVATE_DIR . '/config.php') ? PRIVATE_DIR . '/config.php' : __DIR__ . '/config.php';
+    $c = is_file($file) ? require $file : [];
+  }
   return $c[$k] ?? $d;
 }
 function db(): PDO {
@@ -34,11 +46,20 @@ function body(): array { $j = json_decode(raw_body(), true); return is_array($j)
 // Lecture en objets : conserve la différence entre {} et [] lors du ré-encodage
 function body_obj(): object { $j = json_decode(raw_body()); return is_object($j) ? $j : new stdClass(); }
 function enc($v): string { return json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); }
+// Seuls le site et l'app mobile peuvent appeler l'API depuis un navigateur
+const DEFAULT_ORIGINS = ['https://sharefs.gaethan-boyer.fr', 'https://panenka.gaethan-boyer.fr', 'https://sharefs.vercel.app',
+  'capacitor://localhost', 'https://localhost', 'http://localhost'];
 function cors(): void {
-  header('Access-Control-Allow-Origin: *');
-  header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-  header('Access-Control-Allow-Headers: Content-Type, X-Sharefs-Token');
-  header('Access-Control-Max-Age: 86400');
+  header('X-Content-Type-Options: nosniff');
+  header('Cache-Control: no-store');
+  header('Vary: Origin');
+  $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+  if ($origin !== '' && in_array($origin, (array) cfg('cors_origins', DEFAULT_ORIGINS), true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, X-Sharefs-Token');
+    header('Access-Control-Max-Age: 86400');
+  }
 }
 function uuid(): string {
   $b = random_bytes(16);
@@ -72,7 +93,10 @@ function current_user(): ?array {
   $h = hash('sha256', $t);
   $u = q('SELECT u.id, u.email, u.name, u.data, s.last_used FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?', [$h])->fetch();
   if (!$u) return null;
-  if (strtotime($u['last_used'] . ' UTC') < time() - 3600) q('UPDATE sessions SET last_used = UTC_TIMESTAMP() WHERE token_hash = ?', [$h]);
+  $last = strtotime($u['last_used'] . ' UTC');
+  // Session expirée après 90 jours sans activité
+  if ($last < time() - 90 * 86400) { q('DELETE FROM sessions WHERE token_hash = ?', [$h]); return null; }
+  if ($last < time() - 3600) q('UPDATE sessions SET last_used = UTC_TIMESTAMP() WHERE token_hash = ?', [$h]);
   return $u;
 }
 function need_user(): array { $u = current_user(); if (!$u) fail(401, 'unauthorized'); return $u; }
@@ -108,5 +132,73 @@ function ensure_schema(): void {
     FOREIGN KEY (rec_id) REFERENCES recs(id) ON DELETE CASCADE, FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   @file_put_contents($flag, date('c'));
+}
+
+/* ---------- Mots de passe ---------- */
+function check_password(string $pass): void {
+  if (mb_strlen($pass) < 10) fail(400, 'weak_password');
+  // Mot de passe déjà fuité ? (Have I Been Pwned, k-anonymat : seuls 5 caractères de l'empreinte quittent le serveur)
+  $sha = strtoupper(sha1($pass));
+  $ch = curl_init('https://api.pwnedpasswords.com/range/' . substr($sha, 0, 5));
+  curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 3, CURLOPT_CONNECTTIMEOUT => 2,
+    CURLOPT_HTTPHEADER => ['Add-Padding: true'], CURLOPT_USERAGENT => 'Sharefs/1.0']);
+  $res = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+  if ($res === false || $code !== 200) return; // service indisponible : on n'empêche pas l'inscription
+  foreach (explode("\n", (string) $res) as $line) {
+    [$suffix, $count] = array_pad(explode(':', trim($line)), 2, '0');
+    if ($suffix === substr($sha, 5) && (int) $count > 0) fail(400, 'pwned_password');
+  }
+}
+
+/* ---------- Validation des données envoyées par l'app ---------- */
+const IMG_HOSTS = ['image.tmdb.org', 'images.igdb.com', 'books.google.com', 'books.googleusercontent.com', 'covers.openlibrary.org'];
+function clean_str($v, int $max): string {
+  return mb_substr(trim((string) preg_replace('/[\x00-\x1F\x7F]/u', '', (string) $v)), 0, $max);
+}
+function clean_id($v): ?string {
+  $v = (string) $v;
+  return preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{1,79}$/', $v) ? $v : null;
+}
+function clean_img($v): string {
+  $v = (string) $v;
+  $p = parse_url($v);
+  if (!$p || ($p['scheme'] ?? '') !== 'https') return '';
+  $h = strtolower($p['host'] ?? '');
+  foreach (IMG_HOSTS as $ok) if ($h === $ok || str_ends_with($h, '.' . $ok)) return mb_substr($v, 0, 500);
+  return '';
+}
+function clean_work($w): ?array {
+  $w = (array) $w;
+  $id = clean_id($w['id'] ?? ''); $t = (string) ($w['t'] ?? ''); $ti = clean_str($w['ti'] ?? '', 200);
+  if (!$id || !in_array($t, ['f', 's', 'l', 'j'], true) || $ti === '') return null;
+  $o = ['id' => $id, 't' => $t, 'ti' => $ti];
+  if (isset($w['y']) && is_numeric($w['y'])) $o['y'] = (int) $w['y'];
+  if (!empty($w['c'])) $o['c'] = clean_str($w['c'], 120);
+  if (!empty($w['img']) && ($img = clean_img($w['img'])) !== '') $o['img'] = $img;
+  if (!empty($w['g']) && is_array($w['g'])) $o['g'] = array_slice(array_values(array_filter(array_map(fn($g) => clean_str($g, 40), $w['g']))), 0, 3);
+  if (isset($w['d']) && is_numeric($w['d'])) $o['d'] = (int) $w['d'];
+  if (!empty($w['p'])) $o['p'] = clean_str($w['p'], 3);
+  return $o;
+}
+function clean_map($m, bool $timestamps): object {
+  $out = [];
+  foreach ((array) $m as $k => $v) {
+    if (!clean_id($k) || !is_numeric($v)) continue;
+    $v = (int) $v;
+    if ($timestamps ? $v < 0 : ($v < 1 || $v > 4)) continue;
+    $out[$k] = $v;
+    if (count($out) >= 5000) break;
+  }
+  return (object) $out;
+}
+function clean_data(object $d): object {
+  $works = [];
+  foreach ((array) ($d->works ?? []) as $k => $w) {
+    $cw = clean_work($w);
+    if ($cw && $cw['id'] === (string) $k) $works[$k] = $cw;
+    if (count($works) >= 5000) break;
+  }
+  return (object) ['done' => clean_map($d->done ?? [], true), 'want' => clean_map($d->want ?? [], true),
+    'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works];
 }
 
