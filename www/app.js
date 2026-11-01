@@ -75,21 +75,13 @@ const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'')
 const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="cover">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
 const GEM=(r,s=14)=>`<svg class="gem" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true"><path d="M12 2 21.5 9.5 12 22 2.5 9.5z" fill="var(--rc)"/><path d="M12 2 16.6 9.5H7.4z" fill="#fff" opacity=".6"/><path d="M2.5 9.5h4.9L12 22z" fill="#000" opacity=".2"/><path d="M21.5 9.5h-4.9L12 22z" fill="#fff" opacity=".25"/><path d="M7.4 9.5h9.2L12 22z" fill="#fff" opacity=".1"/></svg>`;
 const CROWN='<svg viewBox="0 0 34 22" width="30" height="20" aria-hidden="true"><path d="M3 19 1.5 6l8 6.5L17 2l7.5 10.5 8-6.5L31 19z" fill="url(#crg)" stroke="#9A5A06" stroke-width="1.2" stroke-linejoin="round"/><rect x="3" y="18" width="28" height="3" rx="1" fill="#C77A0B"/><circle cx="17" cy="12.5" r="2" fill="#fff" opacity=".8"/><defs><linearGradient id="crg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A6"/><stop offset="1" stop-color="#F2A21B"/></linearGradient></defs></svg>';
-let cardStyle=lsGet('sharefs-cardstyle','holo');
-// Deux styles de cartes : « holo » (image pleine, panneau vitré) et « case » (jaquette avec tranche)
+// Carte « G1 » : image pleine, stries, bloc centré en bas (rareté, titre manuscrit, infos)
 function card(w,r=0,cls=''){
   const img=w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="rm">`:'';
-  const meta=[w.c,w.y].filter(Boolean).map(esc).join(', ');
-  const rs=r?`--rc:var(--r${r})`:'';
-  if(cardStyle==='case')return `<span class="card cs-case t-${w.t}${r?' r'+r:''} ${cls}" style="${rs}" aria-hidden="true">
-    <span class="cc-sp"><span>${esc(w.ti)}</span></span>
-    <span class="cc-main"><span class="cc-art"><span class="ph">${esc(short(w.ti))}</span>${img}</span>
-      <span class="cc-info"><b>${esc(w.ti)}</b><i>${meta||T[w.t]?.n||''}</i>${r?`<q>${esc(RAR[r].s)}</q>`:''}</span>${r?'<span class="cc-bar"></span>':''}</span>
-    ${r?`<span class="cc-stk">${r>1?GEM(r,10):''}<span>${RAR[r].n}</span></span>`:''}</span>`;
-  return `<span class="card cs-holo t-${w.t}${r?' r'+r:''} ${cls}" style="${rs}" aria-hidden="true"><span class="ch-in">
-    <span class="ph">${esc(short(w.ti))}</span>${img}${r>=3?'<span class="ch-foil"></span>':''}<span class="ch-shade"></span>
-    <span class="ch-type"><i></i>${T[w.t]?.n||''}</span>${r?`<span class="ch-rar">${GEM(r,11)}<span>${RAR[r].n}</span></span>`:''}
-    <span class="ch-panel"><b>${esc(w.ti)}</b><i>${meta}</i>${r?`<q>${esc(RAR[r].s)}</q>`:''}</span></span></span>`;
+  const meta=[w.c,w.y,w.d&&T[w.t]?.fmt(w.d)].filter(Boolean).map(esc).join(', ');
+  return `<span class="card cs-g t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="cg-in">
+    <span class="ph">${esc(short(w.ti))}</span>${img}<span class="cg-lines"></span>${r===4?'<span class="cg-foil"></span>':''}<span class="cg-shade"></span>
+    <span class="cg-bot">${r?`<span class="cg-rar">${GEM(r,12)}<span>${RAR[r].n}</span></span>`:''}<b class="cg-t">${esc(w.ti)}</b>${meta?`<i class="cg-m">${meta}</i>`:''}</span></span></span>`;
 }
 const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
@@ -883,7 +875,6 @@ document.addEventListener('click',e=>{
   if('fsclose' in d){closeFs();return}
   if(d.gturn){turnPage(+d.gturn);return}
   if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
-  if(d.cstyle){cardStyle=d.cstyle;lsSet('sharefs-cardstyle',cardStyle);renderAll();return}
   if(d.box){openBox(d.box,b);return}
   if(d.inspect){inspect(d.inspect,b.querySelector('.card')||b);return}
   if(d.acrm!==undefined){lsSet('sharefs-recent',lsGet('sharefs-recent',[]).filter(x=>x!==d.acrm));acIdx=-1;renderAC();return}
@@ -1039,7 +1030,6 @@ function renderAccount(){
     <div class="line"><span>Prénom</span><b>${esc(myName)}</b></div>
     ${myCircles.map(c=>`<div class="line"><span>Code d’invitation<br><span class="code">${esc(c)}</span></span><button class="btn" data-invite="${esc(c)}">Inviter</button></div>`).join('')}
     <div class="stack">
-      <div class="line" style="border:0;padding:4px 0 2px"><span>Style des cartes</span><span style="display:inline-flex;gap:6px">${chip('Holo',cardStyle==='holo','data-cstyle="holo"')}${chip('Jaquette',cardStyle==='case','data-cstyle="case"')}</span></div>
       <button class="btn" data-acc="name">Changer de prénom</button>
       <button class="btn" data-acc="join">Rejoindre un autre cercle</button>
       <button class="btn" data-acc="logout">Me déconnecter</button>
