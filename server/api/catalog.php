@@ -175,12 +175,98 @@ function work_game(string $id): array {
   return clean(array_merge($w, ['syn' => mb_substr($x['summary'] ?? '', 0, 800), 'imgs' => $imgs, 'plat' => array_slice(array_values(array_filter(array_column($x['platforms'] ?? [], 'abbreviation'))), 0, 6)]));
 }
 
+/* ---------- Jeux de société : BoardGameGeek (XML API2, jeton d'application requis) ---------- */
+function http_raw(string $url, array $headers = []): string {
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 12, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_HTTPHEADER => $headers,
+    CURLOPT_USERAGENT => 'Sharefs/1.0 (' . cfg('mail_from', 'contact') . ')']);
+  $res = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+  if ($res === false || $code >= 400 || $code === 202) fail(502, 'provider_' . $code);
+  return (string) $res;
+}
+function bgg(string $path, array $p): SimpleXMLElement {
+  need_key('bgg_token');
+  $xml = @simplexml_load_string(http_raw('https://boardgamegeek.com/xmlapi2/' . $path . '?' . http_build_query($p), ['Authorization: Bearer ' . cfg('bgg_token')]));
+  if (!$xml) fail(502, 'provider_xml');
+  return $xml;
+}
+function bgg_attr($node, string $a = 'value'): string { return $node ? (string) $node[$a] : ''; }
+function from_bgg(SimpleXMLElement $it): array {
+  $name = '';
+  foreach ($it->name as $n) { if ((string) $n['type'] === 'primary') { $name = (string) $n['value']; break; } }
+  if ($name === '') $name = bgg_attr($it->name[0] ?? null);
+  $designers = []; $cats = [];
+  foreach ($it->link as $l) {
+    if ((string) $l['type'] === 'boardgamedesigner' && count($designers) < 2) $designers[] = (string) $l['value'];
+    if ((string) $l['type'] === 'boardgamecategory' && count($cats) < 3) $cats[] = (string) $l['value'];
+  }
+  $img = trim((string) ($it->image ?? '')) ?: trim((string) ($it->thumbnail ?? '')) ?: bgg_attr($it->thumbnail ?? null);
+  return clean(['id' => 'bgg-' . (string) $it['id'], 't' => 'b', 'ti' => $name, 'y' => (int) bgg_attr($it->yearpublished ?? null) ?: null,
+    'c' => implode(', ', $designers), 'img' => $img, 'g' => $cats, 'd' => (int) bgg_attr($it->playingtime ?? null) ?: null]);
+}
+function search_bgg(string $q, int $page, int $lim): array {
+  if ($q === '') {
+    $hot = bgg('hot', ['type' => 'boardgame']);
+    $ids = [];
+    foreach ($hot->item as $it) $ids[] = (string) $it['id'];
+    $ids = array_slice($ids, ($page - 1) * $lim, $lim);
+    $more = count($hot->item) > $page * $lim;
+  } else {
+    $res = bgg('search', ['query' => $q, 'type' => 'boardgame']);
+    $all = [];
+    foreach ($res->item as $it) $all[] = (string) $it['id'];
+    $ids = array_slice($all, ($page - 1) * $lim, $lim); $more = count($all) > $page * $lim;
+  }
+  if (!$ids) return ['items' => [], 'more' => false];
+  $things = bgg('thing', ['id' => implode(',', $ids)]);
+  $items = []; foreach ($things->item as $it) $items[] = from_bgg($it);
+  return ['items' => $items, 'more' => $more];
+}
+function work_bgg(string $id): array {
+  $things = bgg('thing', ['id' => (int) $id, 'stats' => 1]);
+  if (!isset($things->item[0])) fail(404, 'not_found');
+  $it = $things->item[0];
+  $syn = trim((string) preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $it->description), ENT_QUOTES | ENT_HTML5)));
+  $w = from_bgg($it);
+  $players = bgg_attr($it->minplayers ?? null) . '–' . bgg_attr($it->maxplayers ?? null);
+  return clean(array_merge($w, ['syn' => mb_substr($syn, 0, 800), 'imgs' => array_values(array_filter([$w['img'] ?? ''])), 'plat' => [$players . ' joueurs']]));
+}
+
+/* ---------- Musique : MusicBrainz + Cover Art Archive (sans clé) ---------- */
+function mb(string $path, array $p): array {
+  $j = json_decode(http_raw('https://musicbrainz.org/ws/2/' . $path . '?' . http_build_query($p + ['fmt' => 'json']), ['Accept: application/json']), true);
+  return is_array($j) ? $j : [];
+}
+function from_mb(array $x): array {
+  $artists = array_map(fn($a) => $a['name'] ?? '', array_slice($x['artist-credit'] ?? [], 0, 2));
+  $tags = array_slice(array_map(fn($t) => $t['name'] ?? '', $x['tags'] ?? []), 0, 3);
+  return clean(['id' => 'mb-' . ($x['id'] ?? ''), 't' => 'm', 'ti' => $x['title'] ?? '', 'y' => yr($x['first-release-date'] ?? ''),
+    'c' => implode(', ', array_filter($artists)), 'img' => !empty($x['id']) ? 'https://coverartarchive.org/release-group/' . $x['id'] . '/front-250' : '',
+    'g' => array_values(array_filter($tags))]);
+}
+function search_mb(string $q, int $page, int $lim): array {
+  $clean = trim(str_replace(['+', '-', '&', '|', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*', '?', ':', '\\', '/'], ' ', $q));
+  $query = $clean === '' ? 'primarytype:album AND firstreleasedate:[' . (date('Y') - 1) . ' TO *]'
+    : '(releasegroup:(' . $clean . ') OR artist:(' . $clean . ')) AND (primarytype:album OR primarytype:ep)';
+  $d = mb('release-group', ['query' => $query, 'limit' => $lim, 'offset' => ($page - 1) * $lim]);
+  return ['items' => array_values(array_filter(array_map('from_mb', $d['release-groups'] ?? []), fn($w) => !empty($w['ti']) && $w['id'] !== 'mb-')),
+    'more' => ($page * $lim) < ($d['count'] ?? 0)];
+}
+function work_mb(string $id): array {
+  $x = mb('release-group/' . $id, ['inc' => 'artist-credits+tags']);
+  if (empty($x['id'])) fail(404, 'not_found');
+  $w = from_mb($x);
+  $big = 'https://coverartarchive.org/release-group/' . $x['id'] . '/front-500';
+  return clean(array_merge($w, ['img' => $big, 'imgs' => [$big]]));
+}
+
 function catalog_search(string $type, string $q, int $page, int $lim): array {
   $key = "s3|$type|$q|$page|$lim";
   if (($c = cache_get($key)) !== null) return $c;
   $r = match ($type) {
     'f' => search_tmdb('movie', $q, $page, $lim), 's' => search_tmdb('tv', $q, $page, $lim),
-    'l' => search_books($q, $page, $lim), 'j' => search_games($q, $page, $lim), default => fail(400, 'bad_type') };
+    'l' => search_books($q, $page, $lim), 'j' => search_games($q, $page, $lim),
+    'b' => search_bgg($q, $page, $lim), 'm' => search_mb($q, $page, $lim), default => fail(400, 'bad_type') };
   cache_set($key, $r, 3600);
   return $r;
 }
@@ -189,6 +275,8 @@ function catalog_work(string $id): array {
   if (preg_match('/^tmdb-(movie|tv)-(\d+)$/', $id, $m)) $r = work_tmdb($m[1], $m[2]);
   elseif (preg_match('/^gb-([\w-]+)$/', $id, $m)) $r = work_book($m[1]);
   elseif (preg_match('/^ol-(OL\d+W)$/', $id, $m)) $r = work_ol($m[1]);
+  elseif (preg_match('/^bgg-(\d+)$/', $id, $m)) $r = work_bgg($m[1]);
+  elseif (preg_match('/^mb-([0-9a-f-]{36})$/', $id, $m)) $r = work_mb($m[1]);
   elseif (preg_match('/^igdb-(\d+)$/', $id, $m)) $r = work_game($m[1]);
   else fail(400, 'bad_id');
   cache_set("w3|$id", $r, 7 * 86400);

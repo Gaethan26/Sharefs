@@ -8,15 +8,22 @@ const T={
   f:{n:'Film',p:'Films',done:'Vu',act:'J’ai vu',did:'a vu',fmt:m=>`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`},
   s:{n:'Série',p:'Séries',done:'Terminée',act:'J’ai terminé',did:'a terminé',fmt:x=>x+(x>1?' saisons':' saison')},
   l:{n:'Livre',p:'Livres',done:'Lu',act:'J’ai lu',did:'a lu',fmt:x=>x+' pages'},
-  j:{n:'Jeu',p:'Jeux',done:'Fini',act:'J’ai fini',did:'a fini',fmt:()=>''}
+  j:{n:'Jeu vidéo',p:'Jeux vidéo',done:'Joué',act:'J’ai joué',did:'a joué à',fmt:()=>''},
+  b:{n:'Jeu de société',p:'Jeux de société',done:'Joué',act:'J’ai joué',did:'a joué à',fmt:m=>m+' min'},
+  m:{n:'Musique',p:'Musique',done:'Écouté',act:'J’ai écouté',did:'a écouté',fmt:()=>''}
 };
+const ALLT=['f','s','j','b','l','m'];
+const TVAR={f:'film',s:'serie',j:'jeu',b:'soc',l:'livre',m:'mus'};
+const TINK=t=>t==='f'?'#18213A':'#fff';
 const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Étonnant\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
 const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Zidane']];
 const ICON={
   f:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10h18v10H3z"/><path d="M2.6 5.3 19.8 2.6l.6 3.9L3.2 9.2z"/></svg>',
   s:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 2.5 12 6.5l4-4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
   l:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.5 5c3.2-1.2 6.3-1 9 .7V21c-2.7-1.6-5.8-1.8-9-.7zM21.5 5c-3.2-1.2-6.3-1-9 .7V21c2.7-1.6 5.8-1.8 9-.7z"/></svg>',
-  j:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10a5 5 0 015 5v.5a4 4 0 01-7.2 2.4L13.6 13h-3.2l-1.2 1.9A4 4 0 012 12.5V12a5 5 0 015-5z"/></svg>'
+  j:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10a5 5 0 015 5v.5a4 4 0 01-7.2 2.4L13.6 13h-3.2l-1.2 1.9A4 4 0 012 12.5V12a5 5 0 015-5z"/></svg>',
+  b:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a3 3 0 013 3c0 .9-.4 1.6-1 2.1 2.6.5 6.5 1.8 6.5 4.2 0 1.2-1.6 1.5-3 1.4l2.2 7.3h-5.4L12 16.3l-2.3 4.2H4.3l2.2-7.3c-1.4.1-3-.2-3-1.4 0-2.4 3.9-3.7 6.5-4.2-.6-.5-1-1.2-1-2.1a3 3 0 013-3z"/></svg>',
+  m:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18.5a3 3 0 11-2-2.83V5.5l12-2.5v12.5a3 3 0 11-2-2.83V6.6l-8 1.7z"/></svg>'
 };
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,7 +47,9 @@ async function call(method,path,body){
 function api(path,params){const qs=new URLSearchParams(Object.entries(params||{}).filter(([,v])=>v!==''&&v!=null)).toString();return call('GET',path+(qs?'?'+qs:''))}
 const ERR={bad_email:'Cette adresse e-mail n’est pas valide.',weak_password:'Le mot de passe doit faire au moins 10 caractères.',pwned_password:'Ce mot de passe a déjà fuité sur internet : choisis-en un autre.',email_taken:'Un compte existe déjà avec cet e-mail.',
   bad_credentials:'E-mail ou mot de passe incorrect.',too_many_attempts:'Trop d’essais. Réessaie dans un quart d’heure.',bad_code:'Code incorrect ou expiré.',
-  unknown_code:'Aucun cercle ne correspond à ce code.',bad_recipients:'Un destinataire ne fait pas partie de tes cercles.',offline:'Pas de connexion au serveur.',server_error:'Erreur du serveur. Réessaie.'};
+  unknown_code:'Aucun cercle ne correspond à ce code.',bad_recipients:'Un destinataire ne fait pas partie de tes cercles.',offline:'Pas de connexion au serveur.',server_error:'Erreur du serveur. Réessaie.',
+  fetish_locked:'Ton œuvre fétiche de la saison est déjà choisie.',guess_used:'Tu as déjà fait ton essai du jour pour cet ami.',already_found:'Tu as déjà trouvé son œuvre fétiche.',
+  no_fetish:'Cet ami n’a pas encore choisi son œuvre fétiche.',missing_key:'Ce catalogue n’est pas encore configuré.'};
 const msg=e=>ERR[e?.code]||('Erreur : '+(e?.code||e?.message||'inconnue'));
 
 /* ---------- État ---------- */
@@ -75,17 +84,15 @@ const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'')
 const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="cover">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
 const GEM=(r,s=14)=>`<svg class="gem" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true"><path d="M12 2 21.5 9.5 12 22 2.5 9.5z" fill="var(--rc)"/><path d="M12 2 16.6 9.5H7.4z" fill="#fff" opacity=".6"/><path d="M2.5 9.5h4.9L12 22z" fill="#000" opacity=".2"/><path d="M21.5 9.5h-4.9L12 22z" fill="#fff" opacity=".25"/><path d="M7.4 9.5h9.2L12 22z" fill="#fff" opacity=".1"/></svg>`;
 const CROWN='<svg viewBox="0 0 34 22" width="30" height="20" aria-hidden="true"><path d="M3 19 1.5 6l8 6.5L17 2l7.5 10.5 8-6.5L31 19z" fill="url(#crg)" stroke="#9A5A06" stroke-width="1.2" stroke-linejoin="round"/><rect x="3" y="18" width="28" height="3" rx="1" fill="#C77A0B"/><circle cx="17" cy="12.5" r="2" fill="#fff" opacity=".8"/><defs><linearGradient id="crg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A6"/><stop offset="1" stop-color="#F2A21B"/></linearGradient></defs></svg>';
-// Carte « G1 » : image pleine, stries, bloc centré en bas (rareté, titre manuscrit, infos)
+// Carte : l'image seule, avec le cadre et l'éclat de sa rareté
 function card(w,r=0,cls=''){
   const img=w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="rm">`:'';
-  const meta=[w.c,w.y,w.d&&T[w.t]?.fmt(w.d)].filter(Boolean).map(esc).join(', ');
   return `<span class="card cs-g t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="cg-in">
-    <span class="ph">${esc(short(w.ti))}</span>${img}<span class="cg-lines"></span>${r===4?'<span class="cg-foil"></span>':''}<span class="cg-shade"></span>
-    <span class="cg-bot">${r?`<span class="cg-rar">${GEM(r,12)}<span>${RAR[r].n}</span></span>`:''}<b class="cg-t">${esc(w.ti)}</b>${meta?`<i class="cg-m">${meta}</i>`:''}</span></span></span>`;
+    <span class="ph">${esc(short(w.ti))}</span>${img}<span class="cg-lines"></span>${r===4||/fet/.test(cls)?'<span class="cg-foil"></span>':''}</span></span>`;
 }
 const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
-const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮'};
+const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮',b:'Joué 🎲',m:'Écouté 🎧'};
 const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tgl${on?' on':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
@@ -111,7 +118,7 @@ const decLabel=d=>d==='Avant 1960'?d:'Années '+d.slice(2);
 /* ---------- Recherche ---------- */
 const F={types:new Set(),mine:false,forWho:''};
 let SR={q:null,items:[],pages:{},moreT:new Set(),loading:false,err:'',seq:0};
-const typesSel=()=>F.types.size?[...F.types]:['f','s','l','j'];
+const typesSel=()=>F.types.size?[...F.types]:ALLT;
 const rr=lists=>{const out=[],max=Math.max(0,...lists.map(l=>l.length));for(let i=0;i<max;i++)for(const l of lists)if(l[i])out.push(l[i]);return out};
 const localMode=()=>F.mine;
 // Ma collection : les meilleures cartes d'abord, ce sont celles qu'on a le plus envie de recommander
@@ -202,7 +209,76 @@ function renderFilters(){
 function renderSearch(){renderFilters();renderResults()}
 
 /* ---------- Défis ---------- */
-let comments=[],challenges=[],openCmts=new Set(),cmDraft={},chalTab='live';
+let comments=[],challenges=[],openCmts=new Set(),cmDraft={},chalTab='live',FET=null;
+const HEART='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1 8 3.4 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.6 0 6 3.5 4.5 7.2C19.5 16.4 12 21 12 21z"/></svg>';
+const capF=s=>s?s[0].toUpperCase()+s.slice(1):'';
+const seasonName=k=>{const [y,n]=String(k).split('-');return ({printemps:'Printemps',ete:'Été',automne:'Automne',hiver:'Hiver'}[n]||n)+' '+y};
+function feRow(o){
+  const n=esc(nameOf(o.user_id));
+  if(!o.has)return `<div class="fe-row">${avatar(o.user_id)}<span class="fe-n"><b>${n}</b><span class="meta">N’a pas encore choisi son œuvre fétiche</span></span></div>`;
+  if(o.found){const w=WK[o.work.id]||reg(o.work);return `<div class="fe-row found">${avatar(o.user_id)}<span class="fe-n"><b>${n}</b><span class="meta">Trouvée : ${esc(w.ti)}</span></span><button class="fe-mini" data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,0,'fet')}</button></div>`}
+  return `<div class="fe-row">${avatar(o.user_id)}<span class="fe-n"><b>${n}</b><span class="meta">Œuvre fétiche à trouver</span>${o.fails?`<span class="meta">${o.fails} essai${o.fails>1?'s':''} raté${o.fails>1?'s':''}</span>`:''}</span>
+    ${o.guessedToday?'<span class="fe-wait">Demain</span>':`<button class="btn pri" data-feguess="${esc(o.user_id)}">Deviner</button>`}</div>`;
+}
+function fetishHTML(){
+  if(!FET)return '';
+  const w=FET.mine?(WK[FET.mine.id]||reg(FET.mine)):null;
+  return `<h2 class="rk-title">${HEART}Œuvres fétiches <span class="fe-season">${capF(FET.label)}</span></h2>
+    <div class="fe-mine">${w?`<button class="fe-card" data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,0,'fet')}</button><div><b>Ton œuvre fétiche de ${esc(FET.label)}</b><p class="meta" style="margin:4px 0 0">${esc(w.ti)}, verrouillée jusqu’au ${fmtDate(Date.parse(FET.until+'T12:00:00'))}. Tes amis ont un essai par jour pour la trouver.</p></div>`
+      :`<div><b>Choisis ton œuvre fétiche de ${esc(FET.label)}</b><p class="meta" style="margin:4px 0 12px">Une seule par saison, impossible de la changer ensuite. Tes amis devront la deviner.</p><button class="btn pri" data-fepick>Choisir mon œuvre fétiche</button></div>`}</div>
+    ${others().length?`<div class="fe-list">${(FET.others||[]).map(feRow).join('')}</div>`:''}
+    <p class="rk-legend">Un essai par jour et par ami (heure française). 3 points par œuvre fétiche trouvée.</p>`;
+}
+const PK={mode:'set',target:'',q:'',res:[],err:'',seq:0};
+function openPicker(mode,target=''){
+  Object.assign(PK,{mode,target,q:'',res:[],err:''});
+  lastFocus=document.activeElement;sheetId='__pick';renderPicker();
+  $('#scrim').classList.add('open');$('#sheet').classList.add('open');$('#sheet').style.setProperty('--tc','var(--line)');document.body.style.overflow='hidden';
+  setTimeout(()=>$('#pkq')?.focus(),80);
+}
+function pkTarget(){return PK.mode==='guess'?(FET?.others||[]).find(o=>o.user_id===PK.target):null}
+function pkResHTML(){
+  const o=pkTarget();
+  const list=PK.q.trim()?PK.res:(PK.mode==='set'?Object.entries(mine.done).sort((a,b)=>b[1]-a[1]).map(([id])=>WK[id]).filter(Boolean).slice(0,8):[]);
+  if(!list.length)return PK.q.trim()?'<p class="meta" style="margin:12px 2px">Rien trouvé pour l’instant.</p>':'';
+  return `${!PK.q.trim()?'<div class="to">Depuis ma collection</div>':''}${list.map(w=>`<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span></span><button class="btn pri" data-pkpick="${esc(w.id)}">Choisir</button></div>`).join('')}`;
+}
+function renderPicker(){
+  const o=pkTarget();
+  $('#sheetIn').innerHTML=`<div class="grab"></div><div class="chf-h"><span class="chf-i fe-i">${HEART}</span><div><h3 id="shTitle">${PK.mode==='set'?`Mon œuvre fétiche de ${esc(FET?.label||'')}`:`L’œuvre fétiche de ${esc(nameOf(PK.target))}`}</h3>
+    <p class="meta">${PK.mode==='set'?'Une seule par saison, impossible de la changer ensuite.':'Un seul essai aujourd’hui : choisis bien.'}</p></div></div>
+    <input class="mini" id="pkq" type="search" autocomplete="off" placeholder="Cherche une œuvre…" value="${esc(PK.q)}" style="width:100%;margin-top:12px">
+    <div id="pkres">${pkResHTML()}</div>
+    <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.3em;margin:10px 0 0">${esc(PK.err)}</p>`;
+}
+let pkT=null;
+function pkSearch(){
+  clearTimeout(pkT);const q=PK.q.trim();
+  if(q.length<2){PK.res=[];const r=$('#pkres');if(r)r.innerHTML=pkResHTML();return}
+  pkT=setTimeout(async()=>{const seq=++PK.seq,o=pkTarget(),types=ALLT;
+    const res=await Promise.all(types.map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
+    if(seq!==PK.seq)return;PK.res=rr(res.map(x=>(x.items||[]).map(reg)));const r=$('#pkres');if(r)r.innerHTML=pkResHTML()},300);
+}
+async function pkPick(id){
+  const w=WK[id];if(!w)return;
+  if(PK.mode==='set'){
+    if(!confirm(`Ton œuvre fétiche de ${FET.label} sera « ${w.ti} ».\nImpossible de la changer ensuite. On valide ?`))return;
+    try{await call('POST','fetish',{work:snap(w)});closeSheet();toast('Œuvre fétiche verrouillée 🔒');loadAll()}catch(e){PK.err=msg(e);renderPicker()}
+    return;
+  }
+  const who=nameOf(PK.target);
+  if(!confirm(`Tenter « ${w.ti} » pour ${who} ?\nC’est ton seul essai aujourd’hui.`))return;
+  try{const r=await call('POST','fetish/guess',{target_id:PK.target,work:snap(w)});closeSheet();
+    if(r.correct){fetishReveal(r.work?reg(r.work):w,who)}else toast(`Raté ! Nouvel essai demain pour ${who}.`);
+    loadAll();
+  }catch(e){PK.err=msg(e);renderPicker()}
+}
+function fetishReveal(w,who){
+  const el=$('#reveal');el.style.setProperty('--rc','#FF6FB5');el.style.setProperty('--rf','linear-gradient(135deg,#FFD1E8,#FF6FB5 50%,#C99AF5)');revealId=null;
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,0,'fet')}<div class="cardback"></div></div><div class="burst"></div>
+    <div class="cap">Œuvre fétiche trouvée !<span class="rname">${esc(w.ti)}</span>Celle de ${esc(who)} : +3 points</div><div class="tap">Touche pour continuer</div></div>`;
+  el.classList.add('open');el.focus();confetti();clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),4500);
+}
 const DAY=86400000;
 const SWORDS='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4M7 17l-3 3M3 19l2 2"/></svg>';
 const TROPHY='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
@@ -220,11 +296,12 @@ function chalState(c){
 // Classement : on y entre en remportant un défi ; 1 point par œuvre terminée dans les temps lors d'un défi
 function ranking(){
   return [uid,...others()].filter(Boolean).map(id=>{const st=challenges.filter(c=>c.to_id===id).map(chalState);
-    return {id,pts:st.reduce((s,x)=>s+x.n,0),wins:st.filter(x=>x.st==='won').length,coll:Object.keys(dataOf(id).done||{}).length}})
-    .filter(x=>x.wins>0).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||b.coll-a.coll);
+    const fe=(FET?.counts||{})[id]||0;
+    return {id,pts:st.reduce((s,x)=>s+x.n,0)+3*fe,wins:st.filter(x=>x.st==='won').length,fe,coll:Object.keys(dataOf(id).done||{}).length}})
+    .filter(x=>x.wins>0||x.fe>0).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||b.coll-a.coll);
 }
 function rankTable(rk,limit=99){
-  if(!rk.length)return `<div class="rk-empty">${TROPHY}<p>Personne n’est encore classé. Remporte un défi pour entrer dans la course.</p></div>`;
+  if(!rk.length)return `<div class="rk-empty">${TROPHY}<p>Personne n’est encore classé. Remporte un défi ou trouve une œuvre fétiche pour entrer dans la course.</p></div>`;
   return `<div class="rk"><div class="rk-h"><span>Nom</span><span>1V1</span><span class="rk-c">Collection</span></div>${rk.slice(0,limit).map((x,i)=>`<div class="rk-r${x.id===uid?' me':''}"><span class="rk-n"><i>${i+1}</i>${avatar(x.id)}<b>${esc(nameOf(x.id))}</b></span><span class="rk-p">${x.pts}<small> pt${x.pts>1?'s':''}</small></span><span class="rk-c">${x.coll}</span></div>`).join('')}</div>`;
 }
 const liveForMe=()=>challenges.filter(c=>c.to_id===uid&&chalState(c).st==='live').length;
@@ -246,9 +323,10 @@ function renderChal(){
   el.innerHTML=`<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
     <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
     <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>
+    ${fetishHTML()}
     <h2 class="rk-title">${TROPHY}Classement 1V1</h2>
     ${rankTable(ranking())}
-    <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi. On entre au classement en remportant un défi.</p>`;
+    <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi, 3 points par œuvre fétiche trouvée. On entre au classement en remportant un défi ou en trouvant une œuvre fétiche.</p>`;
   const b=liveForMe(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}
 }
 // Formulaire de défi
@@ -286,7 +364,7 @@ function renderChalForm(){
 function chalSearch(){
   clearTimeout(chT);const q=CH.q.trim();if(!q){CH.res=[];$('#chres').innerHTML='';return}
   $('#chres').innerHTML=chalResHTML();
-  chT=setTimeout(async()=>{const s=++chSeq;const res=await Promise.all(['f','s','l','j'].map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
+  chT=setTimeout(async()=>{const s=++chSeq;const res=await Promise.all(ALLT.map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
     if(s!==chSeq||sheetId!=='__chal')return;CH.res=rr(res.map(r=>(r.items||[]).map(reg)));const box=$('#chres');if(box)box.innerHTML=chalResHTML()},250);
 }
 async function sendChallenge(btn){
@@ -329,18 +407,33 @@ async function delComment(id){
   try{await call('DELETE','comments/'+id);comments=comments.filter(c=>c.id!==id);renderFeed()}catch(e){toast(msg(e))}
 }
 // Easter egg : 7 touches sur le logo (ou le code Konami) révèlent une carte secrète
-let eggTaps=[];
-function easterEgg(){
-  const w={id:'egg-zz',t:'f',ti:'Le coup de boule',y:2006,c:'Zidane'},el=$('#reveal');
-  el.style.setProperty('--rc','var(--r4)');revealId=null;
-  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,4,'egg')}<div class="cardback"></div></div><div class="burst"></div>
-    <div class="cap">Carte secrète<span class="rname">Zidane, 9 juillet 2006</span></div><div class="tap">Tu verras, c’est d’la frappe.</div></div>`;
-  el.classList.add('open');el.focus();confetti();
-  clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),4200);
+let eggTaps=[],eggHold=null,eggRoue=false;
+const EGG_ART={
+  boule:'<svg viewBox="0 0 120 180" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="eg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2A4A"/><stop offset="1" stop-color="#0B5E3A"/></linearGradient></defs><rect width="120" height="180" fill="url(#eg1)"/><path d="M0 132h120M60 132v48" stroke="#fff" stroke-opacity=".25"/><circle cx="60" cy="156" r="14" fill="none" stroke="#fff" stroke-opacity=".25"/><g transform="rotate(-12 60 70)"><rect x="42" y="40" width="36" height="52" rx="4" fill="#E0453A"/><rect x="42" y="40" width="36" height="52" rx="4" fill="none" stroke="#fff" stroke-opacity=".4"/></g><text x="60" y="120" text-anchor="middle" font-size="11" font-weight="800" fill="#fff" font-family="sans-serif">9.07.2006</text></svg>',
+  roue:'<svg viewBox="0 0 120 180" preserveAspectRatio="xMidYMid slice"><rect width="120" height="180" fill="#1B1F33"/><g transform="translate(60 84)"><g class="egg-spin">'+[0,1,2,3,4,5,6,7].map(i=>`<path d="M0 0L${(46*Math.cos(i*Math.PI/4)).toFixed(1)} ${(46*Math.sin(i*Math.PI/4)).toFixed(1)}A46 46 0 0 1 ${(46*Math.cos((i+1)*Math.PI/4)).toFixed(1)} ${(46*Math.sin((i+1)*Math.PI/4)).toFixed(1)}z" fill="${['#E3A900','#2F6FDB','#E0453A','#9A6B3F','#1C9662','#C2399D','#F2C14E','#5B9BF0'][i]}"/>`).join('')+'<circle r="8" fill="#fff"/></g><path d="M0 -58l-7 -12h14z" fill="#fff"/></g><text x="60" y="160" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" font-family="sans-serif">ÇA TOURNE…</text></svg>',
+  panenka:'<svg viewBox="0 0 120 180" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="eg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0D1B3A"/><stop offset="1" stop-color="#14532F"/></linearGradient></defs><rect width="120" height="180" fill="url(#eg3)"/><g stroke="#fff" stroke-opacity=".35">'+[0,1,2,3,4,5,6].map(i=>`<path d="M${20+i*13.3} 40v52"/>`).join('')+[0,1,2,3].map(i=>`<path d="M20 ${40+i*17.3}h80"/>`).join('')+'</g><path d="M16 94V36h88v58" fill="none" stroke="#fff" stroke-width="3"/><path d="M60 162Q60 30 60 70" fill="none" stroke="#FFD46B" stroke-width="2" stroke-dasharray="3 4"/><circle cx="60" cy="66" r="7" fill="#fff"/><path d="M57 62l3 2 3-2M56 68l4-2 4 2" stroke="#1B2238" stroke-width="1"/><path d="M28 110q18 -8 30 6" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="5" stroke-linecap="round"/></svg>'
+};
+const EGGS={
+  boule:{img:'eggs/coup-de-boule.jpg',cap:'Carte secrète',name:'Le coup de boule',sub:'Berlin, 9 juillet 2006'},
+  roue:{img:'eggs/la-roue-tourne.jpg',cap:'Carte secrète',name:'La roue tourne va tourner',sub:'Parole de légende'},
+  panenka:{img:'eggs/panenka.jpg',cap:'Carte ultime',name:'La Panenka',sub:'Berlin, 9 juillet 2006, 7e minute',ultimate:true}
+};
+function easterEgg(k='boule'){
+  const e=EGGS[k],el=$('#reveal');el.style.setProperty('--rc',e.ultimate?'#FFE08A':'var(--r4)');el.style.setProperty('--rf','linear-gradient(135deg,#FFF1C4,#FFD46B 40%,#F28C1B)');revealId=null;
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip"><span class="card egg egg-${k}${e.ultimate?' ultimate':''}" aria-hidden="true"><span class="egg-art">${EGG_ART[k]}</span><img src="${e.img}" alt="" data-err="rm"><span class="cg-foil"></span></span><div class="cardback"></div></div><div class="burst"></div>
+    <div class="cap">${e.cap}<span class="rname">${e.name}</span>${e.sub}</div><div class="tap">Tu verras, c’est d’la frappe.</div></div>`;
+  el.classList.add('open');el.focus();confetti();if(e.ultimate)setTimeout(confetti,700);
+  clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),e.ultimate?6000:4500);
 }
-document.addEventListener('click',e=>{if(!e.target.closest('header.top .brand'))return;const now=Date.now();eggTaps=eggTaps.filter(t=>now-t<2500);eggTaps.push(now);if(eggTaps.length>=7){eggTaps=[];easterEgg()}});
+// 7 touches rapides sur le logo : le coup de boule ; appui long de 3 s : la Panenka
+document.addEventListener('click',e=>{if(!e.target.closest('header.top .brand'))return;const now=Date.now();eggTaps=eggTaps.filter(t=>now-t<2500);eggTaps.push(now);if(eggTaps.length>=7){eggTaps=[];easterEgg('boule')}});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('header.top .brand'))return;clearTimeout(eggHold);eggHold=setTimeout(()=>{eggTaps=[];easterEgg('panenka')},3000)});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>document.addEventListener(ev,()=>clearTimeout(eggHold)));
+// « la roue tourne » dans la recherche
+document.addEventListener('input',e=>{if(e.target.id!=='q')return;if(/la roue tourne/.test(norm(e.target.value))){if(!eggRoue){eggRoue=true;easterEgg('roue')}}else eggRoue=false});
+// Code Konami au clavier : la Panenka
 (()=>{const K=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];let i=0;
-  document.addEventListener('keydown',e=>{i=e.key===K[i]?i+1:(e.key===K[0]?1:0);if(i===K.length){i=0;easterEgg()}})})();
+  document.addEventListener('keydown',e=>{i=e.key===K[i]?i+1:(e.key===K[0]?1:0);if(i===K.length){i=0;easterEgg('panenka')}})})();
 
 /* ---------- Côtés du site (ordinateur) ---------- */
 function renderSide(){
@@ -356,7 +449,9 @@ function renderSide(){
 }
 
 /* ---------- Fil ---------- */
-let feedMode='all';
+let feedMode='all',feedCircle='',CIRCLES={};
+function circleLabel(code){const ids=(CIRCLES[code]||[]).filter(i=>i!==uid);
+  return `<span class="avs">${ids.slice(0,3).map(avatar).join('')}</span>${ids.length?esc(ids.slice(0,2).map(nameOf).join(', '))+(ids.length>2?` +${ids.length-2}`:''):'Rien que toi'}`}
 function recLine(r){
   const from=r.from_id,to=r.to_ids||[];
   if(from===uid)return `<b>Tu</b> as recommandé ${to.length?'à '+to.map(id=>`<b>${esc(nameOf(id))}</b>`).join(', '):'à tout le cercle'}`;
@@ -381,6 +476,11 @@ function renderFeed(){
     for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
     for(const c of challenges){const s=chalState(c);ev.push({k:'chal',c,s,who:c.from_id,ts:Date.parse(c.created_at)});if(s.st==='won')ev.push({k:'won',c,s,who:c.to_id,ts:s.wonAt})}
   }
+  const fc=$('#feedCircles');
+  if(fc){if(myCircles.length>1&&others().length){if(feedCircle&&!myCircles.includes(feedCircle))feedCircle='';
+    fc.hidden=false;fc.innerHTML=chip('Tous les cercles',!feedCircle,'data-fcircle=""')+myCircles.map(c=>chip(circleLabel(c),feedCircle===c,`data-fcircle="${esc(c)}" title="Cercle ${esc(c)}"`,'chip cchip')).join('')}
+    else{fc.hidden=true;fc.innerHTML='';feedCircle=''}}
+  if(feedCircle){const set=new Set(CIRCLES[feedCircle]||[]);ev=ev.filter(e=>e.c?set.has(e.c.from_id)&&set.has(e.c.to_id):set.has(e.who))}
   if(feedMode==='me')ev=ev.filter(e=>e.k==='rec'&&(e.r.to_ids||[]).includes(uid));
   if(feedMode==='sent')ev=ev.filter(e=>e.who===uid&&e.k==='rec');
   ev.sort((a,b)=>b.ts-a.ts);
@@ -388,11 +488,11 @@ function renderFeed(){
   // garder la saisie d'un commentaire pendant les rafraîchissements
   const act=document.activeElement,keep=act&&act.classList.contains('cmi')?{id:act.id,s:act.selectionStart}:null;
   if(!ev.length){el.innerHTML=feedMode==='all'?`<div class="hero">
-    <div class="fan" aria-hidden="true">${['f','s','l','j'].map(t=>`<span class="t-${t}">${ICON[t]}</span>`).join('')}</div>
+    <div class="fan" aria-hidden="true">${ALLT.map(t=>`<span class="t-${t}">${ICON[t]}</span>`).join('')}</div>
     <div class="ht">Qu’est-ce qui t’a marqué récemment ?</div>
     <p>Un film, une série, un livre, un jeu : recommande-le à tes amis. Leurs petites perles apparaîtront ici.</p>
     <button class="fakeq" data-gosearch><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cherche une œuvre…</button>
-    <div class="tries">${[['Dune','l'],['Breaking Bad','s'],['Interstellar','f'],['Zelda','j']].map(([q,t])=>`<button class="chip" data-try="${q}"><span class="tm t-${t}"></span>${q}</button>`).join('')}</div>
+    <div class="tries">${[['Dune','l'],['Breaking Bad','s'],['Interstellar','f'],['Zelda','j'],['Catan','b'],['Daft Punk','m']].map(([q,t])=>`<button class="chip" data-try="${q}"><span class="tm t-${t}"></span>${q}</button>`).join('')}</div>
     <div class="links"><button data-gocoll>Inviter des amis</button><span aria-hidden="true">·</span><button data-manual="">Ajouter à la main</button></div>
   </div>`:`<div class="empty"><b>${feedMode==='me'?'Personne ne t’a encore recommandé d’œuvre en direct.':'Tu n’as encore rien recommandé.'}</b></div>`;return}
   let last='',html='';
@@ -420,11 +520,19 @@ function renderFeed(){
 
 /* ---------- Collection ---------- */
 let collWho=null,collView=lsGet('sharefs-collview','book'),collList='done',collType='',collRar=0,justAdded=null;
-const TYPE_ORDER=['f','s','j','l'];
+const TYPE_ORDER=ALLT;
 const SHELF_DECO={
   f:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 52 46" width="50" height="44"><rect x="3" y="17" width="46" height="27" rx="3" fill="#2A2D36"/><rect x="8" y="24" width="36" height="3" rx="1.5" fill="#4C5260"/><rect x="8" y="31" width="24" height="3" rx="1.5" fill="#4C5260"/><path d="M3 17 45 8.5l2 8.5H3z" fill="#2A2D36"/><path d="M8 16.3 15 9.5l6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7zm12-2.4 7-6.8 6-1.2-7 7z" fill="#EEF1F5"/><circle cx="6" cy="17" r="2" fill="#8A909C"/></svg></span>`,
   s:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 54 50" width="52" height="48"><path d="M19 4l8 9 9-11" fill="none" stroke="#3A3F4B" stroke-width="2.4" stroke-linecap="round"/><rect x="3" y="13" width="48" height="31" rx="6" fill="#5A4A3C"/><rect x="8" y="17" width="31" height="23" rx="4" fill="#1E2433"/><rect x="8" y="17" width="31" height="23" rx="4" fill="url(#tvg)" opacity=".85"/><circle cx="45" cy="23" r="2.6" fill="#D9C7A8"/><circle cx="45" cy="31" r="2.6" fill="#D9C7A8"/><rect x="10" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><rect x="39" y="44" width="5" height="5" rx="1" fill="#3A3F4B"/><defs><radialGradient id="tvg" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#9CC3F5"/><stop offset="1" stop-color="#2F6FDB" stop-opacity=".2"/></radialGradient></defs></svg></span>`,
   j:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 60 40" width="58" height="38"><path d="M16 6h28c8 0 13 6 14 15l1 7c.6 6-6.5 9.5-11 4.5L42 27H18l-6 5.5C7.5 37.5.4 34 1 28l1-7C3 12 8 6 16 6z" fill="#23262E"/><path d="M16 6h28c8 0 13 6 14 15" fill="none" stroke="#3B3F4A" stroke-width="1.5"/><rect x="12" y="15" width="10" height="3.4" rx="1.2" fill="#5E6472"/><rect x="15.3" y="11.7" width="3.4" height="10" rx="1.2" fill="#5E6472"/><circle cx="43" cy="13" r="2.4" fill="#E0453A"/><circle cx="48" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="38" cy="17.5" r="2.4" fill="#5E6472"/><circle cx="43" cy="22" r="2.4" fill="#5E6472"/><circle cx="24" cy="24" r="3.6" fill="#353943"/><circle cx="36" cy="24" r="3.6" fill="#353943"/></svg></span>`,
+  b:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 72 48" width="68" height="45"><ellipse cx="36" cy="45.5" rx="33" ry="2.5" fill="rgba(0,0,0,.28)"/>
+    <path d="M4 30 42 23 66 29 28 37z" fill="#D49A56"/><path d="M4 30 28 37 28 44 4 37z" fill="#8E5A2C"/><path d="M28 37 66 29 66 36 28 44z" fill="#A86E38"/>
+    <path d="M15 30 40 25.5 52 28.5 27 33.5z" fill="#F4DDB0" opacity=".85"/><path d="M22 30.5 38 27.6M24 32 40 29" stroke="#C98A4A" stroke-width="1"/>
+    <path d="M56 7a2.8 2.8 0 012.8 2.8c0 .8-.4 1.5-.9 2 2.4.5 6 1.7 6 3.9 0 1.1-1.5 1.4-2.8 1.3l2 6.8h-5L56 20.2l-2.1 3.6h-5l2-6.8c-1.3.1-2.8-.2-2.8-1.3 0-2.2 3.6-3.4 6-3.9-.5-.5-.9-1.2-.9-2A2.8 2.8 0 0156 7z" fill="#E0453A"/>
+    <g transform="rotate(-14 14 18)"><rect x="8" y="12" width="12" height="12" rx="2.4" fill="#F7F3EA" stroke="#C9C1B0"/><circle cx="11.4" cy="15.4" r="1.2" fill="#2B2F3A"/><circle cx="16.6" cy="20.6" r="1.2" fill="#2B2F3A"/><circle cx="14" cy="18" r="1.2" fill="#2B2F3A"/></g></svg></span>`,
+  m:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 66 52" width="62" height="49"><ellipse cx="33" cy="50" rx="29" ry="2.5" fill="rgba(0,0,0,.28)"/>
+    <circle cx="40" cy="26" r="21" fill="#15171D"/><circle cx="40" cy="26" r="16" fill="none" stroke="#2C2F38"/><circle cx="40" cy="26" r="12" fill="none" stroke="#2C2F38"/><circle cx="40" cy="26" r="6.5" fill="#C2399D"/><circle cx="40" cy="26" r="1.5" fill="#15171D"/>
+    <rect x="4" y="5" width="34" height="43" rx="2" fill="#EADCF0"/><rect x="8" y="9" width="26" height="26" rx="1" fill="#C2399D"/><circle cx="21" cy="22" r="7" fill="none" stroke="#fff" stroke-width="1.6" opacity=".7"/><path d="M8 40h18M8 43.5h12" stroke="#9A7FA8" stroke-width="1.4"/></svg></span>`,
   l:`<span class="sdeco" aria-hidden="true"><svg viewBox="0 0 76 50" width="72" height="47"><ellipse cx="38" cy="47" rx="34" ry="3" fill="rgba(0,0,0,.28)"/>
     <path d="M5 33 47 25 71 31 29 40z" fill="#1E7A52"/><path d="M5 33 29 40 29 46 5 39z" fill="#0F4A32"/><path d="M29 40 71 31 71 37 29 46z" fill="#F1E6CC"/><path d="M31 42 69 34M31 44 69 36" stroke="#CDBB92" stroke-width=".8"/>
     <path d="M8 35.2 26 40.6M8 38 26 43.4" stroke="#E8C46A" stroke-width="1.4"/><path d="M33 33.5 55 29.5 61 31.2 39 35.4z" fill="none" stroke="#E8C46A" stroke-width="1.2"/>
@@ -434,12 +542,12 @@ const SHELF_DECO={
 };
 const hsh=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return h};
 const PAL={l:['#2F5D3A','#4F6D5B','#86A788','#1C9662','#5B7F3A','#7A8B4A','#E8DCC2','#D8CBA8','#8C6B4A','#3E6B5A','#A8B88A','#6E5A44'],
-  f:['#E3A900','#D98E04','#F2C14E','#C9900A','#EAD27A'],s:['#2F6FDB','#3D86E8','#1F57B8','#5B9BF0','#2A4F9E'],j:['#E0453A','#C7362C','#F06A5E','#A82A22','#F28B82']};
+  f:['#E3A900','#D98E04','#F2C14E','#C9900A','#EAD27A'],s:['#2F6FDB','#3D86E8','#1F57B8','#5B9BF0','#2A4F9E'],b:['#9A6B3F','#B5824F','#7E5530','#C99A68','#6B4A2B'],m:['#C2399D','#A92F88','#D85BB4','#8E2672','#E58BCB'],j:['#E0453A','#C7362C','#F06A5E','#A82A22','#F28B82']};
 const isLight=c=>{const n=parseInt(c.slice(1),16);return ((n>>16)*299+((n>>8)&255)*587+(n&255)*114)/1000>160};
-const spW=w=>w.t==='l'?24+(hsh(w.id)>>3)%5*4:w.t==='s'?30:w.t==='f'?22:20;
+const spW=w=>w.t==='l'?24+(hsh(w.id)>>3)%5*4:w.t==='s'?30:w.t==='f'?22:w.t==='b'?40:w.t==='m'?12:20;
 function spine(w,r,i){
   const h=hsh(w.id),pal=PAL[w.t]||PAL.l,c=pal[h%pal.length];
-  let cls={l:'book',f:'disc',s:'box',j:'game'}[w.t]||'book',st=`--bk:${c};--bt:${isLight(c)?'#1B2238':'#fff'};`;
+  let cls={l:'book',f:'disc',s:'box',j:'game',b:'bgbox',m:'vinyl'}[w.t]||'book',st=`--bk:${c};--bt:${isLight(c)?'#1B2238':'#fff'};`;
   if(w.img){cls+=' im';st+=`--im:url('${String(w.img).replace(/'/g,'%27').replace(/"/g,'%22')}');`}
   if(w.t==='l'){cls+=' v'+((h>>5)%4);st+=`height:${104+h%5*11}px;width:${spW(w)}px;`}
   st+=`--tilt:${(((h>>9)%2?1:-1)*(1.2+((h>>11)%3)*.8)).toFixed(1)}deg;`;
@@ -480,7 +588,9 @@ function renderColl(){
   }else if(collView==='book'){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
     COLL.items=items;
-    sh.innerHTML=grimClosedHTML(items.length)+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
+    const fets=isMe&&collList!=='want'?(FET?.found||[]):[];
+    sh.innerHTML=grimClosedHTML(items.length)+(fets.length?`<section class="crow fet-row"><div class="crh"><span class="fe-ic">${HEART}</span>Fétiches trouvées<span class="n">${fets.length}</span></div><div class="cards">${fets.map(f=>{const w=WK[f.work.id]||reg(f.work);
+      return `<button data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,0,'fet')}<div class="ct">${esc(w.ti)}</div><div class="cy">${esc(nameOf(f.target_id))}, ${esc(seasonName(f.season))}</div></button>`}).join('')}</div></section>`:'')+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
       return `<section class="crow"><div class="crh"><span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span></div><div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div></section>`}).join('');
   }else{
     COLL.items=items;
@@ -530,31 +640,51 @@ const G={type:'f',page:0};
 const gPer=()=>innerWidth>=700?8:9;
 const gList=()=>COLL.items.filter(x=>x.w.t===G.type);
 const gPages=()=>Math.max(1,Math.ceil(gList().length/gPer()));
+const G_CORNER='<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true"><path d="M4 40V14C4 8.5 8.5 4 14 4h26" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 40V17c0-4.4 3.6-8 8-8h23" fill="none" stroke="currentColor" stroke-width=".8" opacity=".6"/><path d="M13 13c5 0 7.5 2.5 7.5 7.5-5 0-7.5-2.5-7.5-7.5z" fill="currentColor"/><circle cx="23.5" cy="23.5" r="1.8" fill="currentColor"/><path d="M4 26c3-1 5 1 5 4M26 4c-1 3 1 5 4 5" fill="none" stroke="currentColor" stroke-width="1"/></svg>';
+const G_FLEURON='<svg viewBox="0 0 160 14" width="160" height="14" aria-hidden="true"><path d="M2 7h58M100 7h58" stroke="currentColor" stroke-width="1"/><path d="M80 1.5c3.4 3 3.4 8 0 11-3.4-3-3.4-8 0-11zM70 7c3.5-2.6 6.5-2.6 9 0-2.5 2.6-5.5 2.6-9 0zM90 7c-3.5-2.6-6.5-2.6-9 0 2.5 2.6 5.5 2.6 9 0z" fill="currentColor"/><circle cx="64" cy="7" r="1.4" fill="currentColor"/><circle cx="96" cy="7" r="1.4" fill="currentColor"/></svg>';
 function gPageHTML(p=G.page){
-  const list=gList(),pp=gPer(),slice=list.slice(p*pp,p*pp+pp),n=gPages();
-  return `<div class="ghead"><span>${T[G.type].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div><div class="gorn" aria-hidden="true"><i></i></div>
-    ${list.length?`<div class="gcards">${slice.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"></span>'.repeat(Math.max(0,pp-slice.length))}</div>`
+  const list=gList(),pp=gPer(),slice=list.slice(p*pp,p*pp+pp),n=gPages(),t=G.type;
+  return `${['tl','tr','bl','br'].map(c=>`<span class="gp-corner ${c}">${G_CORNER}</span>`).join('')}
+    <span class="gp-water" aria-hidden="true">${ICON[t]}</span>${p%3===1?'<span class="gp-stain" aria-hidden="true"></span>':''}
+    <div class="gp-run"><span>Grimoire</span><span>${T[t].p}</span></div>
+    <div class="ghead"><span class="gh-ic">${ICON[t]}</span><span class="gh-t">${T[t].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div>
+    <div class="gorn">${G_FLEURON}</div>
+    ${list.length?`<div class="gcards">${slice.map(({w,r})=>`<button class="gslotf" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}"><span class="pc tl"></span><span class="pc tr"></span><span class="pc bl"></span><span class="pc br"></span>${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"><span>?</span></span>'.repeat(Math.max(0,pp-slice.length))}</div>`
       :`<div class="gempty"><div class="cardback"></div><p>Aucune carte ici… pour l’instant.</p></div>`}
-    <div class="gfoot"><button data-gturn="-1" aria-label="Page précédente" ${p<=0?'disabled':''}>‹</button><span>${p+1} / ${n}</span><button data-gturn="1" aria-label="Page suivante" ${p>=n-1?'disabled':''}>›</button></div>`;
+    <div class="gfoot"><button data-gturn="-1" aria-label="Page précédente" ${p<=0?'disabled':''}>‹</button><span class="gnum">${p+1}<small> / ${n}</small></span><button data-gturn="1" aria-label="Page suivante" ${p>=n-1?'disabled':''}>›</button></div>`;
 }
 function grimHTML(){
   const cnt=t=>COLL.items.filter(x=>x.w.t===t).length;
   if(!cnt(G.type)){const t=TYPE_ORDER.find(cnt);if(t)G.type=t}
   G.page=Math.min(G.page,gPages()-1);
-  return `<div class="grim"><div class="gtabs">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" aria-pressed="${G.type===t}" data-gtab="${t}">${T[t].p}<b>${cnt(t)}</b></button>`).join('')}</div>
-    <div class="gbook" id="gbook" style="--tc:var(--${{f:'film',s:'serie',l:'livre',j:'jeu'}[G.type]});--tci:${G.type==='f'?'#18213A':'#fff'}"><span class="gclasp" aria-hidden="true"></span><div class="gpage" id="gpage">${gPageHTML()}</div></div></div>`;
+  return `<div class="grim"><div class="gtabs" role="tablist">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" role="tab" aria-selected="${G.type===t}" aria-pressed="${G.type===t}" data-gtab="${t}" aria-label="${T[t].p}, ${cnt(t)} carte${cnt(t)>1?'s':''}"><span class="gt-ic">${ICON[t]}</span><span class="gt-l">${T[t].p}</span><b>${cnt(t)}</b></button>`).join('')}</div>
+    <div class="gbook" id="gbook" style="--tc:var(--${TVAR[G.type]});--tci:${TINK(G.type)};--edges:${Math.min(8,gPages()-1-G.page)}"><span class="gclasp" aria-hidden="true"></span><span class="gedge" aria-hidden="true"></span>
+      <div class="gpage" id="gpage">${gPageHTML()}</div></div>
+    <p class="ghint">Fais glisser la page, ou touche ses bords, pour la tourner.</p></div>`;
 }
-function turnPage(dir){
-  const np=G.page+dir,book=$('#gbook'),pg=$('#gpage');
-  if(!book||!pg||np<0||np>=gPages())return;
-  const html=gPageHTML(np);
-  if(RM){G.page=np;pg.innerHTML=html;return}
-  const ov=document.createElement('div');ov.className='gpage gturn';
-  if(dir>0){ov.innerHTML=pg.innerHTML;book.appendChild(ov);G.page=np;pg.innerHTML=html;
-    ov.animate([{transform:'rotateY(0)',filter:'brightness(1)'},{transform:'rotateY(-100deg)',filter:'brightness(.7)'}],{duration:520,easing:'cubic-bezier(.4,.1,.3,1)',fill:'forwards'}).onfinish=()=>ov.remove()}
-  else{ov.innerHTML=html;book.appendChild(ov);
-    ov.animate([{transform:'rotateY(-100deg)',filter:'brightness(.7)'},{transform:'rotateY(0)',filter:'brightness(1)'}],{duration:520,easing:'cubic-bezier(.4,.1,.3,1)'}).onfinish=()=>{G.page=np;pg.innerHTML=html;ov.remove()}}
+// Tourner les pages : la page suit le doigt, puis se pose ou revient
+function gChrome(){const b=$('#gbook');if(b)b.style.setProperty('--edges',Math.min(8,gPages()-1-G.page))}
+function startTurn(dir){
+  const book=$('#gbook'),pg=$('#gpage');if(!book||!pg)return null;
+  const np=G.page+dir;if(np<0||np>=gPages())return null;
+  const cur=pg.innerHTML,nxt=gPageHTML(np),ov=document.createElement('div');
+  ov.className='gturn';ov.innerHTML=`<div class="gpage gface">${dir>0?cur:nxt}</div><div class="gback"></div><span class="gshade"></span>`;
+  book.appendChild(ov);if(dir>0)pg.innerHTML=nxt;
+  const t={ov,dir,np,cur,nxt,ang:dir>0?0:-180,p:0};setTurn(t,0);return t;
 }
+function setTurn(t,p){t.p=p;t.ang=t.dir>0?-180*p:-180*(1-p);t.ov.style.transform=`rotateY(${t.ang}deg)`;
+  t.ov.querySelector('.gshade').style.opacity=(Math.sin(Math.PI*Math.abs(t.ang)/180)*.6).toFixed(3);
+  const pg=$('#gpage');if(pg)pg.style.setProperty('--cast',(Math.sin(Math.PI*Math.abs(t.ang)/180)*.5).toFixed(3))}
+function endTurn(t,commit,dur=460){
+  const to=t.dir>0?(commit?-180:0):(commit?0:-180),from=t.ang;
+  const done=()=>{if(t.dir>0){if(commit)G.page=t.np;else $('#gpage').innerHTML=t.cur}else if(commit){G.page=t.np;$('#gpage').innerHTML=t.nxt}
+    t.ov.remove();const pg=$('#gpage');if(pg)pg.style.setProperty('--cast',0);gChrome();if(commit&&navigator.vibrate)try{navigator.vibrate(8)}catch(e){}};
+  if(RM){done();return}
+  const sh=t.ov.querySelector('.gshade');
+  t.ov.animate([{transform:`rotateY(${from}deg)`},{transform:`rotateY(${to}deg)`}],{duration:dur,easing:'cubic-bezier(.3,.7,.2,1)',fill:'forwards'}).onfinish=done;
+  sh.animate([{opacity:sh.style.opacity||0},{opacity:.6,offset:.5},{opacity:0}],{duration:dur,fill:'forwards'});
+}
+function turnPage(dir){const t=startTurn(dir);if(t)endTurn(t,true,680)}
 let fsSrc=null,fsKind='';
 const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,r.top)}px ${Math.max(0,innerWidth-r.right)}px ${Math.max(0,innerHeight-r.bottom)}px ${Math.max(0,r.left)}px round 14px)`};
 function openFs(kind,src){
@@ -577,13 +707,23 @@ function closeFs(){
   if(!RM&&fsSrc&&fsSrc.isConnected)fs.animate([{clipPath:'inset(0 0 0 0 round 0)'},{clipPath:clipOf(fsSrc)}],{duration:380,easing:'cubic-bezier(.4,0,.2,1)'}).onfinish=end;else end();
 }
 function bindGrim(){
-  const b=$('#gbook');if(!b)return;let x0=null;
-  b.addEventListener('pointerdown',e=>{x0=e.clientX});
-  b.addEventListener('pointerup',e=>{if(x0==null)return;const dx=e.clientX-x0;x0=null;if(Math.abs(dx)>45)turnPage(dx<0?1:-1)});
+  const b=$('#gbook');if(!b)return;let st=null;
+  b.addEventListener('pointerdown',e=>{if(e.button>0||e.target.closest('.gfoot button'))return;st={x:e.clientX,y:e.clientY,t:null,w:b.clientWidth,pid:e.pointerId,onCard:!!e.target.closest('.gslotf')}});
+  b.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
+    if(!st.t){if(Math.abs(dx)<12||Math.abs(dx)<Math.abs(dy)*1.2)return;st.t=startTurn(dx<0?1:-1);if(!st.t){st=null;return}try{b.setPointerCapture(st.pid)}catch(err){}}
+    setTurn(st.t,Math.min(1,Math.max(0,(st.t.dir>0?-dx:dx)/(st.w*.85))))});
+  const up=e=>{if(!st)return;const s0=st;st=null;
+    if(s0.t){gNoClick=true;setTimeout(()=>gNoClick=false,60);endTurn(s0.t,s0.t.p>.3);return}
+    if(!s0.onCard&&Math.abs(e.clientX-s0.x)<8&&Math.abs(e.clientY-s0.y)<8){const r=b.getBoundingClientRect(),x=e.clientX-r.left;if(x>r.width*.8)turnPage(1);else if(x<r.width*.2)turnPage(-1)}};
+  b.addEventListener('pointerup',up);b.addEventListener('pointercancel',()=>{if(st&&st.t)endTurn(st.t,false);st=null});
 }
+let gNoClick=false;
+document.addEventListener('click',e=>{if(gNoClick&&e.target.closest('#gbook')){e.stopPropagation();e.preventDefault()}},true);
+document.addEventListener('keydown',e=>{if(!$('#fs')?.classList.contains('open')||$('#fs').dataset.kind!=='grim'||$('#insp').classList.contains('open'))return;
+  if(e.key==='ArrowRight')turnPage(1);if(e.key==='ArrowLeft')turnPage(-1)});
 
 /* ---------- Sortir une œuvre de l'étagère et regarder son dos ---------- */
-const BOXDIM={f:[176,250,24],s:[180,252,34],j:[170,226,20],l:[176,262,30]};
+const BOXDIM={f:[176,250,24],s:[180,252,34],j:[170,226,20],l:[176,262,30],b:[200,200,48],m:[200,200,8]};
 let boxSrc=null,boxId=null;
 function boxBack(w,r){
   const syn=w.syn?(w.syn.length>280?w.syn.slice(0,270)+'…':w.syn):'';
@@ -642,7 +782,7 @@ function openSheet(id,refocus=true,opts={}){
   if(sheetId!==id){recOpen=false;recTo=new Set();recNote='';pickOpen=!!opts.pick;pickDeal=!!opts.pick;
     if(F.forWho&&others().includes(F.forWho)&&$('#v-search').classList.contains('on')&&!opts.pick){recTo=new Set([F.forWho]);recOpen=true}}
   sheetId=id;if(refocus)lastFocus=document.activeElement;
-  $('#sheet').style.setProperty('--tc',`var(--${{f:'film',s:'serie',l:'livre',j:'jeu'}[w.t]})`);
+  $('#sheet').style.setProperty('--tc',`var(--${TVAR[w.t]||'line'})`);
   $('#sheet').style.setProperty('--tci',w.t==='f'?'#18213A':'#fff');
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
@@ -653,11 +793,9 @@ function openSheet(id,refocus=true,opts={}){
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${w.syn?`<p class="syn">${esc(w.syn)}</p>`:(!w.full?'<p class="meta">Chargement de la fiche…</p>':'')}
     ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="gal"></button>`).join('')}</div>`:''}
-    <div class="sh-acts">
-      ${doneTgl(id,'data-done')}
-      ${wantBtn(id)}
-      <button class="btn recb" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button>
-      <button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button>
+    <div class="sh-acts2">
+      <div class="sa-row">${doneTgl(id,'data-done')}<div class="icogrp">${wantBtn(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
+      <button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button>
     </div>
     ${pick}
     <div id="recForm" class="recf" ${recOpen?'':'hidden'}>
@@ -680,7 +818,7 @@ function openSheet(id,refocus=true,opts={}){
       .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
   }
 }
-function refreshSheet(){if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
+function refreshSheet(){if(sheetId==='__pick'){renderPicker();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
 function closeSheet(){if(!sheetId)return;sheetId=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
@@ -696,7 +834,7 @@ function renderManual(){
   $('#sheetIn').innerHTML=`<div class="grab"></div>
     <h3 id="shTitle" style="font-size:24px;margin:2px 0 4px;letter-spacing:-.02em">Envoyer une œuvre</h3>
     <p class="meta" style="margin:0 0 6px">Pour une œuvre absente des catalogues.</p>
-    <div class="ledge mledge" aria-hidden="true"><span class="deco stack" style="left:12px"><i></i><i></i><i></i></span><span class="minisp" style="left:76px"><i class="t-f"></i><i class="t-s"></i><i class="t-l"></i><i class="t-j"></i></span><span class="mspine${t?' t-'+t:''}" id="mpSpine" title="${esc(ti)}"></span><span class="deco lamp" style="right:16px"></span></div>
+    <div class="ledge mledge" aria-hidden="true"><span class="deco stack" style="left:12px"><i></i><i></i><i></i></span><span class="minisp" style="left:76px"><i class="t-f"></i><i class="t-s"></i><i class="t-l"></i><i class="t-j"></i><i class="t-b"></i><i class="t-m"></i></span><span class="mspine${t?' t-'+t:''}" id="mpSpine" title="${esc(ti)}"></span><span class="deco lamp" style="right:16px"></span></div>
     <label class="to" for="mTitle" style="display:block">Titre</label>
     <input class="mini" id="mTitle" maxlength="120" autocomplete="off" value="${esc(MAN.title)}" placeholder="Titre de l’œuvre" style="margin-top:6px">
     <div class="to">Type<div class="wrap">${Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.n}`,MAN.t===k,`data-mtype="${k}"`)).join('')}</div></div>
@@ -781,7 +919,7 @@ $('#lb').addEventListener('click',e=>{if(e.target.id==='lb'||e.target.parentNode
 let revealId=null,revealT=null;
 function reveal(id){
   const w=WK[id],r=rateOf(id),el=$('#reveal');
-  el.style.setProperty('--rc',`var(--r${r})`);
+  el.style.setProperty('--rc',`var(--r${r})`);el.style.setProperty('--rf',`var(--f${r})`);
   el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${card(w,r)}<div class="cardback"></div></div><div class="burst"></div>
     <div class="cap"><span class="cgem">${GEM(r,34)}</span><span class="rname">${RAR[r].n}</span>${esc(RAR[r].s)}</div><div class="tap">Direction ta collection…</div></div>`;
   el.classList.add('open');el.focus();revealId=id;
@@ -856,6 +994,9 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button,[data-i]');if(!b)return;const d=b.dataset;
   if(d.i!==undefined&&b.classList.contains('opt')){pickAC(+d.i);return}
   if(d.tab!==undefined){closeSheet();setTab(d.tab);return}
+  if('fepick' in d){openPicker('set');return}
+  if(d.feguess){openPicker('guess',d.feguess);return}
+  if(d.pkpick){pkPick(d.pkpick);return}
   if('newchal' in d){openChallenge();return}
   if(d.chalwith){const w=d.chalwith;closeSheet();setTimeout(()=>openChallenge(w),220);return}
   if(d.chtab){chalTab=d.chtab;renderChal();return}
@@ -867,6 +1008,7 @@ document.addEventListener('click',e=>{
     setTimeout(()=>{const q=$('#chq');if(q){q.focus({preventScroll:true});box?.scrollIntoView({behavior:'smooth',block:'center'})}},first?260:30);return}
   if('chsend' in d){sendChallenge(b);return}
   if(d.delchal){delChal(d.delchal);return}
+  if(d.fcircle!==undefined){feedCircle=d.fcircle;renderFeed();return}
   if(d.cmt){openCmts.has(d.cmt)?openCmts.delete(d.cmt):openCmts.add(d.cmt);renderFeed();if(openCmts.has(d.cmt))setTimeout(()=>document.getElementById('cmi-'+d.cmt)?.focus(),30);return}
   if(d.sendcmt){sendComment(d.sendcmt);return}
   if(d.delcmt){delComment(d.delcmt);return}
@@ -920,6 +1062,7 @@ document.addEventListener('input',e=>{const tg=e.target;
   if(tg.classList&&tg.classList.contains('cmi'))cmDraft[tg.dataset.rec]=tg.value;
   if(tg.id==='chq'){CH.q=tg.value;chalSearch()}
   if(tg.id==='chNote')CH.note=tg.value;
+  if(tg.id==='pkq'){PK.q=tg.value;pkSearch()}
   if(tg.id==='mTitle'){const v=tg.value.trim()||'Ton œuvre';const a=$('#mpSpine'),b2=$('#mpTitle'),c2=$('#mpCover');if(a)a.title=v;if(b2)b2.textContent=v;if(c2)c2.textContent=v}
   if(tg.id==='mNote'){const n=$('#mpNote');if(n){n.textContent=tg.value.trim()?'« '+tg.value.trim()+' »':'';n.hidden=!tg.value.trim()}}
 });
@@ -1011,6 +1154,7 @@ function applyState(st){
   st.members.forEach(m=>{const d=normData(m.data);members[m.id]={name:m.name,data:d};names[m.id]=m.name;Object.values(d.works).forEach(reg)});
   if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
   myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
+  CIRCLES=st.circleMembers||{};FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
   comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
   renderAll();
 }
@@ -1035,7 +1179,7 @@ function renderAccount(){
       <button class="btn" data-acc="logout">Me déconnecter</button>
       <button class="btn" data-acc="logoutall">Déconnecter tous mes appareils</button>
       <button class="btn danger" data-acc="delete">Supprimer mon compte</button>
-    </div></div><p class="credits">Données des œuvres : TMDB, Google Books et IGDB. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
+    </div></div><p class="credits">Données des œuvres : TMDB, Google Books, IGDB, BoardGameGeek (Powered by BGG), MusicBrainz et Cover Art Archive. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
 }
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button[data-invite],button[data-acc]');if(!b)return;
@@ -1059,3 +1203,13 @@ renderAll();
   try{await afterLogin(await call('GET','me'))}catch(e){if(e.code!=='unauthorized')stepEmail(msg(e))}
 })();
 
+/* ---------- Fiche : glisser vers le bas pour la fermer ---------- */
+(()=>{const sh=$('#sheet');if(!sh)return;let y0=null,dy=0,drag=false;
+  sh.addEventListener('touchstart',e=>{if(!sheetId||sh.scrollTop>0||e.touches.length>1||e.target.closest('.rto,.chcoll,.gal,input,textarea')){y0=null;return}y0=e.touches[0].clientY;dy=0;drag=false},{passive:true});
+  sh.addEventListener('touchmove',e=>{if(y0==null)return;dy=e.touches[0].clientY-y0;
+    if(dy<=0||sh.scrollTop>0){if(drag){sh.style.transform='';drag=false}if(sh.scrollTop>0)y0=null;return}
+    drag=true;e.preventDefault();sh.style.transition='none';sh.style.transform=`translateY(${dy}px)`},{passive:false});
+  sh.addEventListener('touchend',()=>{if(y0==null)return;y0=null;
+    if(drag&&dy>110){sh.style.transition='transform .22s ease';sh.style.transform='translateY(105%)';setTimeout(()=>{closeSheet();sh.style.transition='';sh.style.transform=''},220)}
+    else{sh.style.transition='';sh.style.transform=''}drag=false});
+})();

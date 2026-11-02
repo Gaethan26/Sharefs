@@ -26,6 +26,18 @@ Mises à jour suivantes : `git push`, puis dans cPanel > Git Version Control : U
 
 Les tables des défis et des commentaires sont créées automatiquement par l'API au premier appel. Le fichier `server/migration-002-defis-commentaires.sql` reste disponible pour une installation manuelle.
 
+## Catalogues
+
+- Films et séries : TMDB (`tmdb_token`)
+- Jeux vidéo : IGDB via Twitch (`twitch_client_id`, `twitch_client_secret`)
+- Livres : Google Books (`google_books_key`, facultatif), repli sur Open Library
+- Jeux de société : BoardGameGeek (`bgg_token`, application à enregistrer sur boardgamegeek.com/applications). L'app affiche la mention « Powered by BGG ».
+- Musique : MusicBrainz et Cover Art Archive, sans clé (1 requête par seconde, mises en cache)
+
+## Cartes secrètes
+
+Déposer les images dans `www/eggs/` (voir `www/eggs/LISEZMOI.md`). Sans image, une illustration originale s'affiche.
+
 ## Configuration privée
 
 La configuration est lue en priorité dans `/home/UTILISATEUR/app-private/config.php`, hors du dossier public. Les journaux PHP sont écrits dans `app-private/logs/`. L'ancien emplacement `api/config.php` reste accepté.

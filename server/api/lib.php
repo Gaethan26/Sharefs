@@ -119,7 +119,7 @@ function ensure_schema(): void {
   static $done = false;
   if ($done) return;
   $done = true;
-  $flag = __DIR__ . '/.schema-v2';
+  $flag = __DIR__ . '/.schema-v3';
   if (is_file($flag)) return;
   db()->exec("CREATE TABLE IF NOT EXISTS challenges (
     id CHAR(36) PRIMARY KEY, from_id CHAR(36) NOT NULL, to_id CHAR(36) NOT NULL, works TEXT NOT NULL, note VARCHAR(280) NULL,
@@ -130,6 +130,16 @@ function ensure_schema(): void {
     id CHAR(36) PRIMARY KEY, rec_id CHAR(36) NOT NULL, from_id CHAR(36) NOT NULL, text VARCHAR(500) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX (rec_id),
     FOREIGN KEY (rec_id) REFERENCES recs(id) ON DELETE CASCADE, FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  db()->exec("CREATE TABLE IF NOT EXISTS fetishes (
+    user_id CHAR(36) NOT NULL, season VARCHAR(16) NOT NULL, work TEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, season), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  db()->exec("CREATE TABLE IF NOT EXISTS fetish_guesses (
+    id CHAR(36) PRIMARY KEY, guesser_id CHAR(36) NOT NULL, target_id CHAR(36) NOT NULL, season VARCHAR(16) NOT NULL, day DATE NOT NULL,
+    work TEXT NOT NULL, correct TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY one_per_day (guesser_id, target_id, day), INDEX (target_id, season), INDEX (guesser_id, season),
+    FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   @file_put_contents($flag, date('c'));
 }
@@ -151,7 +161,7 @@ function check_password(string $pass): void {
 }
 
 /* ---------- Validation des données envoyées par l'app ---------- */
-const IMG_HOSTS = ['image.tmdb.org', 'images.igdb.com', 'books.google.com', 'books.googleusercontent.com', 'covers.openlibrary.org'];
+const IMG_HOSTS = ['image.tmdb.org', 'images.igdb.com', 'books.google.com', 'books.googleusercontent.com', 'covers.openlibrary.org', 'cf.geekdo-images.com', 'coverartarchive.org', 'archive.org'];
 function clean_str($v, int $max): string {
   return mb_substr(trim((string) preg_replace('/[\x00-\x1F\x7F]/u', '', (string) $v)), 0, $max);
 }
@@ -170,7 +180,7 @@ function clean_img($v): string {
 function clean_work($w): ?array {
   $w = (array) $w;
   $id = clean_id($w['id'] ?? ''); $t = (string) ($w['t'] ?? ''); $ti = clean_str($w['ti'] ?? '', 200);
-  if (!$id || !in_array($t, ['f', 's', 'l', 'j'], true) || $ti === '') return null;
+  if (!$id || !in_array($t, ['f', 's', 'l', 'j', 'b', 'm'], true) || $ti === '') return null;
   $o = ['id' => $id, 't' => $t, 'ti' => $ti];
   if (isset($w['y']) && is_numeric($w['y'])) $o['y'] = (int) $w['y'];
   if (!empty($w['c'])) $o['c'] = clean_str($w['c'], 120);
@@ -200,5 +210,25 @@ function clean_data(object $d): object {
   }
   return (object) ['done' => clean_map($d->done ?? [], true), 'want' => clean_map($d->want ?? [], true),
     'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works];
+}
+
+/* ---------- Œuvres fétiches : saisons et jours à l'heure française ---------- */
+function paris_now(): DateTimeImmutable { return new DateTimeImmutable('now', new DateTimeZone('Europe/Paris')); }
+function current_season(): array {
+  $d = paris_now(); $y = (int) $d->format('Y'); $md = (int) $d->format('md');
+  if ($md >= 320 && $md <= 620) return ["$y-printemps", 'printemps', "$y-06-20"];
+  if ($md >= 621 && $md <= 922) return ["$y-ete", 'été', "$y-09-22"];
+  if ($md >= 923 && $md <= 1220) return ["$y-automne", 'automne', "$y-12-20"];
+  if ($md >= 1221) return ["$y-hiver", 'hiver', ($y + 1) . '-03-19'];
+  return [($y - 1) . '-hiver', 'hiver', "$y-03-19"];
+}
+function paris_day(): string { return paris_now()->format('Y-m-d'); }
+function norm_title(string $s): string {
+  $t = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+  return trim((string) preg_replace('/[^a-z0-9]+/', ' ', strtolower($t === false ? $s : $t)));
+}
+function same_work(array $a, array $b): bool {
+  if (($a['id'] ?? '') === ($b['id'] ?? '')) return true;
+  return ($a['t'] ?? '') === ($b['t'] ?? '') && norm_title($a['ti'] ?? '') !== '' && norm_title($a['ti'] ?? '') === norm_title($b['ti'] ?? '');
 }
 

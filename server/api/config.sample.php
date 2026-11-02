@@ -10,6 +10,7 @@ return [
   'twitch_client_id'     => '',   // dev.twitch.tv/console (pour IGDB)
   'twitch_client_secret' => '',
   'google_books_key'     => '',   // facultatif
+  'bgg_token'            => '',   // jeux de société : boardgamegeek.com/applications (application non commerciale)
 
   'mail_from' => 'sharefs@ton-domaine.fr', // adresse créée dans cPanel > Comptes de messagerie
 ];

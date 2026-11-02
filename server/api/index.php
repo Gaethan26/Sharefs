@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $M = $_SERVER['REQUEST_METHOD'];
 $path = trim((string) preg_replace('#^.*?/api(/|$)#', '', (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)), '/');
 
-if (preg_match('#^(state|challenges|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
+if (preg_match('#^(state|challenges|fetish|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
 
 const EMAIL_RE = '/^[^\s@]+@[^\s@]+\.[^\s@]+$/';
 
@@ -35,6 +35,33 @@ function visible_rec(string $uid, string $recId): bool {
   $to = $r['t'] ? explode(',', $r['t']) : [];
   if ($to) return in_array($uid, $to, true);
   return in_array($r['from_id'], mates($uid), true);
+}
+/* État des œuvres fétiches vu par $me : sa propre œuvre, le statut de celles des autres, jamais leur contenu avant d'être trouvé */
+function fetish_state(string $me, array $ids): array {
+  [$season, $label, $until] = current_season();
+  $mine = q('SELECT work FROM fetishes WHERE user_id = ? AND season = ?', [$me, $season])->fetchColumn();
+  $others = [];
+  $today = paris_day();
+  foreach ($ids as $id) {
+    if ($id === $me) continue;
+    $f = q('SELECT work FROM fetishes WHERE user_id = ? AND season = ?', [$id, $season])->fetchColumn();
+    $row = ['user_id' => $id, 'has' => (bool) $f];
+    if ($f) {
+      $w = json_decode($f, true);
+      $found = (bool) q('SELECT 1 FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND season = ? AND correct = 1', [$me, $id, $season])->fetchColumn();
+      $fails = (int) q('SELECT COUNT(*) FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND season = ? AND correct = 0', [$me, $id, $season])->fetchColumn();
+      $row += ['found' => $found, 'fails' => $fails,
+        'guessedToday' => (bool) q('SELECT 1 FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND day = ?', [$me, $id, $today])->fetchColumn()];
+      if ($found) $row['work'] = $w;
+    }
+    $others[] = $row;
+  }
+  $found = array_map(fn($r) => ['target_id' => $r['target_id'], 'season' => $r['season'], 'work' => json_decode($r['work']), 'at' => iso($r['created_at'])],
+    q('SELECT g.target_id, g.season, f.work, g.created_at FROM fetish_guesses g JOIN fetishes f ON f.user_id = g.target_id AND f.season = g.season WHERE g.guesser_id = ? AND g.correct = 1 ORDER BY g.created_at DESC', [$me])->fetchAll());
+  $in = implode(',', array_fill(0, count($ids), '?'));
+  $counts = [];
+  foreach (q("SELECT guesser_id, COUNT(*) n FROM fetish_guesses WHERE correct = 1 AND guesser_id IN ($in) GROUP BY guesser_id", $ids)->fetchAll() as $c) $counts[$c['guesser_id']] = (int) $c['n'];
+  return ['season' => $season, 'label' => $label, 'until' => $until, 'mine' => $mine ? json_decode($mine) : null, 'others' => $others, 'found' => $found, 'counts' => (object) $counts];
 }
 function login_out(string $uid): void {
   $u = q('SELECT id, name, data FROM users WHERE id = ?', [$uid])->fetch();
@@ -144,7 +171,12 @@ try {
           q("SELECT * FROM comments WHERE rec_id IN ($rin) ORDER BY created_at", $recIds)->fetchAll());
       }
       $chals = array_map('chal_out', q("SELECT * FROM challenges WHERE from_id IN ($in) AND to_id IN ($in) ORDER BY created_at DESC LIMIT 300", array_merge($ids, $ids))->fetchAll());
-      out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'recs' => array_map('rec_out', $recs), 'comments' => $comments, 'challenges' => $chals]);
+      // Membres de chaque cercle (les cercles n'ont pas de nom : l'app les présente par leurs membres)
+      $circleMembers = [];
+      foreach (q('SELECT c.code, m2.user_id FROM circles c JOIN circle_members m ON m.circle_id = c.id AND m.user_id = ? JOIN circle_members m2 ON m2.circle_id = c.id', [$me])->fetchAll() as $row)
+        $circleMembers[$row['code']][] = $row['user_id'];
+      out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'circleMembers' => $circleMembers, 'recs' => array_map('rec_out', $recs),
+        'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids)]);
 
     /* ---------- Cercles ---------- */
     case $M === 'POST' && $path === 'circles':
@@ -202,6 +234,33 @@ try {
       $u = need_user();
       q('DELETE FROM challenges WHERE id = ? AND from_id = ?', [$m[1], $u['id']]);
       out(['ok' => true]);
+
+    /* ---------- Œuvres fétiches ---------- */
+    case $M === 'POST' && $path === 'fetish':
+      $u = need_user();
+      $work = clean_work(body()['work'] ?? null);
+      if (!$work) fail(400, 'bad_work');
+      [$season] = current_season();
+      if (q('SELECT 1 FROM fetishes WHERE user_id = ? AND season = ?', [$u['id'], $season])->fetchColumn()) fail(409, 'fetish_locked');
+      q('INSERT INTO fetishes (user_id, season, work) VALUES (?, ?, ?)', [$u['id'], $season, enc($work)]);
+      out(['ok' => true, 'season' => $season]);
+
+    case $M === 'POST' && $path === 'fetish/guess':
+      $u = need_user(); $b = body();
+      $target = (string) ($b['target_id'] ?? '');
+      if ($target === $u['id'] || !in_array($target, mates($u['id']), true)) fail(400, 'bad_recipient');
+      $work = clean_work($b['work'] ?? null);
+      if (!$work) fail(400, 'bad_work');
+      [$season] = current_season();
+      $f = q('SELECT work FROM fetishes WHERE user_id = ? AND season = ?', [$target, $season])->fetchColumn();
+      if (!$f) fail(404, 'no_fetish');
+      if (q('SELECT 1 FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND season = ? AND correct = 1', [$u['id'], $target, $season])->fetchColumn()) fail(409, 'already_found');
+      $day = paris_day();
+      if (q('SELECT 1 FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND day = ?', [$u['id'], $target, $day])->fetchColumn()) fail(429, 'guess_used');
+      $fw = json_decode($f, true);
+      $ok = same_work($fw, $work);
+      q('INSERT INTO fetish_guesses (id, guesser_id, target_id, season, day, work, correct) VALUES (?, ?, ?, ?, ?, ?, ?)', [uuid(), $u['id'], $target, $season, $day, enc($work), $ok ? 1 : 0]);
+      out(['correct' => $ok, 'work' => $ok ? $fw : null]);
 
     /* ---------- Commentaires ---------- */
     case $M === 'POST' && preg_match('#^recs/([0-9a-f-]{36})/comments$#', $path, $m):
