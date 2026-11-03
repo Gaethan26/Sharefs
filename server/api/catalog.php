@@ -140,11 +140,23 @@ function twitch_token(): string {
   need_key('twitch_client_id', 'twitch_client_secret');
   if ($t = cache_get('twitch_token')) return $t;
   $d = http_json('https://id.twitch.tv/oauth2/token?' . http_build_query(['client_id' => cfg('twitch_client_id'), 'client_secret' => cfg('twitch_client_secret'), 'grant_type' => 'client_credentials']), [], '');
+  if (empty($d['access_token'])) { error_log('[sharefs] Twitch : jeton refusé, vérifier twitch_client_id et twitch_client_secret'); fail(502, 'provider_auth'); }
   cache_set('twitch_token', $d['access_token'], max(60, (int) $d['expires_in'] - 600));
   return $d['access_token'];
 }
+// Requête IGDB ; si le jeton Twitch en cache est refusé (secret régénéré, jeton révoqué), on en redemande un et on réessaie une fois
 function igdb(string $body): array {
-  return http_json('https://api.igdb.com/v4/games', ['Client-ID: ' . cfg('twitch_client_id'), 'Authorization: Bearer ' . twitch_token(), 'Content-Type: text/plain'], $body);
+  for ($try = 0; $try < 2; $try++) {
+    $ch = curl_init('https://api.igdb.com/v4/games');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
+      CURLOPT_HTTPHEADER => ['Accept: application/json', 'Client-ID: ' . cfg('twitch_client_id'), 'Authorization: Bearer ' . twitch_token(), 'Content-Type: text/plain'], CURLOPT_USERAGENT => 'Sharefs/1.0']);
+    $res = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if (($code === 401 || $code === 403) && $try === 0) { cache_del('twitch_token'); continue; }
+    if ($res === false || $code >= 400) { error_log('[sharefs] IGDB ' . $code . ' ' . substr((string) $res, 0, 200)); fail(502, 'provider_' . $code); }
+    $j = json_decode($res, true);
+    return is_array($j) ? $j : [];
+  }
+  return [];
 }
 function from_game(array $x): array {
   $ic = $x['involved_companies'] ?? []; $dev = null;

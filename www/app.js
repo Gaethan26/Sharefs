@@ -13,6 +13,8 @@ const T={
   m:{n:'Musique',p:'Musique',done:'Écouté',act:'J’ai écouté',did:'a écouté',fmt:()=>''}
 };
 const ALLT=['f','s','j','b','l','m'];
+let CATS={b:false};
+const SEARCHT=()=>ALLT.filter(t=>t!=='b'||CATS.b);
 const TVAR={f:'film',s:'serie',j:'jeu',b:'soc',l:'livre',m:'mus'};
 const TINK=t=>t==='f'?'#18213A':'#fff';
 const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Étonnant\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
@@ -55,11 +57,11 @@ const msg=e=>ERR[e?.code]||('Erreur : '+(e?.code||e?.message||'inconnue'));
 /* ---------- État ---------- */
 let uid=null,myName='',myCircles=[];
 let members={};
-let mine={done:{},want:{},works:{},rate:{}};
+let mine={done:{},want:{},works:{},rate:{},eggs:{}};
 let recs=[];
 let names={};
 const WK={};
-function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
+function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate','eggs'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
 function reg(w){
   if(!w||!w.id)return w;
   const o=WK[w.id];if(!o){WK[w.id]={...w};return WK[w.id]}
@@ -93,7 +95,8 @@ function card(w,r=0,cls=''){
 const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
 const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮',b:'Joué 🎲',m:'Écouté 🎧'};
-const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tgl${on?' on':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
+let tglPop=null;
+const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tgl${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
@@ -118,7 +121,7 @@ const decLabel=d=>d==='Avant 1960'?d:'Années '+d.slice(2);
 /* ---------- Recherche ---------- */
 const F={types:new Set(),mine:false,forWho:''};
 let SR={q:null,items:[],pages:{},moreT:new Set(),loading:false,err:'',seq:0};
-const typesSel=()=>F.types.size?[...F.types]:ALLT;
+const typesSel=()=>F.types.size?[...F.types].filter(t=>SEARCHT().includes(t)):SEARCHT();
 const rr=lists=>{const out=[],max=Math.max(0,...lists.map(l=>l.length));for(let i=0;i<max;i++)for(const l of lists)if(l[i])out.push(l[i]);return out};
 const localMode=()=>F.mine;
 // Ma collection : les meilleures cartes d'abord, ce sont celles qu'on a le plus envie de recommander
@@ -203,13 +206,14 @@ const chip=(label,pressed,data,cls='chip')=>`<button class="${cls}" aria-pressed
 const activeCount=()=>F.types.size+(F.mine?1:0);
 function renderFilters(){
   const n=Object.keys(mine.done).length;
-  $('#typeChips').innerHTML=chip('Tout',!F.types.size&&!F.mine,'data-type=""')+Object.entries(T).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('')+
+  $('#typeChips').innerHTML=chip('Tout',!F.types.size&&!F.mine,'data-type=""')+Object.entries(T).filter(([k])=>SEARCHT().includes(k)).map(([k,v])=>chip(`<span class="tm t-${k}"></span>${v.p}`,F.types.has(k),`data-type="${k}"`)).join('')+
     chip(CARDS_ICON,F.mine,'data-mine aria-label="Seulement ma collection" title="Seulement ma collection"');
 }
 function renderSearch(){renderFilters();renderResults()}
 
 /* ---------- Défis ---------- */
 let comments=[],challenges=[],openCmts=new Set(),cmDraft={},chalTab='live',FET=null;
+const CAL='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m9.5 14.5 1.8 1.8 3.5-3.6"/></svg>';
 const HEART='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1 8 3.4 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.6 0 6 3.5 4.5 7.2C19.5 16.4 12 21 12 21z"/></svg>';
 const capF=s=>s?s[0].toUpperCase()+s.slice(1):'';
 const seasonName=k=>{const [y,n]=String(k).split('-');return ({printemps:'Printemps',ete:'Été',automne:'Automne',hiver:'Hiver'}[n]||n)+' '+y};
@@ -223,39 +227,46 @@ function feRow(o){
 function fetishHTML(){
   if(!FET)return '';
   const w=FET.mine?(WK[FET.mine.id]||reg(FET.mine)):null;
-  return `<h2 class="rk-title">${HEART}Œuvres fétiches <span class="fe-season">${capF(FET.label)}</span></h2>
+  return `<section class="fe-zone"><span class="fe-spark" aria-hidden="true"></span><h2 class="rk-title">${HEART}Œuvres fétiches <span class="fe-season">${capF(FET.label)}</span></h2>
     <div class="fe-mine">${w?`<button class="fe-card" data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,0,'fet')}</button><div><b>Ton œuvre fétiche de ${esc(FET.label)}</b><p class="meta" style="margin:4px 0 0">${esc(w.ti)}, verrouillée jusqu’au ${fmtDate(Date.parse(FET.until+'T12:00:00'))}. Tes amis ont un essai par jour pour la trouver.</p></div>`
       :`<div><b>Choisis ton œuvre fétiche de ${esc(FET.label)}</b><p class="meta" style="margin:4px 0 12px">Une seule par saison, impossible de la changer ensuite. Tes amis devront la deviner.</p><button class="btn pri" data-fepick>Choisir mon œuvre fétiche</button></div>`}</div>
     ${others().length?`<div class="fe-list">${(FET.others||[]).map(feRow).join('')}</div>`:''}
-    <p class="rk-legend">Un essai par jour et par ami (heure française). 3 points par œuvre fétiche trouvée.</p>`;
+    <p class="rk-legend">Un essai par jour et par ami (heure française). 3 points par œuvre fétiche trouvée.</p></section>`;
 }
-const PK={mode:'set',target:'',q:'',res:[],err:'',seq:0};
+const PK={mode:'set',target:'',q:'',res:[],err:'',seq:0,scope:'coll'};
 function openPicker(mode,target=''){
-  Object.assign(PK,{mode,target,q:'',res:[],err:''});
+  Object.assign(PK,{mode,target,q:'',res:[],err:'',scope:'coll'});
   lastFocus=document.activeElement;sheetId='__pick';renderPicker();
   $('#scrim').classList.add('open');$('#sheet').classList.add('open');$('#sheet').style.setProperty('--tc','var(--line)');document.body.style.overflow='hidden';
   setTimeout(()=>$('#pkq')?.focus(),80);
 }
 function pkTarget(){return PK.mode==='guess'?(FET?.others||[]).find(o=>o.user_id===PK.target):null}
 function pkResHTML(){
-  const o=pkTarget();
-  const list=PK.q.trim()?PK.res:(PK.mode==='set'?Object.entries(mine.done).sort((a,b)=>b[1]-a[1]).map(([id])=>WK[id]).filter(Boolean).slice(0,8):[]);
-  if(!list.length)return PK.q.trim()?'<p class="meta" style="margin:12px 2px">Rien trouvé pour l’instant.</p>':'';
-  return `${!PK.q.trim()?'<div class="to">Depuis ma collection</div>':''}${list.map(w=>`<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span></span><button class="btn pri" data-pkpick="${esc(w.id)}">Choisir</button></div>`).join('')}`;
+  const row=w=>`<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span></span><button class="btn pri" data-pkpick="${esc(w.id)}">Choisir</button></div>`;
+  if(PK.scope==='coll'){
+    const q=norm(PK.q.trim());
+    const list=Object.entries(mine.done).sort((a,b)=>b[1]-a[1]).map(([id])=>WK[id]).filter(w=>w&&(!q||norm(w.ti+' '+(w.c||'')).includes(q))).slice(0,40);
+    return `${list.length?list.map(row).join(''):`<p class="meta" style="margin:12px 2px">${q?'Rien de ce nom dans ta collection.':'Ta collection est encore vide.'}</p>`}
+      <button class="btn fe-more" data-pkall>Pas encore dans ta collection ? Va la chercher ta pépite Francis !</button>`;
+  }
+  const list=PK.q.trim()?PK.res:[];
+  return `${list.length?list.map(row).join(''):(PK.q.trim()?'<p class="meta" style="margin:12px 2px">Rien trouvé pour l’instant.</p>':'')}
+    <button class="link fe-back" data-pkcoll>Revenir à ma collection</button>`;
 }
 function renderPicker(){
   const o=pkTarget();
   $('#sheetIn').innerHTML=`<div class="grab"></div><div class="chf-h"><span class="chf-i fe-i">${HEART}</span><div><h3 id="shTitle">${PK.mode==='set'?`Mon œuvre fétiche de ${esc(FET?.label||'')}`:`L’œuvre fétiche de ${esc(nameOf(PK.target))}`}</h3>
     <p class="meta">${PK.mode==='set'?'Une seule par saison, impossible de la changer ensuite.':'Un seul essai aujourd’hui : choisis bien.'}</p></div></div>
-    <input class="mini" id="pkq" type="search" autocomplete="off" placeholder="Cherche une œuvre…" value="${esc(PK.q)}" style="width:100%;margin-top:12px">
+    <input class="mini" id="pkq" type="search" autocomplete="off" placeholder="${PK.scope==='coll'?'Cherche une œuvre dans ta collection…':'Cherche une œuvre…'}" value="${esc(PK.q)}" style="width:100%;margin-top:12px">
     <div id="pkres">${pkResHTML()}</div>
     <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.3em;margin:10px 0 0">${esc(PK.err)}</p>`;
 }
 let pkT=null;
 function pkSearch(){
   clearTimeout(pkT);const q=PK.q.trim();
+  if(PK.scope==='coll'){const r=$('#pkres');if(r)r.innerHTML=pkResHTML();return}
   if(q.length<2){PK.res=[];const r=$('#pkres');if(r)r.innerHTML=pkResHTML();return}
-  pkT=setTimeout(async()=>{const seq=++PK.seq,o=pkTarget(),types=ALLT;
+  pkT=setTimeout(async()=>{const seq=++PK.seq,types=SEARCHT();
     const res=await Promise.all(types.map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
     if(seq!==PK.seq)return;PK.res=rr(res.map(x=>(x.items||[]).map(reg)));const r=$('#pkres');if(r)r.innerHTML=pkResHTML()},300);
 }
@@ -364,7 +375,7 @@ function renderChalForm(){
 function chalSearch(){
   clearTimeout(chT);const q=CH.q.trim();if(!q){CH.res=[];$('#chres').innerHTML='';return}
   $('#chres').innerHTML=chalResHTML();
-  chT=setTimeout(async()=>{const s=++chSeq;const res=await Promise.all(ALLT.map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
+  chT=setTimeout(async()=>{const s=++chSeq;const res=await Promise.all(SEARCHT().map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
     if(s!==chSeq||sheetId!=='__chal')return;CH.res=rr(res.map(r=>(r.items||[]).map(reg)));const box=$('#chres');if(box)box.innerHTML=chalResHTML()},250);
 }
 async function sendChallenge(btn){
@@ -418,9 +429,19 @@ const EGGS={
   roue:{img:'eggs/la-roue-tourne.jpg',cap:'Carte secrète',name:'La roue tourne va tourner',sub:'Parole de légende'},
   panenka:{img:'eggs/panenka.jpg',cap:'Carte ultime',name:'La Panenka',sub:'Berlin, 9 juillet 2006, 7e minute',ultimate:true}
 };
+function eggCard(k,cls=''){const e=EGGS[k];return `<span class="card egg egg-${k}${e.ultimate?' ultimate':''} ${cls}" aria-hidden="true"><span class="egg-art">${EGG_ART[k]}</span><img src="${e.img}" alt="" data-err="rm"><span class="cg-foil"></span></span>`}
+function specialsOf(who){
+  const out=[];
+  for(const [k,ts] of Object.entries(dataOf(who).eggs||{}))if(EGGS[k])out.push({k:'egg',id:k,ts,ti:EGGS[k].name,sub:EGGS[k].cap});
+  if(who===uid)for(const f of (FET?.found||[])){const w=WK[f.work.id]||reg(f.work);out.push({k:'fet',id:w.id,w,ts:Date.parse(f.at)||0,ti:w.ti,sub:`Fétiche de ${nameOf(f.target_id)}, ${seasonName(f.season)}`})}
+  return out.sort((a,b)=>a.ts-b.ts);
+}
+const specialCard=sp=>sp.k==='egg'?eggCard(sp.id):card(sp.w,0,'fet');
+const specialAttr=sp=>sp.k==='egg'?`data-egg="${sp.id}"`:`data-open="${esc(sp.id)}"`;
 function easterEgg(k='boule'){
+  if(uid&&EGGS[k]){mine.eggs=mine.eggs||{};if(!mine.eggs[k]){mine.eggs[k]=Date.now();save();setTimeout(()=>{renderColl();renderSide()},300)}}
   const e=EGGS[k],el=$('#reveal');el.style.setProperty('--rc',e.ultimate?'#FFE08A':'var(--r4)');el.style.setProperty('--rf','linear-gradient(135deg,#FFF1C4,#FFD46B 40%,#F28C1B)');revealId=null;
-  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip"><span class="card egg egg-${k}${e.ultimate?' ultimate':''}" aria-hidden="true"><span class="egg-art">${EGG_ART[k]}</span><img src="${e.img}" alt="" data-err="rm"><span class="cg-foil"></span></span><div class="cardback"></div></div><div class="burst"></div>
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${eggCard(k)}<div class="cardback"></div></div><div class="burst"></div>
     <div class="cap">${e.cap}<span class="rname">${e.name}</span>${e.sub}</div><div class="tap">Tu verras, c’est d’la frappe.</div></div>`;
   el.classList.add('open');el.focus();confetti();if(e.ultimate)setTimeout(confetti,700);
   clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),e.ultimate?6000:4500);
@@ -441,7 +462,7 @@ function renderSide(){
   const last=Object.entries(mine.done).filter(([id])=>WK[id]).sort((a,b)=>b[1]-a[1]).slice(0,30).map(([id])=>({w:WK[id],r:rateOf(id)}));
   const rows=TYPE_ORDER.map(t=>last.filter(x=>x.w.t===t).slice(0,7));
   l.innerHTML=`<div class="side-h">Mon étagère</div><div class="case side-case">${rows.map((row,k)=>`<div class="shelfrow" data-t="${TYPE_ORDER[k]}">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${SHELF_DECO[TYPE_ORDER[k]]}</div><div class="board"></div>`).join('')}</div>
-    <button class="btn" data-tab="coll" style="width:100%;margin-top:14px">Ouvrir ma collection</button>`;
+`;
   const live=challenges.filter(c=>(c.to_id===uid||c.from_id===uid)&&chalState(c).st==='live').map(c=>({c,s:chalState(c)})).sort((a,b)=>a.s.end-b.s.end);
   r.innerHTML=`<div class="sbox2 rank"><h3>${TROPHY}Classement 1V1</h3>${rankTable(ranking(),5)}</div>
     <div class="sbox2"><h3>${SWORDS}Défis en cours</h3>${live.length?live.slice(0,4).map(({c,s})=>`<button class="sch" data-tab="chal"><span>${c.to_id===uid?`${esc(nameOf(c.from_id))} te défie`:`Tu défies ${esc(nameOf(c.to_id))}`}</span><b>${s.n}/${s.total}</b><small>J-${Math.max(0,s.left)}</small></button>`).join(''):'<p class="meta" style="margin:0">Aucun défi en cours.</p>'}<button class="btn pri" data-newchal style="width:100%;margin-top:12px">Lancer un défi</button></div>
@@ -588,21 +609,58 @@ function renderColl(){
   }else if(collView==='book'){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
     COLL.items=items;
-    const fets=isMe&&collList!=='want'?(FET?.found||[]):[];
-    sh.innerHTML=grimClosedHTML(items.length)+(fets.length?`<section class="crow fet-row"><div class="crh"><span class="fe-ic">${HEART}</span>Fétiches trouvées<span class="n">${fets.length}</span></div><div class="cards">${fets.map(f=>{const w=WK[f.work.id]||reg(f.work);
-      return `<button data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,0,'fet')}<div class="ct">${esc(w.ti)}</div><div class="cy">${esc(nameOf(f.target_id))}, ${esc(seasonName(f.season))}</div></button>`}).join('')}</div></section>`:'')+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
+    const sps=collList!=='want'?specialsOf(collWho):[];
+    sh.innerHTML=grimClosedHTML(items.length)+(sps.length?`<section class="crow sp-row"><div class="crh"><span class="sp-ic">✦</span>Cartes spéciales<span class="n">${sps.length}</span></div><div class="cards">${sps.map(sp=>`<button ${specialAttr(sp)} aria-label="${esc(sp.ti)}">${specialCard(sp)}<div class="ct">${esc(sp.ti)}</div><div class="cy">${esc(sp.sub)}</div></button>`).join('')}</div></section>`:'')+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
       return `<section class="crow"><div class="crh"><span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span></div><div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div></section>`}).join('');
   }else{
     COLL.items=items;
     sh.innerHTML=shelfHTML(items,Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44),true);
   }
-  justAdded=null;renderAccount();
+  justAdded=null;renderAccount();renderWeekly();
+}
+
+/* ---------- Le défi de la semaine : un classique du cinéma, un album iconique des années 60, un jeu du moment, une série culte ---------- */
+const WEEKLY={
+  f:[['Le Parrain',1972],['Casablanca',1942],['2001 : l’Odyssée de l’espace',1968],['Les Temps modernes',1936],['Psychose',1960],['Les Sept Samouraïs',1954],['Sueurs froides',1958],['Le Bon, la Brute et le Truand',1966],['Citizen Kane',1941],['Chantons sous la pluie',1952],['Les Quatre Cents Coups',1959],['À bout de souffle',1960],['Lawrence d’Arabie',1962],['Taxi Driver',1976],['Apocalypse Now',1979],['Metropolis',1927],['Le Mépris',1963],['Docteur Folamour',1964],['Il était une fois dans l’Ouest',1968],['La Dolce Vita',1960]],
+  m:[['Abbey Road','Beatles'],['Pet Sounds','Beach Boys'],['Highway 61 Revisited','Dylan'],['The Velvet Underground & Nico','Velvet Underground'],['Are You Experienced','Hendrix'],['Let It Bleed','Rolling Stones'],['The Doors','Doors'],['A Love Supreme','Coltrane'],['Revolver','Beatles'],['Bookends','Simon'],['Tommy','Who'],['Otis Blue','Otis Redding'],['Initials B.B.','Gainsbourg'],['The Piper at the Gates of Dawn','Pink Floyd'],['Led Zeppelin','Led Zeppelin'],['Blonde on Blonde','Dylan']],
+  j:[['Clair Obscur: Expedition 33'],['Hollow Knight: Silksong'],['Hades II'],['Split Fiction'],['Kingdom Come: Deliverance II'],['Death Stranding 2'],['Mario Kart World'],['Donkey Kong Bananza'],['Ghost of Yotei'],['Blue Prince'],['Elden Ring Nightreign'],['Assassin’s Creed Shadows']],
+  s:[['Les Soprano'],['The Wire'],['Breaking Bad'],['Twin Peaks'],['Seinfeld'],['Mad Men'],['The Office'],['Lost'],['Six Feet Under'],['Kaamelott'],['Le Bureau des légendes'],['Chernobyl'],['True Detective'],['Fleabag'],['Succession'],['Friends'],['Game of Thrones'],['Better Call Saul']]
+};
+const weekNo=()=>Math.floor((Date.now()/864e5+3)/7);
+const weekEnd=()=>{const d=new Date();d.setHours(23,59,0,0);d.setDate(d.getDate()+((7-d.getDay())%7));return d};
+let WEEK=null,weekLoading=false;
+async function loadWeekly(){
+  const wk=weekNo(),cached=lsGet('sharefs-weekly',null);
+  if(cached&&cached.wk===wk&&cached.items?.length){WEEK=cached;WEEK.items.forEach(reg);return}
+  if(weekLoading)return;weekLoading=true;
+  try{
+    const picks=['f','m','j','s'].map((t,i)=>({t,e:WEEKLY[t][(wk+i*5)%WEEKLY[t].length]}));
+    const items=await Promise.all(picks.map(async({t,e})=>{
+      try{const r=await api('search',{type:t,q:e[0],limit:6});const its=(r.items||[]);
+        const hit=its.find(w=>t==='f'?Math.abs((w.y||0)-e[1])<=1:t==='m'?norm(w.c||'').includes(norm(e[1])):true)||its[0];
+        return hit?snap(reg(hit)):null}catch(err){return null}}));
+    WEEK={wk,items:items.filter(Boolean)};if(WEEK.items.length)lsSet('sharefs-weekly',WEEK);
+  }finally{weekLoading=false}
+  renderWeekly();
+}
+function renderWeekly(){
+  const el=$('#weekly');if(!el)return;
+  if(!uid||collWho!==uid){el.hidden=true;return}
+  if(!WEEK||WEEK.wk!==weekNo()){el.hidden=false;el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div><div class="rt">Le défi de la semaine</div><div class="meta">On prépare la sélection…</div></div></div>`;loadWeekly();return}
+  const its=WEEK.items.map(w=>WK[w.id]||reg(w)),n=its.filter(w=>isDone(w.id)).length;
+  el.hidden=false;
+  el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div style="flex:1;min-width:0"><div class="rt">Le défi de la semaine</div>
+      <div class="meta">${n}/${its.length} terminée${n>1?'s':''}, jusqu’à dimanche soir</div><div class="bar"><i style="width:${its.length?n/its.length*100:0}%"></i></div></div></div>
+    <div class="wk-works">${its.map(w=>`<button class="wk-w${isDone(w.id)?' ok':''}" data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,isDone(w.id)?rateOf(w.id):0)}${isDone(w.id)?'<span class="chk" aria-hidden="true">✓</span>':''}<span class="wk-t">${esc(w.ti)}</span><span class="wk-k"><span class="tm t-${w.t}"></span>${T[w.t].n}</span></button>`).join('')}</div>`;
+  if(its.length&&n===its.length&&lsGet('sharefs-weekly-won',0)!==WEEK.wk){lsSet('sharefs-weekly-won',WEEK.wk);toast('Défi de la semaine relevé ! 🏆');confetti()}
 }
 
 /* ---------- Grimoire et étagère en plein écran ---------- */
 const COLL={items:[]};
-function shelfHTML(items,max,expand){
+function shelfHTML(items,max,expand,who=collWho){
   items=[...items].sort((a,b)=>a.ts-b.ts);let html='';
+  const sps=specialsOf(who||uid);
+  if(sps.length)html+=`<div class="shelfrow gold">${sps.map(sp=>`<button class="spc" ${specialAttr(sp)} aria-label="${esc(sp.ti)}" title="${esc(sp.ti)}">${specialCard(sp)}</button>`).join('')}</div><div class="board gold"></div>`;
   for(const t of TYPE_ORDER){
     const its=items.filter(x=>x.w.t===t),rows=[];let cur=[],acc=0;
     for(const it of its){const ww=spW(it.w)+7;if(acc+ww>max-(rows.length?0:64)&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
@@ -612,23 +670,23 @@ function shelfHTML(items,max,expand){
   return `<div class="case${expand?' zoomable':''}"${expand?' data-fsshelf':''}>${expand?'<button class="case-zoom" data-fsshelf aria-label="Ouvrir l’étagère en plein écran"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>':''}${html}</div>`;
 }
 const GRIM_SVG=`<svg class="gsvg" viewBox="0 0 140 104" width="112" height="83" aria-hidden="true">
-  <defs><linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8A5230"/><stop offset=".55" stop-color="#5E3218"/><stop offset="1" stop-color="#3E1F0D"/></linearGradient>
+  <defs><linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B4486"/><stop offset=".55" stop-color="#252B5A"/><stop offset="1" stop-color="#151937"/></linearGradient>
   <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE9AE"/><stop offset="1" stop-color="#C98A22"/></linearGradient>
   <radialGradient id="gw" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE3A0" stop-opacity=".55"/><stop offset="1" stop-color="#FFE3A0" stop-opacity="0"/></radialGradient></defs>
   <ellipse cx="72" cy="96" rx="56" ry="6" fill="rgba(40,20,5,.28)"/>
   <circle cx="74" cy="48" r="46" fill="url(#gw)"/>
-  <path d="M30 22 112 12 124 22 124 88 42 98 30 88z" fill="#2E1608"/>
+  <path d="M30 22 112 12 124 22 124 88 42 98 30 88z" fill="#111430"/>
   <path d="M112 12 124 22 124 88 112 79z" fill="#F2E7CF"/><path d="M114 20v58M117 22v58M120 24v58" stroke="#CDBB92" stroke-width="1"/>
   <path d="M42 98 124 88 124 92 42 102z" fill="#E9DCBC"/>
   <path d="M30 22 112 12 112 79 30 88z" fill="url(#gl)"/>
-  <path d="M30 22 40 21 40 87 30 88z" fill="#3A1C0B"/><path d="M30 34h10M30 50h10M30 66h10M30 80h10" stroke="url(#gg)" stroke-width="2.4"/>
+  <path d="M30 22 40 21 40 87 30 88z" fill="#151937"/><path d="M30 34h10M30 50h10M30 66h10M30 80h10" stroke="url(#gg)" stroke-width="2.4"/>
   <path d="M44 25 106 17.5 106 74 44 81.5z" fill="none" stroke="url(#gg)" stroke-width="1.6" opacity=".9"/>
   <path d="M40 21 52 19.6 40 31.5z M112 12 99 13.6 112 25z M40 87 52 85.6 40 76z M112 79 99 80.5 112 69z" fill="url(#gg)"/>
-  <circle cx="75" cy="49.5" r="15" fill="none" stroke="url(#gg)" stroke-width="3"/><circle cx="75" cy="49.5" r="9.5" fill="#2E1608" stroke="url(#gg)" stroke-width="1.4"/>
+  <circle cx="75" cy="49.5" r="15" fill="none" stroke="url(#gg)" stroke-width="3"/><circle cx="75" cy="49.5" r="9.5" fill="#151937" stroke="url(#gg)" stroke-width="1.4"/>
   <circle cx="75" cy="33" r="3.2" fill="#E3A900" stroke="#FFE9AE" stroke-width=".8"/><circle cx="91.5" cy="49.5" r="3.2" fill="#2F6FDB" stroke="#FFE9AE" stroke-width=".8"/>
   <circle cx="75" cy="66" r="3.2" fill="#1C9662" stroke="#FFE9AE" stroke-width=".8"/><circle cx="58.5" cy="49.5" r="3.2" fill="#E0453A" stroke="#FFE9AE" stroke-width=".8"/>
   <path d="M75 43.5 79 49.5 75 55.5 71 49.5z" fill="#FFE9AE"/>
-  <path d="M106 42h16v15h-16z" fill="#3A1C0B"/><rect x="113" y="44" width="11" height="11" rx="2" fill="url(#gg)"/><rect x="116" y="47" width="5" height="5" rx="1" fill="#3A1C0B"/>
+  <path d="M106 42h16v15h-16z" fill="#151937"/><rect x="113" y="44" width="11" height="11" rx="2" fill="url(#gg)"/><rect x="116" y="47" width="5" height="5" rx="1" fill="#151937"/>
   <path class="spark s1" d="M20 20l1.6 4.4L26 26l-4.4 1.6L20 32l-1.6-4.4L14 26l4.4-1.6z" fill="#FFD978"/>
   <path class="spark s2" d="M128 4l1 2.8 2.8 1-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1z" fill="#FFD978"/>
   <path class="spark s3" d="M16 70l1 2.8 2.8 1-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1z" fill="#FFD978"/>
@@ -640,13 +698,13 @@ const G={type:'f',page:0};
 const gPer=()=>innerWidth>=700?8:9;
 const gList=()=>COLL.items.filter(x=>x.w.t===G.type);
 const gPages=()=>Math.max(1,Math.ceil(gList().length/gPer()));
-const G_CORNER='<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true"><path d="M4 40V14C4 8.5 8.5 4 14 4h26" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 40V17c0-4.4 3.6-8 8-8h23" fill="none" stroke="currentColor" stroke-width=".8" opacity=".6"/><path d="M13 13c5 0 7.5 2.5 7.5 7.5-5 0-7.5-2.5-7.5-7.5z" fill="currentColor"/><circle cx="23.5" cy="23.5" r="1.8" fill="currentColor"/><path d="M4 26c3-1 5 1 5 4M26 4c-1 3 1 5 4 5" fill="none" stroke="currentColor" stroke-width="1"/></svg>';
-const G_FLEURON='<svg viewBox="0 0 160 14" width="160" height="14" aria-hidden="true"><path d="M2 7h58M100 7h58" stroke="currentColor" stroke-width="1"/><path d="M80 1.5c3.4 3 3.4 8 0 11-3.4-3-3.4-8 0-11zM70 7c3.5-2.6 6.5-2.6 9 0-2.5 2.6-5.5 2.6-9 0zM90 7c-3.5-2.6-6.5-2.6-9 0 2.5 2.6 5.5 2.6 9 0z" fill="currentColor"/><circle cx="64" cy="7" r="1.4" fill="currentColor"/><circle cx="96" cy="7" r="1.4" fill="currentColor"/></svg>';
+const G_CORNER='<svg viewBox="0 0 44 44" width="40" height="40" aria-hidden="true"><path d="M3 41V3h38" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 41V8h33" fill="none" stroke="currentColor" stroke-width=".8" opacity=".55"/><path d="M8 8l16 0A16 16 0 0 1 8 24z" fill="currentColor" opacity=".18"/><path d="M8 8L22.8 13.9M8 8L19.3 19.3M8 8L13.9 22.8" stroke="currentColor" stroke-width="1"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/></svg>';
+const G_FLEURON='<svg viewBox="0 0 160 14" width="160" height="14" aria-hidden="true"><path d="M4 7h52M104 7h52" stroke="currentColor" stroke-width="1"/><path d="M4 10h40M116 10h40" stroke="currentColor" stroke-width=".6" opacity=".6"/><circle cx="64" cy="7" r="2" fill="currentColor"/><circle cx="96" cy="7" r="2" fill="currentColor"/><path d="M70 7a10 10 0 0 1 20 0z" fill="currentColor" opacity=".25"/><path d="M80 7V-1M80 7l-6-6M80 7l6-6M80 7l-9-2M80 7l9-2" stroke="currentColor" stroke-width="1"/><path d="M68 7h24" stroke="currentColor" stroke-width="1.4"/></svg>';
 function gPageHTML(p=G.page){
   const list=gList(),pp=gPer(),slice=list.slice(p*pp,p*pp+pp),n=gPages(),t=G.type;
   return `${['tl','tr','bl','br'].map(c=>`<span class="gp-corner ${c}">${G_CORNER}</span>`).join('')}
-    <span class="gp-water" aria-hidden="true">${ICON[t]}</span>${p%3===1?'<span class="gp-stain" aria-hidden="true"></span>':''}
-    <div class="gp-run"><span>Grimoire</span><span>${T[t].p}</span></div>
+    <span class="gp-water" aria-hidden="true">${ICON[t]}</span>
+    <div class="gp-run"><span>Grimoire</span><span>N° ${String(p+1).padStart(2,'0')}</span></div>
     <div class="ghead"><span class="gh-ic">${ICON[t]}</span><span class="gh-t">${T[t].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div>
     <div class="gorn">${G_FLEURON}</div>
     ${list.length?`<div class="gcards">${slice.map(({w,r})=>`<button class="gslotf" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}"><span class="pc tl"></span><span class="pc tr"></span><span class="pc bl"></span><span class="pc br"></span>${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"><span>?</span></span>'.repeat(Math.max(0,pp-slice.length))}</div>`
@@ -949,7 +1007,7 @@ function keepWork(id){const w=WK[id];if(!w)return;if(isDone(id)||isWant(id))mine
 function setRate(id,n){
   const was=isDone(id);
   mine.rate[id]=n;
-  if(!was){mine.done[id]=Date.now();delete mine.want[id];justAdded=id}
+  if(!was){mine.done[id]=Date.now();delete mine.want[id];justAdded=id;tglPop=id;setTimeout(()=>{if(tglPop===id)tglPop=null},1200)}
   keepWork(id);save();
   if(!was){pickOpen=false;closeSheet();renderAll();reveal(id);chalProgressToast(id);checkWins()}
   else{toast(`Carte ${RAR[n].n.toLowerCase()}`);renderAll()}
@@ -994,9 +1052,12 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button,[data-i]');if(!b)return;const d=b.dataset;
   if(d.i!==undefined&&b.classList.contains('opt')){pickAC(+d.i);return}
   if(d.tab!==undefined){closeSheet();setTab(d.tab);return}
+  if(d.egg){closeInspect?.();easterEgg(d.egg);return}
   if('fepick' in d){openPicker('set');return}
   if(d.feguess){openPicker('guess',d.feguess);return}
   if(d.pkpick){pkPick(d.pkpick);return}
+  if('pkall' in d){PK.scope='all';renderPicker();pkSearch();setTimeout(()=>$('#pkq')?.focus(),40);return}
+  if('pkcoll' in d){PK.scope='coll';renderPicker();setTimeout(()=>$('#pkq')?.focus(),40);return}
   if('newchal' in d){openChallenge();return}
   if(d.chalwith){const w=d.chalwith;closeSheet();setTimeout(()=>openChallenge(w),220);return}
   if(d.chtab){chalTab=d.chtab;renderChal();return}
@@ -1116,7 +1177,7 @@ function stepCircle(err=''){
   showGate(`<h1 id="gateTitle">Rejoins tes amis.</h1><p class="sub">Un cercle regroupe les amis qui voient tes conseils et ta collection.</p>
   <label class="sr" for="gJoin">Code d’invitation</label><input id="gJoin" maxlength="6" autocapitalize="characters" placeholder="Code reçu d’un ami">
   <p class="err" role="alert">${esc(err)}</p><button class="btn pri" id="gJoinBtn">Rejoindre le cercle</button>
-  <p class="or">ou</p><button class="btn" id="gCreate">Créer un cercle</button>${uid&&myCircles.length?'<button class="link" id="gCancel">Annuler</button>':''}`);
+  ${uid&&myCircles.length?'<button class="link" id="gCancel">Annuler</button>':'<p class="or">ou</p><button class="btn" id="gCreate">Créer un cercle</button>'}`);
 }
 async function busy(btn,fn){btn.disabled=true;try{await fn()}finally{if(btn.isConnected)btn.disabled=false}}
 function loggedIn(res){token=res.token;lsSet('sharefs-token',token);return afterLogin(res.user)}
@@ -1154,7 +1215,7 @@ function applyState(st){
   st.members.forEach(m=>{const d=normData(m.data);members[m.id]={name:m.name,data:d};names[m.id]=m.name;Object.values(d.works).forEach(reg)});
   if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
   myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
-  CIRCLES=st.circleMembers||{};FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
+  CIRCLES=st.circleMembers||{};CATS=st.catalogs||{b:false};FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
   comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
   renderAll();
 }
@@ -1212,4 +1273,12 @@ renderAll();
   sh.addEventListener('touchend',()=>{if(y0==null)return;y0=null;
     if(drag&&dy>110){sh.style.transition='transform .22s ease';sh.style.transform='translateY(105%)';setTimeout(()=>{closeSheet();sh.style.transition='';sh.style.transform=''},220)}
     else{sh.style.transition='';sh.style.transform=''}drag=false});
+})();
+
+/* ---------- Couleur de fond tirée au hasard à chaque ouverture ----------
+   Fonds clairs très lumineux et fonds sombres très profonds : le texte reste au-dessus de 7:1 dans les deux modes. */
+(()=>{const L=['#E9ECF2','#F1ECE3','#E6EFEA','#EEE9F3','#E7EEF6','#F3EAE5','#E8F0F0'],D=['#11162A','#16131F','#0E1918','#1A1416','#111A24','#16141C','#121A16'];
+  const i=Math.floor(Math.random()*L.length),root=document.documentElement,mq=matchMedia('(prefers-color-scheme: dark)');
+  const apply=()=>{const th=root.dataset.theme,dark=th==='dark'||(th!=='light'&&mq.matches),c=dark?D[i]:L[i];root.style.setProperty('--bg',c);document.querySelector('meta[name="theme-color"]')?.setAttribute('content',c)};
+  apply();mq.addEventListener?.('change',apply);new MutationObserver(apply).observe(root,{attributes:true,attributeFilter:['data-theme']});
 })();

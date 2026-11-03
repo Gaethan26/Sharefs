@@ -109,6 +109,7 @@ function cache_get(string $k) {
   $r = q('SELECT v FROM cache WHERE k = ? AND exp > ?', [hash('sha256', $k), time()])->fetchColumn();
   return $r === false ? null : json_decode($r, true);
 }
+function cache_del(string $k): void { q('DELETE FROM cache WHERE k = ?', [hash('sha256', $k)]); }
 function cache_set(string $k, $v, int $ttl): void {
   q('REPLACE INTO cache (k, v, exp) VALUES (?, ?, ?)', [hash('sha256', $k), json_encode($v, JSON_UNESCAPED_UNICODE), time() + $ttl]);
   if (random_int(1, 200) === 1) q('DELETE FROM cache WHERE exp < ?', [time()]);
@@ -209,7 +210,8 @@ function clean_data(object $d): object {
     if (count($works) >= 5000) break;
   }
   return (object) ['done' => clean_map($d->done ?? [], true), 'want' => clean_map($d->want ?? [], true),
-    'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works];
+    'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works,
+    'eggs' => clean_map($d->eggs ?? [], true)];
 }
 
 /* ---------- Œuvres fétiches : saisons et jours à l'heure française ---------- */

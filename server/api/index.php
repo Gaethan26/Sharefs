@@ -176,7 +176,8 @@ try {
       foreach (q('SELECT c.code, m2.user_id FROM circles c JOIN circle_members m ON m.circle_id = c.id AND m.user_id = ? JOIN circle_members m2 ON m2.circle_id = c.id', [$me])->fetchAll() as $row)
         $circleMembers[$row['code']][] = $row['user_id'];
       out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'circleMembers' => $circleMembers, 'recs' => array_map('rec_out', $recs),
-        'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids)]);
+        'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids),
+        'catalogs' => ['b' => (bool) cfg('bgg_token')]]);
 
     /* ---------- Cercles ---------- */
     case $M === 'POST' && $path === 'circles':
