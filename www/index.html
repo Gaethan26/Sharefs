@@ -1283,6 +1283,22 @@ nav.tabs button{position:relative}
 .gcover .gbk-t{font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:800;letter-spacing:.04em;color:#F3D78F}
 .gcover .gbk-o{border-color:#D9B25F;box-shadow:inset 0 0 0 10px #1F2547,inset 0 0 0 14px rgba(217,178,95,.6)}
 .ghint{color:rgba(243,230,198,.55)}
+/* ===== interrupteurs : pleine largeur ===== */
+.tgl{display:flex;width:100%;justify-content:flex-start}
+.sa-row .tgl{flex:1 1 auto;width:auto;justify-content:flex-start;padding-left:7px}
+.evf{gap:10px}
+.evf .tgl{flex:1 1 auto;width:auto}
+.evf .cmtb{flex:none}
+.tgl.on{color:var(--ink)}
+/* ===== grimoire : onglets courts, tous visibles sur mobile ===== */
+.gtabs{position:relative;z-index:6;overflow:visible;gap:4px;padding:0 10px}
+.gtab,.gtab[aria-pressed="true"]{flex:1 1 0;min-width:0;flex-direction:column;justify-content:flex-end;gap:3px;padding:8px 2px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gtab .gt-l,.gtab[aria-pressed="true"] .gt-l{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:10.5px;font-weight:800;line-height:1.1}
+.gtab b,.gtab[aria-pressed="true"] b{display:none}
+.gtab[aria-pressed="true"] .gt-l{font-size:11.5px}
+@media (min-width:600px){.gtab .gt-l,.gtab[aria-pressed="true"] .gt-l{font-size:13px}}
+.evf .tgl{min-width:0}
+@media (max-width:400px){.evf .cmtb .cml{display:none}.evf .cmtb{padding:8px 14px}}
 </style>
 </head>
 <body>

@@ -95,8 +95,8 @@ function card(w,r=0,cls=''){
 const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
 const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮',b:'Joué 🎲',m:'Écouté 🎧'};
-let tglPop=null;
-const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id);return `<button class="tgl${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
+let tglPop=null,pendingDone=null;
+const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id)||pendingDone===id;return `<button class="tgl${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
@@ -237,7 +237,7 @@ const PK={mode:'set',target:'',q:'',res:[],err:'',seq:0,scope:'coll'};
 function openPicker(mode,target=''){
   Object.assign(PK,{mode,target,q:'',res:[],err:'',scope:'coll'});
   lastFocus=document.activeElement;sheetId='__pick';renderPicker();
-  $('#scrim').classList.add('open');$('#sheet').classList.add('open');$('#sheet').style.setProperty('--tc','var(--line)');document.body.style.overflow='hidden';
+  $('#scrim').classList.add('open');$('#sheet').classList.add('open');$('#sheet').style.setProperty('--tc','var(--line)');
   setTimeout(()=>$('#pkq')?.focus(),80);
 }
 function pkTarget(){return PK.mode==='guess'?(FET?.others||[]).find(o=>o.user_id===PK.target):null}
@@ -335,7 +335,7 @@ function renderChal(){
     <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
     <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>
     ${fetishHTML()}
-    <h2 class="rk-title">${TROPHY}Classement 1V1</h2>
+    <h2 class="rk-title">${TROPHY}Classement</h2>
     ${rankTable(ranking())}
     <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi, 3 points par œuvre fétiche trouvée. On entre au classement en remportant un défi ou en trouvant une œuvre fétiche.</p>`;
   const b=liveForMe(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}
@@ -424,10 +424,11 @@ const EGG_ART={
   roue:'<svg viewBox="0 0 120 180" preserveAspectRatio="xMidYMid slice"><rect width="120" height="180" fill="#1B1F33"/><g transform="translate(60 84)"><g class="egg-spin">'+[0,1,2,3,4,5,6,7].map(i=>`<path d="M0 0L${(46*Math.cos(i*Math.PI/4)).toFixed(1)} ${(46*Math.sin(i*Math.PI/4)).toFixed(1)}A46 46 0 0 1 ${(46*Math.cos((i+1)*Math.PI/4)).toFixed(1)} ${(46*Math.sin((i+1)*Math.PI/4)).toFixed(1)}z" fill="${['#E3A900','#2F6FDB','#E0453A','#9A6B3F','#1C9662','#C2399D','#F2C14E','#5B9BF0'][i]}"/>`).join('')+'<circle r="8" fill="#fff"/></g><path d="M0 -58l-7 -12h14z" fill="#fff"/></g><text x="60" y="160" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" font-family="sans-serif">ÇA TOURNE…</text></svg>',
   panenka:'<svg viewBox="0 0 120 180" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="eg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0D1B3A"/><stop offset="1" stop-color="#14532F"/></linearGradient></defs><rect width="120" height="180" fill="url(#eg3)"/><g stroke="#fff" stroke-opacity=".35">'+[0,1,2,3,4,5,6].map(i=>`<path d="M${20+i*13.3} 40v52"/>`).join('')+[0,1,2,3].map(i=>`<path d="M20 ${40+i*17.3}h80"/>`).join('')+'</g><path d="M16 94V36h88v58" fill="none" stroke="#fff" stroke-width="3"/><path d="M60 162Q60 30 60 70" fill="none" stroke="#FFD46B" stroke-width="2" stroke-dasharray="3 4"/><circle cx="60" cy="66" r="7" fill="#fff"/><path d="M57 62l3 2 3-2M56 68l4-2 4 2" stroke="#1B2238" stroke-width="1"/><path d="M28 110q18 -8 30 6" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="5" stroke-linecap="round"/></svg>'
 };
+const EGG_BASE=((window.SHAREFS_CONFIG||{}).apiBase||'').replace(/\/$/,'');
 const EGGS={
-  boule:{img:'eggs/coup-de-boule.jpg',cap:'Carte secrète',name:'Le coup de boule',sub:'Berlin, 9 juillet 2006'},
-  roue:{img:'eggs/la-roue-tourne.jpg',cap:'Carte secrète',name:'La roue tourne va tourner',sub:'Parole de légende'},
-  panenka:{img:'eggs/panenka.jpg',cap:'Carte ultime',name:'La Panenka',sub:'Berlin, 9 juillet 2006, 7e minute',ultimate:true}
+  boule:{img:EGG_BASE+'/eggs/coup-de-boule.jpg',cap:'Carte secrète',name:'Le coup de boule',sub:'Berlin, 9 juillet 2006'},
+  roue:{img:EGG_BASE+'/eggs/la-roue-tourne.jpg',cap:'Carte secrète',name:'La roue tourne va tourner',sub:'Parole de légende'},
+  panenka:{img:EGG_BASE+'/eggs/panenka.jpg',cap:'Carte ultime',name:'La Panenka',sub:'Berlin, 9 juillet 2006, 7e minute',ultimate:true}
 };
 function eggCard(k,cls=''){const e=EGGS[k];return `<span class="card egg egg-${k}${e.ultimate?' ultimate':''} ${cls}" aria-hidden="true"><span class="egg-art">${EGG_ART[k]}</span><img src="${e.img}" alt="" data-err="rm"><span class="cg-foil"></span></span>`}
 function specialsOf(who){
@@ -464,7 +465,7 @@ function renderSide(){
   l.innerHTML=`<div class="side-h">Mon étagère</div><div class="case side-case">${rows.map((row,k)=>`<div class="shelfrow" data-t="${TYPE_ORDER[k]}">${row.map(({w,r},i)=>spine(w,r,i)).join('')}${SHELF_DECO[TYPE_ORDER[k]]}</div><div class="board"></div>`).join('')}</div>
 `;
   const live=challenges.filter(c=>(c.to_id===uid||c.from_id===uid)&&chalState(c).st==='live').map(c=>({c,s:chalState(c)})).sort((a,b)=>a.s.end-b.s.end);
-  r.innerHTML=`<div class="sbox2 rank"><h3>${TROPHY}Classement 1V1</h3>${rankTable(ranking(),5)}</div>
+  r.innerHTML=`<div class="sbox2 rank"><h3>${TROPHY}Classement</h3>${rankTable(ranking(),5)}</div>
     <div class="sbox2"><h3>${SWORDS}Défis en cours</h3>${live.length?live.slice(0,4).map(({c,s})=>`<button class="sch" data-tab="chal"><span>${c.to_id===uid?`${esc(nameOf(c.from_id))} te défie`:`Tu défies ${esc(nameOf(c.to_id))}`}</span><b>${s.n}/${s.total}</b><small>J-${Math.max(0,s.left)}</small></button>`).join(''):'<p class="meta" style="margin:0">Aucun défi en cours.</p>'}<button class="btn pri" data-newchal style="width:100%;margin-top:12px">Lancer un défi</button></div>
     ${myCircles[0]?`<div class="sbox2 account"><h3>Ton code d’invitation</h3><div class="scode">${esc(myCircles[0])}</div><button class="btn" data-invite="${esc(myCircles[0])}" style="width:100%">Inviter des amis</button></div>`:''}`;
 }
@@ -532,7 +533,7 @@ function renderFeed(){
       <div class="who">${avatar(e.who)}<span>${recLine(rr2)}<br>${ago(e.ts)}${toMe?' <span class="pt">Pour toi</span>':''}</span>${me?`<button class="del" data-delrec="${esc(rr2.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
       <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>
       ${rr2.note?`<p class="note">« ${esc(rr2.note)} »</p>`:''}
-      <div class="evf">${me?'':doneTgl(w.id,'data-quickdone')}<button class="cmtb${open?' on':''}" data-cmt="${esc(rr2.id)}" aria-expanded="${open}">${CHAT}<span>${nc?nc:'Commenter'}</span></button></div>
+      <div class="evf">${me?'':doneTgl(w.id,'data-quickdone')}<button class="cmtb${open?' on':''}" data-cmt="${esc(rr2.id)}" aria-expanded="${open}">${CHAT}${nc?`<span>${nc}</span>`:'<span class="cml">Commenter</span>'}</button></div>
       ${open?cmtBlock(rr2):''}</article>`;
   }
   el.innerHTML=html+`<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
@@ -646,13 +647,13 @@ async function loadWeekly(){
 function renderWeekly(){
   const el=$('#weekly');if(!el)return;
   if(!uid||collWho!==uid){el.hidden=true;return}
-  if(!WEEK||WEEK.wk!==weekNo()){el.hidden=false;el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div><div class="rt">Le défi de la semaine</div><div class="meta">On prépare la sélection…</div></div></div>`;loadWeekly();return}
+  if(!WEEK||WEEK.wk!==weekNo()){el.hidden=false;el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div><div class="rt">Quelques idées…</div><div class="meta">On prépare la sélection…</div></div></div>`;loadWeekly();return}
   const its=WEEK.items.map(w=>WK[w.id]||reg(w)),n=its.filter(w=>isDone(w.id)).length;
   el.hidden=false;
-  el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div style="flex:1;min-width:0"><div class="rt">Le défi de la semaine</div>
-      <div class="meta">${n}/${its.length} terminée${n>1?'s':''}, jusqu’à dimanche soir</div><div class="bar"><i style="width:${its.length?n/its.length*100:0}%"></i></div></div></div>
+  el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div style="flex:1;min-width:0"><div class="rt">Quelques idées…</div>
+      <div class="meta">C’est un classique !?</div></div></div>
     <div class="wk-works">${its.map(w=>`<button class="wk-w${isDone(w.id)?' ok':''}" data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,isDone(w.id)?rateOf(w.id):0)}${isDone(w.id)?'<span class="chk" aria-hidden="true">✓</span>':''}<span class="wk-t">${esc(w.ti)}</span><span class="wk-k"><span class="tm t-${w.t}"></span>${T[w.t].n}</span></button>`).join('')}</div>`;
-  if(its.length&&n===its.length&&lsGet('sharefs-weekly-won',0)!==WEEK.wk){lsSet('sharefs-weekly-won',WEEK.wk);toast('Défi de la semaine relevé ! 🏆');confetti()}
+  if(its.length&&n===its.length&&lsGet('sharefs-weekly-won',0)!==WEEK.wk){lsSet('sharefs-weekly-won',WEEK.wk);toast('Toutes les idées de la semaine sont cochées ! 🏆');confetti()}
 }
 
 /* ---------- Grimoire et étagère en plein écran ---------- */
@@ -694,7 +695,8 @@ const GRIM_SVG=`<svg class="gsvg" viewBox="0 0 140 104" width="112" height="83" 
 function grimClosedHTML(n){
   return `<button class="gclosed" data-grim aria-label="Ouvrir mon grimoire (${n} carte${n>1?'s':''})">${GRIM_SVG}<span class="gcl-t">Mon grimoire</span><span class="gcl-go" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>`;
 }
-const G={type:'f',page:0};
+const G={type:'f',page:0,auto:false};
+const GTAB={f:'Films',s:'Séries',j:'Vidéo',b:'Société',l:'Livres',m:'Musique'};
 const gPer=()=>innerWidth>=700?8:9;
 const gList=()=>COLL.items.filter(x=>x.w.t===G.type);
 const gPages=()=>Math.max(1,Math.ceil(gList().length/gPer()));
@@ -713,9 +715,9 @@ function gPageHTML(p=G.page){
 }
 function grimHTML(){
   const cnt=t=>COLL.items.filter(x=>x.w.t===t).length;
-  if(!cnt(G.type)){const t=TYPE_ORDER.find(cnt);if(t)G.type=t}
+  if(G.auto&&!cnt(G.type)){const t=TYPE_ORDER.find(cnt);if(t)G.type=t}G.auto=false;
   G.page=Math.min(G.page,gPages()-1);
-  return `<div class="grim"><div class="gtabs" role="tablist">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" role="tab" aria-selected="${G.type===t}" aria-pressed="${G.type===t}" data-gtab="${t}" aria-label="${T[t].p}, ${cnt(t)} carte${cnt(t)>1?'s':''}"><span class="gt-ic">${ICON[t]}</span><span class="gt-l">${T[t].p}</span><b>${cnt(t)}</b></button>`).join('')}</div>
+  return `<div class="grim"><div class="gtabs" role="tablist">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" role="tab" aria-selected="${G.type===t}" aria-pressed="${G.type===t}" data-gtab="${t}" aria-label="${T[t].p}, ${cnt(t)} carte${cnt(t)>1?'s':''}"><span class="gt-ic">${ICON[t]}</span><span class="gt-l">${GTAB[t]}</span><b>${cnt(t)}</b></button>`).join('')}</div>
     <div class="gbook" id="gbook" style="--tc:var(--${TVAR[G.type]});--tci:${TINK(G.type)};--edges:${Math.min(8,gPages()-1-G.page)}"><span class="gclasp" aria-hidden="true"></span><span class="gedge" aria-hidden="true"></span>
       <div class="gpage" id="gpage">${gPageHTML()}</div></div>
     <p class="ghint">Fais glisser la page, ou touche ses bords, pour la tourner.</p></div>`;
@@ -748,7 +750,7 @@ const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,
 function openFs(kind,src){
   const fs=$('#fs'),body=$('#fsBody');fsSrc=src;fsKind=kind;
   $('#fsTitle').textContent=kind==='grim'?'Mon grimoire':'Mon étagère';
-  if(kind==='grim'){G.page=0;body.innerHTML=grimHTML()}
+  if(kind==='grim'){G.page=0;G.auto=true;body.innerHTML=grimHTML()}
   else body.innerHTML=shelfHTML(COLL.items,Math.min(innerWidth,900)-80,false);
   fs.classList.add('open');fs.dataset.kind=kind;document.body.style.overflow='hidden';
   if(!RM&&src){fs.animate([{clipPath:clipOf(src)},{clipPath:'inset(0 0 0 0 round 0)'}],{duration:480,easing:'cubic-bezier(.3,.8,.2,1)'})}
@@ -877,7 +879,7 @@ function openSheet(id,refocus=true,opts={}){
   }
 }
 function refreshSheet(){if(sheetId==='__pick'){renderPicker();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
-function closeSheet(){if(!sheetId)return;sheetId=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
+function closeSheet(){if(!sheetId)return;sheetId=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
 const MAN={title:'',t:'',note:'',to:new Set(),err:''};
@@ -1013,7 +1015,7 @@ function setRate(id,n){
   else{toast(`Carte ${RAR[n].n.toLowerCase()}`);renderAll()}
 }
 function toggleDone(id){
-  if(!isDone(id)){pickOpen=true;pickDeal=true;refreshSheet();setTimeout(()=>$('#sheet .pick')?.scrollIntoView({behavior:'smooth',block:'center'}),60);setTimeout(()=>$('#sheet [data-rate]')?.focus(),30);return}
+  if(!isDone(id)){pendingDone=id;tglPop=id;pickOpen=true;pickDeal=true;refreshSheet();setTimeout(()=>$('#sheet .pick')?.scrollIntoView({behavior:'smooth',block:'center'}),60);setTimeout(()=>$('#sheet [data-rate]')?.focus(),30);return}
   if(!confirm('Retirer cette carte de ta collection ?'))return;
   delete mine.done[id];delete mine.rate[id];keepWork(id);save();toast('Carte retirée');renderAll();
 }
@@ -1092,7 +1094,7 @@ document.addEventListener('click',e=>{
   if(d.mto!==undefined){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;if(!d.mto)MAN.to.clear();else MAN.to.has(d.mto)?MAN.to.delete(d.mto):MAN.to.add(d.mto);renderManual();return}
   if('msend' in d){sendManual(b);return}
   if(d.open){openSheet(d.open);return}
-  if(d.quickdone){isDone(d.quickdone)?toggleDone(d.quickdone):openSheet(d.quickdone,true,{pick:true});return}
+  if(d.quickdone){if(isDone(d.quickdone))toggleDone(d.quickdone);else{pendingDone=tglPop=d.quickdone;b.classList.add('on','pop');setTimeout(()=>openSheet(d.quickdone,true,{pick:true}),260)}return}
   if(d.done){toggleDone(d.done);return}
   if(d.rate){const id=sheetId,n=+d.rate;if(isDone(id)||RM){setRate(id,n);return}
     const deck=b.closest('.deck');deck.classList.add('choosing');b.classList.add('chosen');deck.querySelectorAll('button').forEach(x=>x.disabled=true);
@@ -1275,10 +1277,21 @@ renderAll();
     else{sh.style.transition='';sh.style.transform=''}drag=false});
 })();
 
-/* ---------- Couleur de fond tirée au hasard à chaque ouverture ----------
-   Fonds clairs très lumineux et fonds sombres très profonds : le texte reste au-dessus de 7:1 dans les deux modes. */
-(()=>{const L=['#E9ECF2','#F1ECE3','#E6EFEA','#EEE9F3','#E7EEF6','#F3EAE5','#E8F0F0'],D=['#11162A','#16131F','#0E1918','#1A1416','#111A24','#16141C','#121A16'];
-  const i=Math.floor(Math.random()*L.length),root=document.documentElement,mq=matchMedia('(prefers-color-scheme: dark)');
-  const apply=()=>{const th=root.dataset.theme,dark=th==='dark'||(th!=='light'&&mq.matches),c=dark?D[i]:L[i];root.style.setProperty('--bg',c);document.querySelector('meta[name="theme-color"]')?.setAttribute('content',c)};
+/* ---------- Couleur de fond : alterne à chaque ouverture entre les couleurs des points du logo ----------
+   Teinte légère (mode clair) ou profonde (mode sombre), ajustée jusqu'à garder un contraste du texte d'au moins 7:1. */
+(()=>{
+  const DOTS={light:['#E3A900','#2F6FDB','#E0453A','#9A6B3F','#1C9662','#C2399D'],dark:['#F2C14E','#5B9BF0','#F06B5F','#C08A57','#3DBE86','#DB5DB6']};
+  const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+  const toHex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+  const mix=(a,b,p)=>{const A=hex(a),B=hex(b);return toHex(A.map((v,i)=>v*p+B[i]*(1-p)))};
+  const lum=h=>{const c=hex(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+  const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+  const n=(lsGet('sharefs-bgi',-1)+1)%6;lsSet('sharefs-bgi',n);
+  const root=document.documentElement,mq=matchMedia('(prefers-color-scheme: dark)');
+  const apply=()=>{const th=root.dataset.theme,dark=th==='dark'||(th!=='light'&&mq.matches);
+    const base=dark?'#0F1324':'#F3F4F8',ink=dark?'#E8EBF4':'#18213A',muted=dark?'#9AA3BF':'#596482';
+    let p=dark?.2:.16,c=mix(DOTS[dark?'dark':'light'][n],base,p);
+    while(p>.02&&(ratio(c,ink)<7||ratio(c,muted)<4.5)){p-=.02;c=mix(DOTS[dark?'dark':'light'][n],base,p)}
+    root.style.setProperty('--bg',c);document.querySelector('meta[name="theme-color"]')?.setAttribute('content',c)};
   apply();mq.addEventListener?.('change',apply);new MutationObserver(apply).observe(root,{attributes:true,attributeFilter:['data-theme']});
 })();
