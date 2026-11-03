@@ -96,7 +96,9 @@ const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" st
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
 const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮',b:'Joué 🎲',m:'Écouté 🎧'};
 let tglPop=null,pendingDone=null;
-const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id)||pendingDone===id;return `<button class="tgl${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}"><span class="trk"><span class="knob"></span></span><span class="tl">${TGL[w.t]}</span></button>`};
+// Bouton « Vu / Lu / Joué / Écouté » : pleine largeur, se remplit et coche quand l'œuvre est terminée
+const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id)||pendingDone===id;return `<button class="tgl tgb${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}">
+  <span class="tgb-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="tgb-l">${TGL[w.t]}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
@@ -854,8 +856,8 @@ function openSheet(id,refocus=true,opts={}){
     ${w.syn?`<p class="syn">${esc(w.syn)}</p>`:(!w.full?'<p class="meta">Chargement de la fiche…</p>':'')}
     ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="gal"></button>`).join('')}</div>`:''}
     <div class="sh-acts2">
-      <div class="sa-row">${doneTgl(id,'data-done')}<div class="icogrp">${wantBtn(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
-      <button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button>
+      ${doneTgl(id,'data-done')}
+      <div class="sa-row"><button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button><div class="icogrp">${wantBtn(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
     </div>
     ${pick}
     <div id="recForm" class="recf" ${recOpen?'':'hidden'}>
