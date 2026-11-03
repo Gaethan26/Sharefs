@@ -1276,22 +1276,3 @@ renderAll();
     if(drag&&dy>110){sh.style.transition='transform .22s ease';sh.style.transform='translateY(105%)';setTimeout(()=>{closeSheet();sh.style.transition='';sh.style.transform=''},220)}
     else{sh.style.transition='';sh.style.transform=''}drag=false});
 })();
-
-/* ---------- Couleur de fond : alterne à chaque ouverture entre les couleurs des points du logo ----------
-   Teinte légère (mode clair) ou profonde (mode sombre), ajustée jusqu'à garder un contraste du texte d'au moins 7:1. */
-(()=>{
-  const DOTS={light:['#E3A900','#2F6FDB','#E0453A','#9A6B3F','#1C9662','#C2399D'],dark:['#F2C14E','#5B9BF0','#F06B5F','#C08A57','#3DBE86','#DB5DB6']};
-  const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
-  const toHex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
-  const mix=(a,b,p)=>{const A=hex(a),B=hex(b);return toHex(A.map((v,i)=>v*p+B[i]*(1-p)))};
-  const lum=h=>{const c=hex(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
-  const ratio=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
-  const n=(lsGet('sharefs-bgi',-1)+1)%6;lsSet('sharefs-bgi',n);
-  const root=document.documentElement,mq=matchMedia('(prefers-color-scheme: dark)');
-  const apply=()=>{const th=root.dataset.theme,dark=th==='dark'||(th!=='light'&&mq.matches);
-    const base=dark?'#0F1324':'#F3F4F8',ink=dark?'#E8EBF4':'#18213A',muted=dark?'#9AA3BF':'#596482';
-    let p=dark?.2:.16,c=mix(DOTS[dark?'dark':'light'][n],base,p);
-    while(p>.02&&(ratio(c,ink)<7||ratio(c,muted)<4.5)){p-=.02;c=mix(DOTS[dark?'dark':'light'][n],base,p)}
-    root.style.setProperty('--bg',c);document.querySelector('meta[name="theme-color"]')?.setAttribute('content',c)};
-  apply();mq.addEventListener?.('change',apply);new MutationObserver(apply).observe(root,{attributes:true,attributeFilter:['data-theme']});
-})();
