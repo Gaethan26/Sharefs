@@ -96,9 +96,10 @@ const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" st
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
 const TGL={f:'Vu 🎬',s:'Vu 🎬',l:'Lu 📔',j:'Joué 🎮',b:'Joué 🎲',m:'Écouté 🎧'};
 let tglPop=null,pendingDone=null;
-// Bouton « Vu / Lu / Joué / Écouté » : pleine largeur, se remplit et coche quand l'œuvre est terminée
-const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id)||pendingDone===id;return `<button class="tgl tgb${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" ${attr}="${esc(id)}">
-  <span class="tgb-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="tgb-l">${TGL[w.t]}</span></button>`};
+// Interrupteur « Vu / Lu / Joué / Écouté » : piste à la couleur du type, bouton rond portant l'emoji
+const TGLW={f:['Vu','🎬'],s:['Vu','📺'],l:['Lu','📔'],j:['Joué','🎮'],b:['Joué','🎲'],m:['Écouté','🎧']};
+const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id)||pendingDone===id,[l,e]=TGLW[w.t]||['Fini','✓'];
+  return `<button class="tgl tgs${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" aria-label="${l}" ${attr}="${esc(id)}"><span class="tgs-trk" aria-hidden="true"><span class="tgs-ok">✓</span><span class="tgs-knob">${e}</span></span><span class="tgs-l">${l}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
