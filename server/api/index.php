@@ -175,7 +175,7 @@ try {
         $circleMembers[$row['code']][] = $row['user_id'];
       out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'circleMembers' => $circleMembers, 'recs' => array_map('rec_out', $recs),
         'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids),
-        'catalogs' => ['b' => (bool) cfg('bgg_token')]]);
+        'catalogs' => ['b' => (bool) cfg('bgg_token')], 'matches' => match_list($me)]);
 
     /* ---------- Cercles ---------- */
     case $M === 'POST' && $path === 'circles':
@@ -254,14 +254,13 @@ try {
     case $M === 'GET' && preg_match('#^match/([0-9a-f-]{36})$#', $path, $mm):
       $u = need_user();
       $v = (int) ($_GET['v'] ?? -1);
-      match_tick($mm[1]);
       $ver = q('SELECT version, a_id, b_id FROM matches WHERE id = ?', [$mm[1]])->fetch();
       if (!$ver) fail(404, 'not_found');
       if ($ver['a_id'] !== $u['id'] && $ver['b_id'] !== $u['id']) fail(403, 'forbidden');
       if ((int) $ver['version'] === $v) out(['same' => true]);
       out(['match' => match_view(match_row($mm[1]), $u['id'])]);
 
-    case $M === 'POST' && preg_match('#^match/([0-9a-f-]{36})/(rps|pick|choose|answer|tick|forfeit)$#', $path, $mm):
+    case $M === 'POST' && preg_match('#^match/([0-9a-f-]{36})/(rps|pick|choose|answer|qnext|forfeit)$#', $path, $mm):
       $u = need_user(); $b = body();
       $act = $mm[2];
       $view = match_tx($mm[1], $u['id'], function (array &$st, string $side, array $m) use ($act, $b) {
@@ -269,7 +268,7 @@ try {
         elseif ($act === 'pick') match_pick($st, $side, $b['works'] ?? null);
         elseif ($act === 'choose') match_choose($st, $side, (string) ($b['id'] ?? ''), [$m['a_id'], $m['b_id']]);
         elseif ($act === 'answer') match_answer($st, $side, (int) ($b['i'] ?? -1), (int) ($b['opt'] ?? -1));
-        elseif ($act === 'tick') quiz_tick($st);
+        elseif ($act === 'qnext') match_qnext($st, $side);
         else { $st['phase'] = 'done'; $st['forfeit'] = $side; $st['winner'] = op_side($side); }
       });
       out(['match' => $view]);

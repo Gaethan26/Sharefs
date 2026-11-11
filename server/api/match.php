@@ -2,15 +2,13 @@
 /* =========================================================================
    Jeu 1v1 « Genre tu l'as vu !? »
    - Pierre, feuille, ciseaux : le gagnant choisit 5 œuvres pour son adversaire
-   - L'adversaire en garde 1 et répond à 5 questions (1 point par bonne réponse)
+   - L'adversaire en garde 1 ; les deux joueurs répondent chacun de leur côté aux 5 mêmes questions (1 point par bonne réponse)
    - Puis les rôles s'inversent ; égalité : pierre, feuille, ciseaux en 2 manches gagnantes
    Le serveur fait foi : les réponses et le coup de l'adversaire ne sont jamais envoyés avant l'heure.
    ========================================================================= */
 
 const RPS_BEATS = ['r' => 's', 'p' => 'r', 's' => 'p'];
 const QUIZ_SECONDS = 30;
-const QUIZ_EXPRESS = 2.0;   // réponse express : dans les 2 premières secondes
-const QUIZ_PAUSE = 2.6;     // temps de révélation entre deux questions
 
 function match_side(array $m, string $uid): string {
   if ($m['a_id'] === $uid) return 'a';
@@ -52,19 +50,16 @@ function match_tx(string $id, string $uid, callable $fn): array {
 }
 
 function my_turn(array $st, string $me): bool {
-  if ($st['phase'] === 'quiz') {
-    $qz = $st['quiz']; $r = $qz['res'][$qz['i']] ?? [];
-    return !isset($r[$me]) && (($r['lock'] ?? null) === null || $r['lock'] === $me);
-  }
   return match ($st['phase']) {
     'rps', 'tiebreak' => ($st['rps'][$me] ?? null) === null,
     'pick' => $st['picker'] === $me,
     'choose' => $st['target'] === $me,
+    'quiz' => $st['quiz']['p'][$me]['i'] < count($st['quiz']['qs']),
     default => false,
   };
 }
 
-/* Ce que voit un joueur : jamais le coup en attente de l'adversaire, jamais la réponse d'une question pas encore jouée */
+/* Ce que voit un joueur : jamais le coup en attente de l'adversaire, jamais une bonne réponse avant d'avoir répondu soi-même */
 function match_view(array $m, string $uid): array {
   $st = json_decode($m['state'], true);
   $me = match_side($m, $uid); $op = op_side($me);
@@ -75,16 +70,14 @@ function match_view(array $m, string $uid): array {
     'picks' => $st['picks'], 'chosen' => $st['chosen'], 'turns' => $st['turns'], 'myTurn' => my_turn($st, $me),
     'updated' => iso($m['updated_at'])];
   if ($st['quiz']) {
-    $qz = $st['quiz']; $i = $qz['i']; $now = microtime(true); $r = $qz['res'][$i] ?? [];
+    $qz = $st['quiz']; $n = count($qz['qs']); $p = $qz['p'][$me]; $o = $qz['p'][$op]; $now = time();
     $past = [];
-    foreach (array_slice($qz['qs'], 0, $i) as $k => $q) {
-      $rr = $qz['res'][$k] ?? [];
-      $past[] = ['q' => $q['q'], 'opts' => $q['opts'], 'ans' => $q['ans'], 'me' => $rr[$me] ?? null, 'op' => $rr[$op] ?? null, 'lock' => $rr['lock'] ?? null];
-    }
-    $v['quiz'] = ['i' => $i, 'n' => count($qz['qs']), 'past' => $past,
-      'startsIn' => round(max(0, $qz['t0'] - $now), 2), 'left' => round(max(0, $qz['t0'] + QUIZ_SECONDS - $now), 2), 'express' => QUIZ_EXPRESS,
-      'mine' => $r[$me] ?? null, 'opDone' => isset($r[$op]), 'lock' => $r['lock'] ?? null,
-      'cur' => isset($qz['qs'][$i]) ? ['q' => $qz['qs'][$i]['q'], 'opts' => $qz['qs'][$i]['opts']] : null];
+    foreach ($p['res'] as $k => $r) $past[] = ['q' => $qz['qs'][$k]['q'], 'opts' => $qz['qs'][$k]['opts'], 'ans' => $qz['qs'][$k]['ans'], 'opt' => $r['opt'], 'ok' => $r['ok']];
+    $started = $p['i'] < $n && $p['t0'] !== null;
+    $v['quiz'] = ['n' => $n, 'i' => $p['i'], 'past' => $past, 'ok' => count(array_filter($p['res'], fn($r) => $r['ok'])),
+      'started' => $started, 'left' => $started ? max(0, $p['t0'] + QUIZ_SECONDS - $now) : null,
+      'cur' => $started ? ['q' => $qz['qs'][$p['i']]['q'], 'opts' => $qz['qs'][$p['i']]['opts']] : null,
+      'op' => ['i' => $o['i'], 'done' => $o['i'] >= $n]];
   }
   return $v;
 }
@@ -99,7 +92,7 @@ function match_list(string $uid): array {
   }, $rows);
 }
 
-/* ---------- Coups ---------- */
+/* ---------- Coups (chacun joue à son rythme, la partie avance quand les deux ont joué) ---------- */
 function rps_play(array &$st, string $side, string $c): void {
   if (!in_array($st['phase'], ['rps', 'tiebreak'], true)) fail(409, 'bad_phase');
   if (!isset(RPS_BEATS[$c])) fail(400, 'bad_choice');
@@ -136,48 +129,48 @@ function match_choose(array &$st, string $side, string $id, array $uids): void {
   foreach ($st['picks'] as $w) if ($w['id'] === $id) $work = $w;
   if (!$work) fail(400, 'bad_work');
   $st['chosen'] = $work;
-  $st['quiz'] = ['qs' => make_quiz($work, $st['picks'], $uids), 'i' => 0, 'res' => [], 't0' => microtime(true) + 3.2];
+  $st['quiz'] = ['qs' => make_quiz($work, $st['picks'], $uids),
+    'p' => ['a' => ['i' => 0, 't0' => null, 'res' => []], 'b' => ['i' => 0, 't0' => null, 'res' => []]]];
   $st['phase'] = 'quiz';
 }
 
-/* Les deux joueurs répondent à chaque question.
-   Réponse express (dans les 2 premières secondes, avant l'autre) : +2 si juste, -1 si fausse, et l'adversaire ne peut plus répondre.
-   Sinon : +1 par bonne réponse. La question se clôt quand les deux ont répondu, après une réponse express, ou au bout de 30 s. */
+/* Questionnaire : chaque joueur a son propre chrono, lancé quand il affiche la question.
+   Une question laissée ouverte trop longtemps compte comme ratée à la reprise. */
+function quiz_expire(array &$p): void {
+  if ($p['t0'] !== null && time() > $p['t0'] + QUIZ_SECONDS + 3) {
+    $p['res'][$p['i']] = ['opt' => -1, 'ok' => false];
+    $p['i']++; $p['t0'] = null;
+  }
+}
+function match_qnext(array &$st, string $side): void {
+  if ($st['phase'] !== 'quiz') fail(409, 'bad_phase');
+  $p = &$st['quiz']['p'][$side]; $n = count($st['quiz']['qs']);
+  quiz_expire($p);
+  if ($p['i'] < $n && $p['t0'] === null) $p['t0'] = time();
+  unset($p);
+  quiz_finish($st);
+}
 function match_answer(array &$st, string $side, int $i, int $opt): void {
   if ($st['phase'] !== 'quiz') fail(409, 'bad_phase');
-  quiz_tick($st);
-  if ($st['phase'] !== 'quiz') fail(409, 'bad_phase');
-  $qz = &$st['quiz']; $other = op_side($side); $now = microtime(true);
-  if ($i !== $qz['i'] || !isset($qz['qs'][$i])) fail(409, 'bad_question');
-  if ($now < $qz['t0'] - 0.3) fail(409, 'too_early');
-  $r = $qz['res'][$i] ?? ['lock' => null];
-  if (isset($r[$side])) fail(409, 'already_answered');
-  if (($r['lock'] ?? null) === $other) fail(409, 'locked');
-  $dt = max(0, $now - $qz['t0']);
-  $late = $dt > QUIZ_SECONDS + 2;
-  $ok = !$late && $opt === $qz['qs'][$i]['ans'];
-  $express = $opt >= 0 && !$late && $dt <= QUIZ_EXPRESS && !isset($r[$other]);
-  $pts = $express ? ($ok ? 2 : -1) : ($ok ? 1 : 0);
-  if ($express) $r['lock'] = $side;
-  $r[$side] = ['opt' => $opt, 'ok' => $ok, 'x' => $express, 'pts' => $pts, 'dt' => round($dt, 2)];
-  $st['score'][$side] += $pts;
-  $qz['res'][$i] = $r;
-  unset($qz);
-  quiz_resolve($st);
+  $p = &$st['quiz']['p'][$side]; $qs = $st['quiz']['qs'];
+  if ($i !== $p['i'] || !isset($qs[$i]) || $p['t0'] === null) fail(409, 'bad_question');
+  $late = time() > $p['t0'] + QUIZ_SECONDS + 3; // petite marge pour le réseau
+  $ok = !$late && $opt === $qs[$i]['ans'];
+  $p['res'][$i] = ['opt' => $late ? -1 : $opt, 'ok' => $ok];
+  $p['i']++; $p['t0'] = null;
+  if ($ok) $st['score'][$side]++;
+  unset($p);
+  quiz_finish($st);
 }
-// Clôture la question si tout le monde a joué (ou ne peut plus jouer), puis passe à la suivante ou termine le tour
-function quiz_resolve(array &$st): void {
-  $qz = &$st['quiz']; $i = $qz['i']; $r = $qz['res'][$i] ?? ['lock' => null];
-  $done = (isset($r['a']) && isset($r['b'])) || ($r['lock'] ?? null) !== null;
-  if (!$done) return;
-  $qz['i']++; $qz['t0'] = microtime(true) + QUIZ_PAUSE;
-  if ($qz['i'] < count($qz['qs'])) return;
+// Quand les deux joueurs ont fini : on garde le récapitulatif, puis on inverse les rôles ou on conclut
+function quiz_finish(array &$st): void {
+  $qz = $st['quiz']; $n = count($qz['qs']);
+  if ($qz['p']['a']['i'] < $n || $qz['p']['b']['i'] < $n) return;
   $qs = [];
-  foreach ($qz['qs'] as $k => $q) $qs[] = ['q' => $q['q'], 'opts' => $q['opts'], 'ans' => $q['ans'], 'a' => $qz['res'][$k]['a'] ?? null, 'b' => $qz['res'][$k]['b'] ?? null, 'lock' => $qz['res'][$k]['lock'] ?? null];
+  foreach ($qz['qs'] as $k => $q) $qs[] = ['q' => $q['q'], 'opts' => $q['opts'], 'ans' => $q['ans'], 'a' => $qz['p']['a']['res'][$k] ?? null, 'b' => $qz['p']['b']['res'][$k] ?? null];
   $pts = ['a' => 0, 'b' => 0];
-  foreach ($qs as $q) foreach (['a', 'b'] as $x) $pts[$x] += $q[$x]['pts'] ?? 0;
+  foreach (['a', 'b'] as $x) foreach ($qz['p'][$x]['res'] as $r) if ($r['ok']) $pts[$x]++;
   $st['turns'][] = ['picker' => $st['picker'], 'target' => $st['target'], 'work' => $st['chosen'], 'pts' => $pts, 'qs' => $qs];
-  unset($qz);
   $st['quiz'] = null;
   if ($st['turn'] === 1) {
     $st['turn'] = 2; [$st['picker'], $st['target']] = [$st['target'], $st['picker']];
@@ -187,34 +180,6 @@ function quiz_resolve(array &$st): void {
   } else {
     $st['phase'] = 'tiebreak'; $st['tb'] = ['a' => 0, 'b' => 0]; $st['rps'] = ['a' => null, 'b' => null];
   }
-}
-// Temps écoulé : ceux qui n'ont pas répondu marquent 0, et on avance (appelé à chaque lecture de la partie)
-function quiz_expired(array $st): bool {
-  return ($st['phase'] ?? '') === 'quiz' && $st['quiz'] && microtime(true) > $st['quiz']['t0'] + QUIZ_SECONDS + 1.5;
-}
-function quiz_tick(array &$st): void {
-  while (quiz_expired($st)) {
-    $qz = &$st['quiz']; $i = $qz['i']; $r = $qz['res'][$i] ?? ['lock' => null];
-    foreach (['a', 'b'] as $x) if (!isset($r[$x]) && ($r['lock'] ?? null) === null) $r[$x] = ['opt' => -1, 'ok' => false, 'x' => false, 'pts' => 0, 'dt' => QUIZ_SECONDS];
-    $qz['res'][$i] = $r; $t0 = $qz['t0'];
-    unset($qz);
-    quiz_resolve($st);
-    if (($st['phase'] ?? '') === 'quiz') $st['quiz']['t0'] = max($st['quiz']['t0'], $t0 + QUIZ_SECONDS + 1.5 + QUIZ_PAUSE);
-    if (($st['phase'] ?? '') === 'quiz' && $st['quiz']['t0'] > microtime(true)) break;
-  }
-}
-function match_tick(string $id): void {
-  $st = json_decode((string) q('SELECT state FROM matches WHERE id = ?', [$id])->fetchColumn(), true);
-  if (!$st || !quiz_expired($st)) return;
-  $pdo = db(); $pdo->beginTransaction();
-  try {
-    $st = json_decode((string) q('SELECT state FROM matches WHERE id = ? FOR UPDATE', [$id])->fetchColumn(), true);
-    if (quiz_expired($st)) {
-      quiz_tick($st);
-      q('UPDATE matches SET state = ?, status = ?, version = version + 1, updated_at = UTC_TIMESTAMP() WHERE id = ?', [enc($st), $st['phase'] === 'done' ? 'done' : 'live', $id]);
-    }
-    $pdo->commit();
-  } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $e; }
 }
 
 /* ---------- Questions générées à partir des fiches des œuvres ---------- */

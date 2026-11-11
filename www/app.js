@@ -830,25 +830,44 @@ function setPlayType(t){
 function openPlay(kind,src){PLAY.rating=false;PLAY.tried=false;openFs(kind,src)}
 
 /* ---------- Jeu 1v1 « Genre tu l'as vu !? » ----------
-   Le serveur fait foi ; l'app interroge la partie ouverte toutes les 1,2 s (réponse vide si rien n'a changé)
-   et la liste des parties toutes les 8 s pour le badge « À toi ». */
-let MATCHES=[],MT=null,MT_ID=null,mtPollT=null,mtListT=null,mtBusy=false,mtAnim=false,mtSeenLog=0,mtQTimer=null,mtFeedback=null,mtWonShown=new Set();
-const MTSEL={works:[],q:'',cat:false,res:[]};
+   Tour par tour : chacun joue à son rythme. Pas de rafraîchissement permanent :
+   la partie se met à jour après chaque action, à l'ouverture, au retour dans l'app, ou avec « Actualiser ».
+   La liste des parties arrive avec l'état général de l'app. */
+let MATCHES=[],MT=null,MT_ID=null,mtBusy=false,mtQT=null,mtAfterT=null,mtWonShown=new Set();
+const MTSEL={works:[],q:'',choose:null};
 const RPS_E={r:'✊',p:'✋',s:'✌️'},RPS_N={r:'Pierre',p:'Feuille',s:'Ciseaux'};
-const mtOp=v=>v[v.me==='a'?'b':'a'];
-const mtSc=v=>({me:v.score[v.me],op:v.score[v.me==='a'?'b':'a']});
+const mtOpId=v=>v[v.me==='a'?'b':'a'];
+const mtOpS=v=>v.me==='a'?'b':'a';
+const mtSc=v=>({me:v.score[v.me],op:v.score[mtOpS(v)]});
+
+// ---------- Recherche unifiée : la collection (instantané) puis le catalogue, dans une même liste ----------
+const WS={seq:0,timer:null};
+function wsLocal(list,q){q=norm(q.trim());return list.filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q))}
+function wsRun(q,local,render){
+  clearTimeout(WS.timer);const seq=++WS.seq;
+  const loc=wsLocal(local,q).slice(0,40);
+  render(loc,null);
+  if(q.trim().length<2)return;
+  WS.timer=setTimeout(async()=>{
+    const res=await Promise.all(SEARCHT().map(t=>api('search',{type:t,q:q.trim(),limit:4}).catch(()=>({items:[]}))));
+    if(seq!==WS.seq)return;
+    const ids=new Set(loc.map(w=>w.id));
+    render(loc,rr(res.map(r=>(r.items||[]).map(reg))).filter(w=>!ids.has(w.id)));
+  },280);
+}
+
+// ---------- Liste des parties (onglet Défis) ----------
 function mtStatus(m){
   const n=esc(nameOf(m.op));
   if(m.phase==='done')return m.winner===m.me?`Victoire 🏆 ${m.score.me}–${m.score.op}`:`Défaite ${m.score.me}–${m.score.op}`;
-  return {rps:m.myTurn?'Pierre, feuille, ciseaux !':`${n} réfléchit…`,tiebreak:m.myTurn?'Égalité ! Manche décisive':`${n} réfléchit…`,
-    pick:m.myTurn?`Choisis 5 œuvres pour ${n}`:`${n} choisit tes 5 œuvres`,choose:m.myTurn?'Choisis ton œuvre':`${n} choisit son œuvre`,
-    quiz:m.myTurn?'Questionnaire : à toi de répondre !':`Questionnaire en cours avec ${n}`}[m.phase]||'';
+  if(!m.myTurn)return `Au tour de ${n}`;
+  return {rps:'Pierre, feuille, ciseaux !',tiebreak:'Égalité ! Manche décisive',pick:`Choisis 5 œuvres pour ${n}`,choose:'Choisis ton œuvre',quiz:'Réponds aux questions'}[m.phase]||'À toi !';
 }
 function matchZoneHTML(){
   const ops=others();
   const live=MATCHES.filter(m=>m.status==='live'),done=MATCHES.filter(m=>m.status!=='live').slice(0,4);
-  const row=m=>`<button class="mt-row${m.myTurn?' turn':''}" data-mopen="${esc(m.id)}">${avatar(m.op)}<span class="mt-rt"><b>vs ${esc(nameOf(m.op))}</b><span>${mtStatus(m)}</span></span>
-    ${m.status==='live'?`<span class="mt-rs">${m.score.me}–${m.score.op}</span>`:''}${m.myTurn?'<span class="mt-go">À toi !</span>':''}</button>`;
+  const row=m=>`<button class="mt-row${m.myTurn&&m.status==='live'?' turn':''}" data-mopen="${esc(m.id)}">${avatar(m.op)}<span class="mt-rt"><b>vs ${esc(nameOf(m.op))}</b><span>${mtStatus(m)}</span></span>
+    ${m.status==='live'?`<span class="mt-rs">${m.score.me}–${m.score.op}</span>`:''}${m.myTurn&&m.status==='live'?'<span class="mt-go">À toi !</span>':''}</button>`;
   return `<section class="mt-zone"><span class="fe-spark" aria-hidden="true"></span>
     <div class="mt-zh"><span class="mt-logo" aria-hidden="true">⚔️</span><div><h2>Genre tu l’as vu !?</h2><p>Pierre, feuille, ciseaux… puis prouve que tu l’as vraiment vu.</p></div></div>
     ${ops.length?`<div class="mt-ops" role="list">${ops.map(id=>`<button class="mt-op" role="listitem" data-mnew="${esc(id)}" aria-label="Défier ${esc(nameOf(id))}">${avatar(id)}<span>${esc(nameOf(id))}</span><i>Défier</i></button>`).join('')}</div>`:'<p class="mt-none">Invite des amis dans ton cercle pour jouer.</p>'}
@@ -857,109 +876,92 @@ function matchZoneHTML(){
   </section>`;
 }
 const myTurnCount=()=>MATCHES.filter(m=>m.status==='live'&&m.myTurn).length;
-async function loadMatches(){
-  if(!uid||document.hidden)return;
-  try{const r=await api('matches');const prev=MATCHES;MATCHES=r.matches||[];
-    // prévenir quand une partie (fermée) attend notre coup
-    for(const m of MATCHES)if(m.myTurn&&m.status==='live'&&m.id!==MT_ID&&!prev.some(p=>p.id===m.id&&p.myTurn&&p.version===m.version))
-      if(prev.length||loadMatches.once)toast(`À toi de jouer contre ${nameOf(m.op)} !`);
-    loadMatches.once=true;
-    if(JSON.stringify(prev.map(m=>[m.id,m.version]))!==JSON.stringify(MATCHES.map(m=>[m.id,m.version]))){if($('#v-chal')?.classList.contains('on'))renderChal();else updateChalBadge()}
-  }catch(e){}
-}
 function updateChalBadge(){const b=liveForMe()+myTurnCount(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}}
-function startMatchLoops(){clearInterval(mtListT);mtListT=setInterval(loadMatches,8000);loadMatches()}
-async function newMatch(to,src){
-  try{const r=await call('POST','matches',{to});openMatch(r.match.id,src,r.match)}catch(e){toast(msg(e))}
+// appelé à chaque chargement de l'état : met à jour la liste et prévient quand c'est à nous de jouer
+function setMatches(list){
+  const prev=MATCHES,first=!setMatches.done;setMatches.done=true;MATCHES=list||[];
+  if(!first)for(const m of MATCHES)if(m.status==='live'&&m.myTurn&&m.id!==MT_ID&&!prev.some(p=>p.id===m.id&&p.myTurn&&p.version===m.version))toast(`À toi de jouer contre ${nameOf(m.op)} !`);
+  updateChalBadge();
 }
-function openMatch(id,src,first){
-  MT_ID=id;MT=first||null;mtSeenLog=first?first.rpsLog.length:-1;mtFeedback=null;MTSEL.works=[];MTSEL.q='';MTSEL.cat=false;MTSEL.res=[];
+function startMatchLoops(){}
+async function loadMatches(){try{const r=await api('matches');setMatches(r.matches);if($('#v-chal')?.classList.contains('on'))renderChal()}catch(e){}}
+
+// ---------- Ouvrir, rafraîchir, jouer ----------
+async function newMatch(to,src){try{const r=await call('POST','matches',{to});openMatch(r.match.id,src,r.match)}catch(e){toast(msg(e))}}
+async function openMatch(id,src,first){
+  MT_ID=id;MT=null;MTSEL.works=[];MTSEL.q='';MTSEL.choose=null;
   openFs('match',src);
-  if(MT)renderMatch();else pollMatch();
-  clearInterval(mtPollT);mtPollT=setInterval(pollMatch,450);
+  if(first)setMatch(first);else await refreshMatch();
 }
-function closeMatch(){clearInterval(mtPollT);clearTimeout(mtQTimer);clearTimeout(mtTick);MT_ID=null;MT=null;loadMatches()}
-async function pollMatch(){
-  if(!MT_ID||$('#fs').dataset.kind!=='match'||!$('#fs').classList.contains('open')){clearInterval(mtPollT);return}
-  if(mtBusy||document.hidden)return;
-  const fast=MT&&['quiz','rps','tiebreak','choose'].includes(MT.phase);
-  if(!fast&&Date.now()-(pollMatch.last||0)<1150)return;pollMatch.last=Date.now();
-  try{const r=await api('match/'+MT_ID,{v:MT?MT.version:-1});if(r.match)setMatch(r.match)}catch(e){}
+function closeMatch(){clearTimeout(mtQT);clearTimeout(mtAfterT);MT_ID=null;MT=null;loadMatches()}
+async function refreshMatch(){
+  if(!MT_ID)return;
+  try{const r=await api('match/'+MT_ID,{v:MT?MT.version:-1});if(r.match)setMatch(r.match);else if(MT)renderMatch()}catch(e){toast(msg(e))}
+}
+async function mtAct(path,body){
+  if(mtBusy||!MT_ID)return null;mtBusy=true;
+  try{const r=await call('POST',`match/${MT_ID}/${path}`,body);mtBusy=false;setMatch(r.match);return r.match}
+  catch(e){mtBusy=false;toast(msg(e));refreshMatch();return null}
 }
 function setMatch(v){
-  if(MT&&v.version<MT.version)return;
+  if(!v||(MT&&MT.id===v.id&&v.version<MT.version))return;
   const prev=MT;MT=v;
-  if(v.quiz)mtClock={at:Date.now(),startsIn:v.quiz.startsIn,left:v.quiz.left};
-  if(mtSeenLog<0)mtSeenLog=v.rpsLog.length;
-  if(v.rpsLog.length>mtSeenLog){const last=v.rpsLog[v.rpsLog.length-1];mtSeenLog=v.rpsLog.length;rpsReveal(last,prev);return}
-  if(!mtAnim)renderMatch(prev);
+  const seenKey='sharefs-rps-'+v.id,seen=lsGet(seenKey,prev?prev.rpsLog.length:v.rpsLog.length);
+  if(v.rpsLog.length>seen){lsSet(seenKey,v.rpsLog.length);rpsReveal(v.rpsLog[v.rpsLog.length-1]);return}
+  lsSet(seenKey,v.rpsLog.length);
+  renderMatch(prev);
 }
+function mtWait(text){return `<div class="mt-wait"><div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${text}</p>
+  <button class="btn mt-refresh" data-mtrefresh>Actualiser</button><p class="mt-hint">Tu peux fermer : ton tour s’affichera dans l’onglet Défis.</p></div>`}
 function mtHead(v){
-  const op=mtOp(v),s=mtSc(v),n=esc(nameOf(op));
-  const step=v.phase==='done'?'Fin du match':v.phase==='tiebreak'?`Manche décisive · ${v.tb?.[v.me]||0}–${v.tb?.[v.me==='a'?'b':'a']||0} (premier à 2)`:v.turn?`Tour ${v.turn} sur 2`:'Qui commence ?';
-  return `<div class="mt-score"><div class="mt-p${v.myTurn&&v.phase!=='done'?' act':''}">${avatar(uid)}<b>Toi</b><span class="mt-s">${s.me}</span></div><span class="mt-vs">VS</span>
-    <div class="mt-p${!v.myTurn&&v.phase!=='done'?' act':''}">${avatar(op)}<b>${n}</b><span class="mt-s">${s.op}</span></div></div>
-    <div class="mt-step">${step}</div>`;
+  const op=mtOpId(v),s=mtSc(v),n=esc(nameOf(op)),live=v.phase!=='done';
+  const step=!live?'Fin du match':v.phase==='tiebreak'?`Manche décisive · ${v.tb?.[v.me]||0}–${v.tb?.[mtOpS(v)]||0} (premier à 2)`:v.turn?`Tour ${v.turn} sur 2`:'Qui commence ?';
+  return `<div class="mt-score"><div class="mt-p${live&&v.myTurn?' act':''}">${avatar(uid)}<b>Toi</b><span class="mt-s">${s.me}</span></div><span class="mt-vs">VS</span>
+    <div class="mt-p${live&&!v.myTurn?' act':''}">${avatar(op)}<b>${n}</b><span class="mt-s">${s.op}</span></div></div><div class="mt-step">${step}</div>`;
 }
-function mtWait(text){return `<div class="mt-wait"><div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${text}</p></div>`}
 function renderMatch(prev){
   const v=MT,body=$('#fsBody');if(!v||!body||$('#fs').dataset.kind!=='match')return;
-  clearTimeout(mtQTimer);
-  const op=mtOp(v),n=esc(nameOf(op)),me=v.me;
+  clearTimeout(mtQT);
+  const op=mtOpId(v),n=esc(nameOf(op)),me=v.me;
   let h='';
   if(v.phase==='rps'||v.phase==='tiebreak'){
-    h=v.rps.me?`<div class="rps-wait"><span class="rps-h me">${RPS_E[v.rps.me]}</span><span class="rps-vs">vs</span><span class="rps-h op shake">✊</span></div>${mtWait(v.rps.opDone?'On révèle…':`${n} réfléchit…`)}`
+    h=v.rps.me?`<div class="rps-wait"><span class="rps-h me">${RPS_E[v.rps.me]}</span><span class="rps-vs">vs</span><span class="rps-h op shake">✊</span></div>${mtWait(`${n} n’a pas encore joué.`)}`
       :`<p class="mt-big">${v.phase==='tiebreak'?'Égalité parfaite ! Pierre, feuille, ciseaux en 2 manches gagnantes.':'Pierre, feuille, ciseaux ! Le gagnant choisit les œuvres de l’autre.'}</p>
         <div class="rps">${['r','p','s'].map((c,i)=>`<button class="rps-b" style="--i:${i}" data-mrps="${c}"><span class="rps-e">${RPS_E[c]}</span><span>${RPS_N[c]}</span></button>`).join('')}</div>`;
   }else if(v.phase==='pick'){
-    h=v.picker===me?pickHTML(v,op):`${mtWait(`${n} choisit 5 œuvres pour toi…`)}<div class="mt-backs" aria-hidden="true">${'<span class="cardback"></span>'.repeat(5)}</div>`;
+    h=v.picker===me?pickHTML(v,op):`<div class="mt-backs" aria-hidden="true">${'<span class="cardback"></span>'.repeat(5)}</div>${mtWait(`${n} choisit 5 œuvres pour toi.`)}`;
   }else if(v.phase==='choose'){
-    h=v.target===me?`<p class="mt-big">${n} t’a choisi 5 œuvres. Garde celle que tu connais le mieux.</p>
+    h=v.target===me?`<p class="mt-big">${n} t’a choisi 5 œuvres. Garde celle que tu connais le mieux : vous répondrez tous les deux à 5 questions dessus.</p>
         <div class="mt-five">${v.picks.map((w,i)=>`<button class="mt-c${MTSEL.choose===w.id?' on':''}" style="--i:${i}" data-mtpick1="${esc(w.id)}">${card(reg(w))}<span class="mt-ct">${esc(w.ti)}</span><span class="mt-ck"><span class="tm t-${w.t}"></span>${esc(T[w.t]?.n||'')}</span></button>`).join('')}</div>
-        <button class="btn pri mt-cta" data-mtchoose ${MTSEL.choose?'':'disabled'}>${MTSEL.choose?'C’est parti pour 5 questions !':'Choisis une œuvre'}</button>`
-      :`<div class="mt-five small">${v.picks.map(w=>`<span class="mt-c">${card(reg(w))}<span class="mt-ct">${esc(w.ti)}</span></span>`).join('')}</div>${mtWait(`${n} choisit son œuvre…`)}`;
+        <button class="btn pri mt-cta" data-mtchoose ${MTSEL.choose?'':'disabled'}>${MTSEL.choose?'C’est parti !':'Choisis une œuvre'}</button>`
+      :`<div class="mt-five small">${v.picks.map(w=>`<span class="mt-c">${card(reg(w))}<span class="mt-ct">${esc(w.ti)}</span></span>`).join('')}</div>${mtWait(`${n} choisit son œuvre.`)}`;
   }else if(v.phase==='quiz'){
     h=quizHTML(v);
   }else if(v.phase==='done'){
-    const win=v.winner===me,s=mtSc(v);
+    const win=v.winner===me,s=mtSc(v),opS=mtOpS(v);
     h=`<div class="mt-end ${win?'win':'lose'}"><div class="mt-trophy">${win?'🏆':'🥘'}</div><p class="mt-res">${win?'Victoire !':'Défaite…'}</p>
-        <p class="mt-final">${s.me} – ${s.op}${v.forfeit?` · ${v.forfeit===me?'abandon':`${n} a abandonné`}`:''}${v.tb?` · manche décisive ${v.tb[me]}–${v.tb[me==='a'?'b':'a']}`:''}</p>
+        <p class="mt-final">${s.me} – ${s.op}${v.forfeit?` · ${v.forfeit===me?'abandon':`${n} a abandonné`}`:''}${v.tb?` · manche décisive ${v.tb[me]}–${v.tb[opS]}`:''}</p>
         <p class="mt-sub">${win?'Tu l’avais vraiment vu.':'T’es un couscous, tu seras meilleur la prochaine fois.'}</p></div>
-      ${(v.turns||[]).map(t=>{const opS=me==='a'?'b':'a';return `<details class="mt-recap"><summary>« ${esc(t.work.ti)} » (œuvre de ${t.target===me?'toi':n}) : toi <b>${ptsTxt(t.pts?.[me]||0)}</b>, ${n} <b>${ptsTxt(t.pts?.[opS]||0)}</b></summary>
-        <ol>${t.qs.map(q=>`<li><span>${esc(q.q)}</span><em class="ok">${esc(q.opts[q.ans])}</em><span class="mt-rr">${qzWho(q[me],n,true)}${qzWho(q[opS],n,false)}</span></li>`).join('')}</ol></details>`}).join('')}
+      ${(v.turns||[]).map(t=>`<details class="mt-recap"><summary>« ${esc(t.work.ti)} » : toi <b>${t.pts?.[me]||0}/5</b>, ${n} <b>${t.pts?.[opS]||0}/5</b></summary>
+        <ol>${t.qs.map(q=>`<li><span>${esc(q.q)}</span><em class="ok">${esc(q.opts[q.ans])}</em><span class="mt-rr">${ansLine(q[me],q.opts,'Toi')}${ansLine(q[opS],q.opts,nameOf(op))}</span></li>`).join('')}</ol></details>`).join('')}
       <button class="btn pri mt-cta" data-mnew="${esc(op)}">Revanche !</button>`;
     if(win&&!mtWonShown.has(v.id)){mtWonShown.add(v.id);setTimeout(confetti,200)}
   }
   body.innerHTML=`<div class="mt" data-phase="${v.phase}">${mtHead(v)}<div class="mt-body${!prev||prev.phase!==v.phase?' enter':''}">${h}</div>
     ${v.phase!=='done'?'<button class="link mt-ff" data-mtff>Abandonner</button>':''}</div>`;
-  quizSchedule(v);
   if(v.phase==='pick'&&v.picker===me)mtPickMount();
+  if(v.phase==='quiz'&&v.quiz?.started&&v.quiz.cur){const i=v.quiz.i;mtQT=setTimeout(()=>{if(MT&&MT.phase==='quiz'&&MT.quiz.i===i&&MT.quiz.started)mtAnswer(-1)},(v.quiz.left+.3)*1000)}
 }
-// ---------- Recherche unifiée : la collection (instantané) puis le catalogue (en direct), dans une même liste ----------
-// mode 'grid' (cartes) pour le match, 'rows' (lignes) pour l'œuvre fétiche
-const WS={seq:0,timer:null};
-function wsLocal(list,q){q=norm(q.trim());return list.filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q))}
-function wsRun(q,local,render){
-  clearTimeout(WS.timer);const seq=++WS.seq;
-  const loc=wsLocal(local,q).slice(0,40);
-  render(loc,null,q.trim().length>=2);
-  if(q.trim().length<2)return;
-  WS.timer=setTimeout(async()=>{
-    const res=await Promise.all(SEARCHT().map(t=>api('search',{type:t,q:q.trim(),limit:4}).catch(()=>({items:[]}))));
-    if(seq!==WS.seq)return;
-    const ids=new Set(loc.map(w=>w.id));
-    render(loc,rr(res.map(r=>(r.items||[]).map(reg))).filter(w=>!ids.has(w.id)),false);
-  },280);
-}
+const ansLine=(r,opts,who)=>`<span class="qz-who ${r?.ok?'ok':'ko'}">${esc(who)} : ${!r?'pas répondu':r.opt<0?'temps écoulé':esc(opts[r.opt])} <b>${r?.ok?'+1':'0'}</b></span>`;
 
-// ---------- Match : choisir 5 œuvres ----------
+// ---------- Choisir 5 œuvres pour l'adversaire (sa collection puis le catalogue) ----------
 function pickPool(op){
   const d=dataOf(op);
   return Object.entries(d.done||{}).sort((a,b)=>b[1]-a[1]).map(([id])=>d.works?.[id]||WK[id]).filter(Boolean).map(w=>WK[w.id]||reg(w));
 }
 function mtGridItem(w){return `<button class="mt-g${MTSEL.works.some(s=>s.id===w.id)?' on':''}" data-mtsel="${esc(w.id)}">${card(w)}<span class="mt-ct">${esc(w.ti)}</span><span class="mt-ck"><span class="tm t-${w.t}"></span>${esc(T[w.t]?.n||'')}</span></button>`}
-function mtResults(loc,cat,loading){
-  const g=$('#mtGrid');if(!g||!MT)return;const n=esc(nameOf(mtOp(MT)));
+function mtResults(loc,cat){
+  const g=$('#mtGrid');if(!g||!MT)return;const n=esc(nameOf(mtOpId(MT)));
   g.innerHTML=`<div class="ws-h">Dans la collection de ${n}</div>${loc.length?`<div class="mt-gr">${loc.map(mtGridItem).join('')}</div>`:`<p class="meta">${MTSEL.q.trim()?'Rien de ce nom dans sa collection.':`${n} n’a encore rien dans sa collection.`}</p>`}
     ${MTSEL.q.trim().length>=2?`<div class="ws-h">Dans le catalogue</div>${cat===null?'<p class="meta">Recherche…</p>':cat.length?`<div class="mt-gr">${cat.map(mtGridItem).join('')}</div>`:'<p class="meta">Rien trouvé dans le catalogue.</p>'}`
       :'<p class="ws-tip">Tape un titre pour chercher aussi dans tout le catalogue.</p>'}`;
@@ -968,108 +970,96 @@ function mtSelUpdate(){
   const sel=MTSEL.works,box=$('#mtSel');if(!box)return;
   box.innerHTML=[0,1,2,3,4].map(i=>sel[i]?`<button class="mt-slot full" data-mtunsel="${esc(sel[i].id)}" aria-label="Retirer ${esc(sel[i].ti)}">${card(sel[i])}</button>`:'<span class="mt-slot"></span>').join('');
   document.querySelectorAll('#mtGrid .mt-g').forEach(b=>b.classList.toggle('on',sel.some(s=>s.id===b.dataset.mtsel)));
-  const go=$('#fsBody [data-mtsend]');if(go){go.disabled=sel.length!==5;go.textContent=sel.length===5?`Envoyer ces 5 œuvres à ${nameOf(mtOp(MT))}`:`Encore ${5-sel.length} à choisir`}
+  const go=$('#fsBody [data-mtsend]');if(go){go.disabled=sel.length!==5;go.textContent=sel.length===5?`Envoyer ces 5 œuvres à ${nameOf(mtOpId(MT))}`:`Encore ${5-sel.length} à choisir`}
 }
 function pickHTML(v,op){
   const n=esc(nameOf(op));
-  return `<p class="mt-big">Choisis 5 œuvres que ${n} dit avoir vues. Vous répondrez tous les deux aux questions sur celle qu’il gardera.</p>
+  return `<p class="mt-big">Choisis 5 œuvres que ${n} dit avoir vues. Il en gardera une, et vous répondrez tous les deux aux questions.</p>
     <div class="mt-sel" id="mtSel"></div>
     <input class="mini" id="mtq" type="search" autocomplete="off" placeholder="Cherche une œuvre : sa collection et tout le catalogue…" value="${esc(MTSEL.q)}">
     <div class="mt-grid" id="mtGrid"></div>
     <button class="btn pri mt-cta" data-mtsend disabled>Encore 5 à choisir</button>`;
 }
-function mtPickMount(){if(!$('#mtGrid'))return;mtSelUpdate();wsRun(MTSEL.q,pickPool(mtOp(MT)),mtResults)}
-function mtSearch(){wsRun(MTSEL.q,pickPool(mtOp(MT)),mtResults)}
+function mtPickMount(){mtSelUpdate();wsRun(MTSEL.q,pickPool(mtOpId(MT)),mtResults)}
 
-// ---------- Match : questionnaire à deux, avec réponse express ----------
-let mtClock={at:0,startsIn:0,left:0},mtTick=null;
-function qzTimes(){const e=(Date.now()-mtClock.at)/1000;return {starts:Math.max(0,mtClock.startsIn-e),left:Math.max(0,mtClock.left-e),since:Math.max(0,e-mtClock.startsIn)}}
-const ptsTxt=p=>p>0?`+${p}`:p<0?`${p}`:'0';
-function qzWho(r,who,isMe){
-  if(!r)return `<span class="qz-who none">${isMe?'Toi':esc(who)} : pas répondu</span>`;
-  return `<span class="qz-who ${r.pts>0?'ok':r.pts<0?'ko':''}">${r.x?'⚡ ':''}${isMe?'Toi':esc(who)} : ${r.opt<0?'temps écoulé':r.ok?'bonne réponse':'raté'} <b>${ptsTxt(r.pts)}</b></span>`;
-}
+// ---------- Questionnaire : chacun répond à son rythme, avec 30 s par question ----------
 function quizHTML(v){
-  const qz=v.quiz,w=v.chosen,n=nameOf(mtOp(v)),t=qzTimes();
-  const dots=`<div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${p?((p.me?.pts||0)>0?'ok':(p.me?.pts||0)<0?'ko':'nul'):k===qz.i?'cur':''}"></i>`}).join('')}</div>`;
+  const qz=v.quiz,w=v.chosen,n=esc(nameOf(mtOpId(v)));
+  const dots=`<div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${p?(p.ok?'ok':'ko'):k===qz.i?'cur':''}"></i>`}).join('')}</div>`;
   const top=`<div class="qz-top">${card(reg(w))}<div><b>« ${esc(w.ti)} »</b>${dots}</div></div>`;
-  // pause entre deux questions : révélation de la précédente
-  if(t.starts>0){
-    const last=qz.past[qz.past.length-1];
-    if(!last)return `${top}<div class="qz-ready"><p>Prêts ? Vous répondez tous les deux.</p><p class="qz-rule">⚡ Réponse express dans les 2 premières secondes : <b>+2</b> si c’est juste, <b>-1</b> sinon, et l’autre ne peut plus répondre.</p><div class="qz-count">${Math.ceil(t.starts)}</div></div>`;
-    return `${top}<p class="qz-q">${esc(last.q)}</p>
-      <div class="qz-opts${last.opts.length===2?' two':''}">${last.opts.map((o,k)=>`<span class="qz-o ${k===last.ans?'good':k===last.me?.opt?'bad':'dim'}">${esc(o)}${k===last.op?.opt?`<em class="qz-tag">${esc(n)}</em>`:''}${k===last.me?.opt?'<em class="qz-tag me">Toi</em>':''}</span>`).join('')}</div>
-      <div class="qz-res">${qzWho(last.me,n,true)}${qzWho(last.op,n,false)}</div>
-      ${qz.cur?`<p class="qz-next">Question suivante dans ${Math.ceil(t.starts)}…</p>`:''}`;
+  const opLine=`<p class="qz-opp">${n} : ${qz.op.done?'a terminé':`${qz.op.i}/${qz.n} questions`}</p>`;
+  const fb=mtQuizFb;
+  if(fb&&fb.id===v.id){ // révélation de la réponse qu'on vient de donner
+    const p=fb.p;
+    return `${top}<p class="qz-q">${esc(p.q)}</p>
+      <div class="qz-opts${p.opts.length===2?' two':''}">${p.opts.map((o,k)=>`<span class="qz-o ${k===p.ans?'good':k===p.opt?'bad':'dim'}">${esc(o)}</span>`).join('')}</div>
+      <p class="qz-fb ${p.ok?'ok':'ko'}">${p.ok?'Bien vu ! +1':p.opt<0?'Temps écoulé…':'Raté…'}</p>`;
   }
-  if(!qz.cur)return top+mtWait('On compte les points…');
-  const express=t.since<qz.express&&!qz.mine&&!qz.opDone&&!qz.lock;
-  const lockedOut=qz.lock&&qz.lock!==v.me;
-  const answered=qz.mine;
-  return `${top}
-    <div class="qz-timer${answered||lockedOut?' stop':''}"><i style="animation-duration:${t.left}s"></i></div>
-    <div class="qz-x${express?' on':''}">${express?'⚡ Réponse express : +2 si c’est juste !':qz.opDone&&!answered?`${esc(n)} a déjà répondu`:'&nbsp;'}</div>
+  if(qz.i>=qz.n)return `${top}<div class="qz-ready"><p>Tu as fini : ${qz.ok}/${qz.n} bonne${qz.ok>1?'s':''} réponse${qz.ok>1?'s':''} !</p></div>${opLine}${qz.op.done?'':mtWait(`${n} n’a pas encore fini ses questions.`)}`;
+  if(!qz.started)return `${top}<div class="qz-ready"><p>${qz.i?`Question ${qz.i+1} sur ${qz.n}`:'5 questions, 30 secondes chacune.'}</p>
+      <p class="qz-rule">1 point par bonne réponse. ${n} répond aux mêmes questions de son côté.</p>
+      <button class="btn pri mt-cta" data-mtnext>${qz.i?'Question suivante':'Je suis prêt !'}</button></div>${opLine}`;
+  return `${top}<div class="qz-timer"><i style="animation-duration:${qz.left}s"></i></div>
     <p class="qz-q">${esc(qz.cur.q)}</p>
-    <div class="qz-opts${qz.cur.opts.length===2?' two':''}">${qz.cur.opts.map((o,k)=>`<button class="qz-o${answered&&answered.opt===k?' picked':''}${answered||lockedOut?' dim':''}" style="--i:${k}" data-mtans="${k}" ${answered||lockedOut?'disabled':''}>${esc(o)}</button>`).join('')}</div>
-    ${lockedOut?`<p class="qz-lock">⚡ ${esc(n)} a buzzé en express ! Tu ne peux plus répondre.</p>`:answered?`<p class="qz-wait">${answered.x?'⚡ Réponse express envoyée ! ':''}En attente de ${esc(n)}…</p>`:''}`;
+    <div class="qz-opts${qz.cur.opts.length===2?' two':''}">${qz.cur.opts.map((o,k)=>`<button class="qz-o" style="--i:${k}" data-mtans="${k}">${esc(o)}</button>`).join('')}</div>${opLine}`;
 }
-function quizSchedule(v){
-  clearTimeout(mtTick);
-  if(v.phase!=='quiz'||!v.quiz)return;
-  const t=qzTimes();
-  // réafficher au début de la question, à la fin du créneau express, puis chaque seconde pendant le compte à rebours
-  let next=null;
-  if(t.starts>0)next=Math.min(1,t.starts);
-  else if(t.since<v.quiz.express)next=v.quiz.express-t.since+.05;
-  else if(!v.quiz.mine&&t.left>0&&!(v.quiz.lock&&v.quiz.lock!==v.me))next=t.left+.2;
-  if(next!==null)mtTick=setTimeout(()=>{
-    const tt=qzTimes();
-    if(MT&&MT.phase==='quiz'&&tt.starts<=0&&tt.left<=0&&!MT.quiz.mine)mtAnswer(-1);else renderMatch(MT);
-  },next*1000);
-}
+let mtQuizFb=null;
 async function mtAnswer(opt){
-  if(!MT||mtBusy||MT.phase!=='quiz'||!MT.quiz.cur)return;
-  const i=MT.quiz.i;mtBusy=true;
+  if(!MT||mtBusy||MT.phase!=='quiz'||!MT.quiz.started)return;
+  clearTimeout(mtQT);const i=MT.quiz.i;
   document.querySelectorAll('#fsBody .qz-o').forEach(b=>{b.disabled=true;if(+b.dataset.mtans===opt)b.classList.add('picked')});
-  try{const r=await call('POST',`match/${MT_ID}/answer`,{i,opt});mtBusy=false;setMatch(r.match)}
-  catch(e){mtBusy=false;if(!['locked','bad_question','already_answered','bad_phase'].includes(e.code))toast(msg(e));pollMatch()}
+  mtBusy=true;
+  try{
+    const r=await call('POST',`match/${MT_ID}/answer`,{i,opt});mtBusy=false;const v=r.match;
+    // la réponse qu'on vient de donner : dans le questionnaire en cours, ou dans le récapitulatif si le tour vient de se terminer
+    const p=v.quiz?.past?.[i]||(()=>{const t=(v.turns||[])[(v.turns||[]).length-1],q=t?.qs?.[i],me=t&&q?q[v.me]:null;return q?{q:q.q,opts:q.opts,ans:q.ans,opt:me?.opt??-1,ok:!!me?.ok}:null})();
+    MT=v;
+    if(p){mtQuizFb={id:v.id,p};renderMatch(v)}
+    clearTimeout(mtAfterT);
+    mtAfterT=setTimeout(()=>{mtQuizFb=null;
+      // question suivante enchaînée automatiquement
+      if(MT&&MT.phase==='quiz'&&MT.quiz.i<MT.quiz.n)mtAct('qnext',{});else renderMatch(MT)},1400);
+  }catch(e){mtBusy=false;toast(msg(e));refreshMatch()}
 }
 
-// --- pierre, feuille, ciseaux : révélation animée
-function rpsReveal(last,prev){
-  const v=MT,body=$('#fsBody .mt-body');if(!body){renderMatch(prev);return}
-  mtAnim=true;
-  const me=v.me,op=me==='a'?'b':'a',n=esc(nameOf(mtOp(v)));
-  body.innerHTML=`<div class="rps-show"><span class="rps-h me pump">✊</span><span class="rps-vs">vs</span><span class="rps-h op pump">✊</span></div><p class="rps-cd">Pierre… feuille… ciseaux !</p>`;
+// ---------- Pierre, feuille, ciseaux : révélation animée (une seule fois par manche) ----------
+function rpsReveal(last){
+  const v=MT,body=$('#fsBody');if(!body||$('#fs').dataset.kind!=='match'){renderMatch();return}
+  if(!body.querySelector('.mt'))body.innerHTML=`<div class="mt">${mtHead(v)}<div class="mt-body"></div></div>`;
+  const zone=body.querySelector('.mt-body');
+  const me=v.me,op=mtOpS(v),n=esc(nameOf(mtOpId(v)));
+  zone.innerHTML=`<div class="rps-show"><span class="rps-h me pump">✊</span><span class="rps-vs">vs</span><span class="rps-h op pump">✊</span></div><p class="rps-cd">Pierre… feuille… ciseaux !</p>`;
   setTimeout(()=>{
     const res=last.w===null?'Égalité ! On rejoue.':last.w===me?(last.phase==='rps'?`Gagné ! Tu choisis les 5 œuvres de ${n}.`:'Manche pour toi !'):(last.phase==='rps'?`Perdu ! ${n} choisit tes 5 œuvres.`:`Manche pour ${n}…`);
-    body.innerHTML=`<div class="rps-show done"><span class="rps-h me ${last.w===me?'win':last.w?'lose':''}">${RPS_E[last[me]]}</span><span class="rps-vs">vs</span><span class="rps-h op ${last.w===op?'win':last.w?'lose':''}">${RPS_E[last[op]]}</span></div><p class="rps-res ${last.w===me?'ok':last.w?'ko':''}">${res}</p>`;
-    if(last.w===me&&navigator.vibrate)try{navigator.vibrate([10,40,10])}catch(e){}
-    setTimeout(()=>{mtAnim=false;renderMatch()},1900);
+    zone.innerHTML=`<div class="rps-show done"><span class="rps-h me ${last.w===me?'win':last.w?'lose':''}">${RPS_E[last[me]]}</span><span class="rps-vs">vs</span><span class="rps-h op ${last.w===op?'win':last.w?'lose':''}">${RPS_E[last[op]]}</span></div>
+      <p class="rps-res ${last.w===me?'ok':last.w?'ko':''}">${res}</p><button class="btn pri mt-cta" data-mtcont>Continuer</button>`;
   },RM?50:1300);
 }
-async function mtAct(path,body,after){
-  if(mtBusy)return;mtBusy=true;
-  try{const r=await call('POST',`match/${MT_ID}/${path}`,body);mtBusy=false;after&&after();setMatch(r.match)}catch(e){mtBusy=false;toast(msg(e));pollMatch()}
-}
+
+// ---------- Clics ----------
 function matchClick(d,b){
   if(d.mnew!==undefined){newMatch(d.mnew,b);return true}
   if(d.mopen){openMatch(d.mopen,b);return true}
   if(!MT)return false;
+  if('mtrefresh' in d){b.disabled=true;b.textContent='…';refreshMatch();return true}
+  if('mtcont' in d){renderMatch();return true}
   if(d.mrps){b.classList.add('chosen');mtAct('rps',{c:d.mrps});return true}
   if(d.mtsel){const w=WK[d.mtsel];if(!w)return true;const i=MTSEL.works.findIndex(x=>x.id===w.id);
     if(i>=0)MTSEL.works.splice(i,1);else if(MTSEL.works.length<5)MTSEL.works.push(snap(w));else{toast('5 œuvres maximum');return true}
     mtSelUpdate();return true}
   if(d.mtunsel){MTSEL.works=MTSEL.works.filter(x=>x.id!==d.mtunsel);mtSelUpdate();return true}
-  if('mtsend' in d){mtAct('pick',{works:MTSEL.works},()=>{MTSEL.works=[];MTSEL.q='';MTSEL.cat=false});return true}
-  if(d.mtpick1){MTSEL.choose=d.mtpick1;renderMatch(MT);return true}
-  if('mtchoose' in d){if(MTSEL.choose)mtAct('choose',{id:MTSEL.choose},()=>{MTSEL.choose=null});return true}
+  if('mtsend' in d){const w=[...MTSEL.works];mtAct('pick',{works:w}).then(ok=>{if(ok){MTSEL.works=[];MTSEL.q=''}});return true}
+  if(d.mtpick1){MTSEL.choose=d.mtpick1;document.querySelectorAll('#fsBody .mt-c').forEach(c=>c.classList.toggle('on',c.dataset.mtpick1===d.mtpick1));
+    const go=$('#fsBody [data-mtchoose]');if(go){go.disabled=false;go.textContent='C’est parti !'}return true}
+  if('mtchoose' in d){if(MTSEL.choose)mtAct('choose',{id:MTSEL.choose}).then(ok=>{if(ok)MTSEL.choose=null});return true}
+  if('mtnext' in d){b.disabled=true;mtAct('qnext',{});return true}
   if(d.mtans!==undefined&&!b.disabled){mtAnswer(+d.mtans);return true}
   if('mtff' in d){if(confirm('Abandonner ce match ? Ton adversaire gagnera.'))mtAct('forfeit',{});return true}
   return false;
 }
-document.addEventListener('input',e=>{if(e.target.id==='mtq'){MTSEL.q=e.target.value;mtSearch()}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMatches();if(MT_ID)pollMatch()}});
+document.addEventListener('input',e=>{if(e.target.id==='mtq'){MTSEL.q=e.target.value;wsRun(MTSEL.q,pickPool(mtOpId(MT)),mtResults)}});
+// retour dans l'app : on remet la partie ouverte à jour, une fois
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&MT_ID&&!mtBusy&&!mtQuizFb)refreshMatch()});
 
 /* ---------- Grimoire et étagère en plein écran ---------- */
 const COLL={items:[]};
@@ -1648,7 +1638,7 @@ function applyState(st){
   st.members.forEach(m=>{const d=normData(m.data);members[m.id]={name:m.name,data:d};names[m.id]=m.name;Object.values(d.works).forEach(reg)});
   if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
   myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
-  CIRCLES=st.circleMembers||{};CATS=st.catalogs||{b:false};FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
+  CIRCLES=st.circleMembers||{};CATS=st.catalogs||{b:false};setMatches(st.matches);FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
   comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
   renderAll();
 }

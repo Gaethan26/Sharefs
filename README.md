@@ -36,7 +36,7 @@ Les tables des défis et des commentaires sont créées automatiquement par l'AP
 
 ## Jeu 1v1 « Genre tu l'as vu !? »
 
-Code serveur dans `server/api/match.php` (table `matches`, créée automatiquement). Le serveur fait foi : le coup de l'adversaire et les bonnes réponses ne sont envoyés qu'une fois joués. L'app interroge la partie ouverte toutes les 1,2 s (réponse vide si rien n'a changé) et la liste des parties toutes les 8 s.
+Code serveur dans `server/api/match.php` (table `matches`, créée automatiquement). Tour par tour : chacun joue à son rythme ; les deux joueurs répondent aux mêmes 5 questions, chacun avec son propre chrono de 30 s par question. Le serveur fait foi : le coup de l'adversaire et les bonnes réponses ne sont envoyés qu'une fois joués. Pas de rafraîchissement permanent : la partie se met à jour après chaque action, à l'ouverture, au retour dans l'app ou avec « Actualiser » ; la liste des parties arrive avec l'état général.
 
 ## Cartes secrètes
 
