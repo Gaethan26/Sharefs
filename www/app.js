@@ -54,7 +54,7 @@ const ERR={bad_email:'Cette adresse e-mail n’est pas valide.',weak_password:'L
   bad_credentials:'E-mail ou mot de passe incorrect.',too_many_attempts:'Trop d’essais. Réessaie dans un quart d’heure.',bad_code:'Code incorrect ou expiré.',
   unknown_code:'Aucun cercle ne correspond à ce code.',bad_recipients:'Un destinataire ne fait pas partie de tes cercles.',offline:'Pas de connexion au serveur.',server_error:'Erreur du serveur. Réessaie.',
   fetish_locked:'Ton œuvre fétiche de la saison est déjà choisie.',guess_used:'Tu as déjà fait ton essai du jour pour cet ami.',already_found:'Tu as déjà trouvé son œuvre fétiche.',
-  no_fetish:'Cet ami n’a pas encore choisi son œuvre fétiche.',missing_key:'Ce catalogue n’est pas encore configuré.'};
+  no_fetish:'Cet ami n’a pas encore choisi son œuvre fétiche.',need_five:'Choisis exactement 5 œuvres.',not_your_turn:'Ce n’est pas ton tour.',match_over:'Ce match est terminé.',too_early:'Attends le début de la question.',missing_key:'Ce catalogue n’est pas encore configuré.'};
 const msg=e=>ERR[e?.code]||('Erreur : '+(e?.code||e?.message||'inconnue'));
 
 /* ---------- État ---------- */
@@ -254,21 +254,19 @@ function openPicker(mode,target=''){
   Object.assign(PK,{mode,target,q:'',res:[],err:'',scope:'coll',opts:null,sel:null,today:false});
   lastFocus=document.activeElement;sheetId='__pick';renderPicker();
   $('#scrim').classList.add('open');$('#sheet').classList.add('open');$('#sheet').style.setProperty('--tc','var(--line)');
-  if(mode==='guess')loadGuess();else setTimeout(()=>$('#pkq')?.focus(),80);
+  if(mode==='guess')loadGuess();else{pkSearch();setTimeout(()=>$('#pkq')?.focus(),80)}
 }
 function pkTarget(){return PK.mode==='guess'?(FET?.others||[]).find(o=>o.user_id===PK.target):null}
-function pkResHTML(){
-  const row=w=>`<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span></span><button class="btn pri" data-pkpick="${esc(w.id)}">Choisir</button></div>`;
-  if(PK.scope==='coll'){
-    const q=norm(PK.q.trim());
-    const list=Object.entries(mine.done).sort((a,b)=>b[1]-a[1]).map(([id])=>WK[id]).filter(w=>w&&(!q||norm(w.ti+' '+(w.c||'')).includes(q))).slice(0,40);
-    return `${list.length?list.map(row).join(''):`<p class="meta" style="margin:12px 2px">${q?'Rien de ce nom dans ta collection.':'Ta collection est encore vide.'}</p>`}
-      <button class="btn fe-more" data-pkall>Pas encore dans ta collection ? Va la chercher ta pépite Francis !</button>`;
-  }
-  const list=PK.q.trim()?PK.res:[];
-  return `${list.length?list.map(row).join(''):(PK.q.trim()?'<p class="meta" style="margin:12px 2px">Rien trouvé pour l’instant.</p>':'')}
-    <button class="link fe-back" data-pkcoll>Revenir à ma collection</button>`;
+function pkRow(w){return `<div class="chr">${cover(w)}<span class="chr-t"><b>${esc(w.ti)}</b><span class="meta">${metaLine(w)}</span></span><button class="btn pri" data-pkpick="${esc(w.id)}">Choisir</button></div>`}
+const pkLocal=()=>Object.entries(mine.done).sort((a,b)=>b[1]-a[1]).map(([id])=>WK[id]).filter(Boolean);
+function pkResults(loc,cat){
+  const r=$('#pkres');if(!r)return;const q=PK.q.trim();
+  r.innerHTML=`<div class="ws-h">Dans ta collection</div>${loc.length?loc.map(pkRow).join(''):`<p class="meta" style="margin:8px 2px">${q?'Rien de ce nom dans ta collection.':'Ta collection est encore vide.'}</p>`}
+    <div class="ws-h ws-cat">Pas encore dans ta collection ? Va la chercher ta pépite Francis !</div>
+    ${q.length>=2?(cat===null?'<p class="meta" style="margin:8px 2px">Recherche dans le catalogue…</p>':cat.length?cat.map(pkRow).join(''):'<p class="meta" style="margin:8px 2px">Rien trouvé dans le catalogue.</p>')
+      :'<p class="ws-tip">Tape un titre : on cherche aussi dans tout le catalogue.</p>'}`;
 }
+function pkResHTML(){return ''}
 function renderGuess(){
   const who=esc(nameOf(PK.target));
   const head=`<div class="grab"></div><div class="chf-h"><span class="chf-i fe-i">${HEART}</span><div><h3 id="shTitle">L’œuvre fétiche de ${who}</h3>
@@ -301,19 +299,12 @@ function renderPicker(){
   const o=pkTarget();
   $('#sheetIn').innerHTML=`<div class="grab"></div><div class="chf-h"><span class="chf-i fe-i">${HEART}</span><div><h3 id="shTitle">${PK.mode==='set'?`Mon œuvre fétiche de ${esc(FET?.label||'')}`:`L’œuvre fétiche de ${esc(nameOf(PK.target))}`}</h3>
     <p class="meta">${PK.mode==='set'?'Une seule par saison, impossible de la changer ensuite.':'Un seul essai aujourd’hui : choisis bien.'}</p></div></div>
-    <input class="mini" id="pkq" type="search" autocomplete="off" placeholder="${PK.scope==='coll'?'Cherche une œuvre dans ta collection…':'Cherche une œuvre…'}" value="${esc(PK.q)}" style="width:100%;margin-top:12px">
-    <div id="pkres">${pkResHTML()}</div>
+    <input class="mini" id="pkq" type="search" autocomplete="off" placeholder="Cherche une œuvre dans ta collection… ou ailleurs" value="${esc(PK.q)}" style="width:100%;margin-top:12px">
+    <div id="pkres"></div>
     <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.3em;margin:10px 0 0">${esc(PK.err)}</p>`;
 }
 let pkT=null;
-function pkSearch(){
-  clearTimeout(pkT);const q=PK.q.trim();
-  if(PK.scope==='coll'){const r=$('#pkres');if(r)r.innerHTML=pkResHTML();return}
-  if(q.length<2){PK.res=[];const r=$('#pkres');if(r)r.innerHTML=pkResHTML();return}
-  pkT=setTimeout(async()=>{const seq=++PK.seq,types=SEARCHT();
-    const res=await Promise.all(types.map(t=>api('search',{type:t,q,limit:3}).catch(()=>({items:[]}))));
-    if(seq!==PK.seq)return;PK.res=rr(res.map(x=>(x.items||[]).map(reg)));const r=$('#pkres');if(r)r.innerHTML=pkResHTML()},300);
-}
+function pkSearch(){wsRun(PK.q,pkLocal(),pkResults)}
 async function pkPick(id){
   const w=WK[id];if(!w)return;
   if(PK.mode==='set'){
@@ -851,7 +842,7 @@ function mtStatus(m){
   if(m.phase==='done')return m.winner===m.me?`Victoire 🏆 ${m.score.me}–${m.score.op}`:`Défaite ${m.score.me}–${m.score.op}`;
   return {rps:m.myTurn?'Pierre, feuille, ciseaux !':`${n} réfléchit…`,tiebreak:m.myTurn?'Égalité ! Manche décisive':`${n} réfléchit…`,
     pick:m.myTurn?`Choisis 5 œuvres pour ${n}`:`${n} choisit tes 5 œuvres`,choose:m.myTurn?'Choisis ton œuvre':`${n} choisit son œuvre`,
-    quiz:m.myTurn?'À toi de répondre':`${n} répond aux questions`}[m.phase]||'';
+    quiz:m.myTurn?'Questionnaire : à toi de répondre !':`Questionnaire en cours avec ${n}`}[m.phase]||'';
 }
 function matchZoneHTML(){
   const ops=others();
@@ -885,17 +876,20 @@ function openMatch(id,src,first){
   MT_ID=id;MT=first||null;mtSeenLog=first?first.rpsLog.length:-1;mtFeedback=null;MTSEL.works=[];MTSEL.q='';MTSEL.cat=false;MTSEL.res=[];
   openFs('match',src);
   if(MT)renderMatch();else pollMatch();
-  clearInterval(mtPollT);mtPollT=setInterval(pollMatch,1200);
+  clearInterval(mtPollT);mtPollT=setInterval(pollMatch,450);
 }
-function closeMatch(){clearInterval(mtPollT);clearTimeout(mtQTimer);MT_ID=null;MT=null;loadMatches()}
+function closeMatch(){clearInterval(mtPollT);clearTimeout(mtQTimer);clearTimeout(mtTick);MT_ID=null;MT=null;loadMatches()}
 async function pollMatch(){
   if(!MT_ID||$('#fs').dataset.kind!=='match'||!$('#fs').classList.contains('open')){clearInterval(mtPollT);return}
   if(mtBusy||document.hidden)return;
+  const fast=MT&&['quiz','rps','tiebreak','choose'].includes(MT.phase);
+  if(!fast&&Date.now()-(pollMatch.last||0)<1150)return;pollMatch.last=Date.now();
   try{const r=await api('match/'+MT_ID,{v:MT?MT.version:-1});if(r.match)setMatch(r.match)}catch(e){}
 }
 function setMatch(v){
   if(MT&&v.version<MT.version)return;
   const prev=MT;MT=v;
+  if(v.quiz)mtClock={at:Date.now(),startsIn:v.quiz.startsIn,left:v.quiz.left};
   if(mtSeenLog<0)mtSeenLog=v.rpsLog.length;
   if(v.rpsLog.length>mtSeenLog){const last=v.rpsLog[v.rpsLog.length-1];mtSeenLog=v.rpsLog.length;rpsReveal(last,prev);return}
   if(!mtAnim)renderMatch(prev);
@@ -913,8 +907,7 @@ function renderMatch(prev){
   clearTimeout(mtQTimer);
   const op=mtOp(v),n=esc(nameOf(op)),me=v.me;
   let h='';
-  if(mtFeedback){h=quizHTML(mtFeedback.v)}
-  else if(v.phase==='rps'||v.phase==='tiebreak'){
+  if(v.phase==='rps'||v.phase==='tiebreak'){
     h=v.rps.me?`<div class="rps-wait"><span class="rps-h me">${RPS_E[v.rps.me]}</span><span class="rps-vs">vs</span><span class="rps-h op shake">✊</span></div>${mtWait(v.rps.opDone?'On révèle…':`${n} réfléchit…`)}`
       :`<p class="mt-big">${v.phase==='tiebreak'?'Égalité parfaite ! Pierre, feuille, ciseaux en 2 manches gagnantes.':'Pierre, feuille, ciseaux ! Le gagnant choisit les œuvres de l’autre.'}</p>
         <div class="rps">${['r','p','s'].map((c,i)=>`<button class="rps-b" style="--i:${i}" data-mrps="${c}"><span class="rps-e">${RPS_E[c]}</span><span>${RPS_N[c]}</span></button>`).join('')}</div>`;
@@ -926,75 +919,122 @@ function renderMatch(prev){
         <button class="btn pri mt-cta" data-mtchoose ${MTSEL.choose?'':'disabled'}>${MTSEL.choose?'C’est parti pour 5 questions !':'Choisis une œuvre'}</button>`
       :`<div class="mt-five small">${v.picks.map(w=>`<span class="mt-c">${card(reg(w))}<span class="mt-ct">${esc(w.ti)}</span></span>`).join('')}</div>${mtWait(`${n} choisit son œuvre…`)}`;
   }else if(v.phase==='quiz'){
-    h=v.target===me?quizHTML(v):quizWatchHTML(v,n);
+    h=quizHTML(v);
   }else if(v.phase==='done'){
     const win=v.winner===me,s=mtSc(v);
     h=`<div class="mt-end ${win?'win':'lose'}"><div class="mt-trophy">${win?'🏆':'🥘'}</div><p class="mt-res">${win?'Victoire !':'Défaite…'}</p>
         <p class="mt-final">${s.me} – ${s.op}${v.forfeit?` · ${v.forfeit===me?'abandon':`${n} a abandonné`}`:''}${v.tb?` · manche décisive ${v.tb[me]}–${v.tb[me==='a'?'b':'a']}`:''}</p>
         <p class="mt-sub">${win?'Tu l’avais vraiment vu.':'T’es un couscous, tu seras meilleur la prochaine fois.'}</p></div>
-      ${(v.turns||[]).map(t=>`<details class="mt-recap"><summary>${t.target===me?'Toi':n} sur « ${esc(t.work.ti)} » : <b>${t.ok}/5</b></summary>
-        <ol>${t.qs.map(q=>`<li><span>${esc(q.q)}</span><em class="${q.pick===q.ans?'ok':'ko'}">${esc(q.opts[q.ans])}${q.pick!==q.ans?` (réponse donnée : ${q.pick>=0?esc(q.opts[q.pick]):'temps écoulé'})`:''}</em></li>`).join('')}</ol></details>`).join('')}
+      ${(v.turns||[]).map(t=>{const opS=me==='a'?'b':'a';return `<details class="mt-recap"><summary>« ${esc(t.work.ti)} » (œuvre de ${t.target===me?'toi':n}) : toi <b>${ptsTxt(t.pts?.[me]||0)}</b>, ${n} <b>${ptsTxt(t.pts?.[opS]||0)}</b></summary>
+        <ol>${t.qs.map(q=>`<li><span>${esc(q.q)}</span><em class="ok">${esc(q.opts[q.ans])}</em><span class="mt-rr">${qzWho(q[me],n,true)}${qzWho(q[opS],n,false)}</span></li>`).join('')}</ol></details>`}).join('')}
       <button class="btn pri mt-cta" data-mnew="${esc(op)}">Revanche !</button>`;
     if(win&&!mtWonShown.has(v.id)){mtWonShown.add(v.id);setTimeout(confetti,200)}
   }
-  body.innerHTML=`<div class="mt" data-phase="${mtFeedback?'quiz':v.phase}">${mtHead(v)}<div class="mt-body${!mtFeedback&&(!prev||prev.phase!==v.phase)?' enter':''}">${h}</div>
+  body.innerHTML=`<div class="mt" data-phase="${v.phase}">${mtHead(v)}<div class="mt-body${!prev||prev.phase!==v.phase?' enter':''}">${h}</div>
     ${v.phase!=='done'?'<button class="link mt-ff" data-mtff>Abandonner</button>':''}</div>`;
-  if(v.phase==='quiz'&&v.target===me&&v.quiz?.cur&&!mtFeedback){const left=v.quiz.cur.left,i=v.quiz.i;mtQTimer=setTimeout(()=>{if(MT&&MT.phase==='quiz'&&MT.quiz.i===i)mtAnswer(-1)},left*1000)}
-  if(v.phase==='pick'&&v.picker===me){const q=$('#mtq');if(q&&MTSEL.focus){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+  quizSchedule(v);
+  if(v.phase==='pick'&&v.picker===me)mtPickMount();
 }
-// --- choisir 5 œuvres pour l'adversaire : dans sa collection, ou dans tout le catalogue
+// ---------- Recherche unifiée : la collection (instantané) puis le catalogue (en direct), dans une même liste ----------
+// mode 'grid' (cartes) pour le match, 'rows' (lignes) pour l'œuvre fétiche
+const WS={seq:0,timer:null};
+function wsLocal(list,q){q=norm(q.trim());return list.filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q))}
+function wsRun(q,local,render){
+  clearTimeout(WS.timer);const seq=++WS.seq;
+  const loc=wsLocal(local,q).slice(0,40);
+  render(loc,null,q.trim().length>=2);
+  if(q.trim().length<2)return;
+  WS.timer=setTimeout(async()=>{
+    const res=await Promise.all(SEARCHT().map(t=>api('search',{type:t,q:q.trim(),limit:4}).catch(()=>({items:[]}))));
+    if(seq!==WS.seq)return;
+    const ids=new Set(loc.map(w=>w.id));
+    render(loc,rr(res.map(r=>(r.items||[]).map(reg))).filter(w=>!ids.has(w.id)),false);
+  },280);
+}
+
+// ---------- Match : choisir 5 œuvres ----------
 function pickPool(op){
-  const q=norm(MTSEL.q.trim());
-  if(MTSEL.cat)return MTSEL.res;
   const d=dataOf(op);
-  return Object.entries(d.done||{}).sort((a,b)=>b[1]-a[1]).map(([id])=>d.works?.[id]||WK[id]).filter(Boolean).map(w=>WK[w.id]||reg(w)).filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q)).slice(0,60);
+  return Object.entries(d.done||{}).sort((a,b)=>b[1]-a[1]).map(([id])=>d.works?.[id]||WK[id]).filter(Boolean).map(w=>WK[w.id]||reg(w));
+}
+function mtGridItem(w){return `<button class="mt-g${MTSEL.works.some(s=>s.id===w.id)?' on':''}" data-mtsel="${esc(w.id)}">${card(w)}<span class="mt-ct">${esc(w.ti)}</span><span class="mt-ck"><span class="tm t-${w.t}"></span>${esc(T[w.t]?.n||'')}</span></button>`}
+function mtResults(loc,cat,loading){
+  const g=$('#mtGrid');if(!g||!MT)return;const n=esc(nameOf(mtOp(MT)));
+  g.innerHTML=`<div class="ws-h">Dans la collection de ${n}</div>${loc.length?`<div class="mt-gr">${loc.map(mtGridItem).join('')}</div>`:`<p class="meta">${MTSEL.q.trim()?'Rien de ce nom dans sa collection.':`${n} n’a encore rien dans sa collection.`}</p>`}
+    ${MTSEL.q.trim().length>=2?`<div class="ws-h">Dans le catalogue</div>${cat===null?'<p class="meta">Recherche…</p>':cat.length?`<div class="mt-gr">${cat.map(mtGridItem).join('')}</div>`:'<p class="meta">Rien trouvé dans le catalogue.</p>'}`
+      :'<p class="ws-tip">Tape un titre pour chercher aussi dans tout le catalogue.</p>'}`;
+}
+function mtSelUpdate(){
+  const sel=MTSEL.works,box=$('#mtSel');if(!box)return;
+  box.innerHTML=[0,1,2,3,4].map(i=>sel[i]?`<button class="mt-slot full" data-mtunsel="${esc(sel[i].id)}" aria-label="Retirer ${esc(sel[i].ti)}">${card(sel[i])}</button>`:'<span class="mt-slot"></span>').join('');
+  document.querySelectorAll('#mtGrid .mt-g').forEach(b=>b.classList.toggle('on',sel.some(s=>s.id===b.dataset.mtsel)));
+  const go=$('#fsBody [data-mtsend]');if(go){go.disabled=sel.length!==5;go.textContent=sel.length===5?`Envoyer ces 5 œuvres à ${nameOf(mtOp(MT))}`:`Encore ${5-sel.length} à choisir`}
 }
 function pickHTML(v,op){
-  const n=esc(nameOf(op)),sel=MTSEL.works,pool=pickPool(op);
-  return `<p class="mt-big">Choisis 5 œuvres que ${n} dit avoir vues. Il en gardera une et répondra à 5 questions.</p>
-    <div class="mt-sel">${[0,1,2,3,4].map(i=>sel[i]?`<button class="mt-slot full" data-mtunsel="${esc(sel[i].id)}" aria-label="Retirer ${esc(sel[i].ti)}">${card(sel[i])}</button>`:'<span class="mt-slot"></span>').join('')}</div>
-    <input class="mini" id="mtq" type="search" autocomplete="off" placeholder="${MTSEL.cat?'Chercher dans tout le catalogue…':`Chercher dans la collection de ${n}…`}" value="${esc(MTSEL.q)}">
-    <div class="mt-grid" id="mtGrid">${pool.length?pool.map(w=>`<button class="mt-g${sel.some(s=>s.id===w.id)?' on':''}" data-mtsel="${esc(w.id)}">${card(w)}<span class="mt-ct">${esc(w.ti)}</span></button>`).join('')
-      :`<p class="meta">${MTSEL.cat?(MTSEL.q.trim()?'Rien trouvé.':'Tape un titre.'):`${n} n’a encore rien dans sa collection : cherche dans le catalogue.`}</p>`}</div>
-    <button class="link fe-back" data-mtcat>${MTSEL.cat?`Revenir à la collection de ${n}`:'Pas assez ? Chercher dans tout le catalogue'}</button>
-    <button class="btn pri mt-cta" data-mtsend ${sel.length===5?'':'disabled'}>${sel.length===5?`Envoyer ces 5 œuvres à ${n}`:`Encore ${5-sel.length} à choisir`}</button>`;
+  const n=esc(nameOf(op));
+  return `<p class="mt-big">Choisis 5 œuvres que ${n} dit avoir vues. Vous répondrez tous les deux aux questions sur celle qu’il gardera.</p>
+    <div class="mt-sel" id="mtSel"></div>
+    <input class="mini" id="mtq" type="search" autocomplete="off" placeholder="Cherche une œuvre : sa collection et tout le catalogue…" value="${esc(MTSEL.q)}">
+    <div class="mt-grid" id="mtGrid"></div>
+    <button class="btn pri mt-cta" data-mtsend disabled>Encore 5 à choisir</button>`;
 }
-let mtSearchT=null;
-function mtSearch(){
-  clearTimeout(mtSearchT);
-  if(!MTSEL.cat){renderMatch(MT);return}
-  const q=MTSEL.q.trim();if(q.length<2){MTSEL.res=[];renderMatch(MT);return}
-  mtSearchT=setTimeout(async()=>{const res=await Promise.all(SEARCHT().map(t=>api('search',{type:t,q,limit:4}).catch(()=>({items:[]}))));MTSEL.res=rr(res.map(r=>(r.items||[]).map(reg)));renderMatch(MT)},300);
+function mtPickMount(){if(!$('#mtGrid'))return;mtSelUpdate();wsRun(MTSEL.q,pickPool(mtOp(MT)),mtResults)}
+function mtSearch(){wsRun(MTSEL.q,pickPool(mtOp(MT)),mtResults)}
+
+// ---------- Match : questionnaire à deux, avec réponse express ----------
+let mtClock={at:0,startsIn:0,left:0},mtTick=null;
+function qzTimes(){const e=(Date.now()-mtClock.at)/1000;return {starts:Math.max(0,mtClock.startsIn-e),left:Math.max(0,mtClock.left-e),since:Math.max(0,e-mtClock.startsIn)}}
+const ptsTxt=p=>p>0?`+${p}`:p<0?`${p}`:'0';
+function qzWho(r,who,isMe){
+  if(!r)return `<span class="qz-who none">${isMe?'Toi':esc(who)} : pas répondu</span>`;
+  return `<span class="qz-who ${r.pts>0?'ok':r.pts<0?'ko':''}">${r.x?'⚡ ':''}${isMe?'Toi':esc(who)} : ${r.opt<0?'temps écoulé':r.ok?'bonne réponse':'raté'} <b>${ptsTxt(r.pts)}</b></span>`;
 }
-// --- questionnaire
 function quizHTML(v){
-  const qz=v.quiz,cur=qz.cur,fb=mtFeedback,w=v.chosen;
-  const q=fb?fb.q:cur;if(!q)return mtWait('On compte les points…');
-  const i=fb?fb.i:qz.i;
-  return `<div class="qz-top">${card(reg(w))}<div><b>« ${esc(w.ti)} »</b><div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${fb&&k===fb.i?(fb.good?'ok':'ko'):p?(p.good?'ok':'ko'):k===i?'cur':''}"></i>`}).join('')}</div></div></div>
-    <div class="qz-timer${fb?' stop':''}"><i style="animation-duration:${fb?0:cur.left}s"></i></div>
-    <p class="qz-q">${esc(q.q)}</p>
-    <div class="qz-opts${q.opts.length===2?' two':''}">${q.opts.map((o,k)=>`<button class="qz-o${fb?(k===fb.ans?' good':k===fb.pick?' bad':' dim'):''}" style="--i:${k}" data-mtans="${k}" ${fb?'disabled':''}>${esc(o)}</button>`).join('')}</div>
-    ${fb?`<p class="qz-fb ${fb.good?'ok':'ko'}">${fb.good?'Bien vu ! +1':fb.pick<0?'Temps écoulé…':'Raté…'}</p>`:''}`;
+  const qz=v.quiz,w=v.chosen,n=nameOf(mtOp(v)),t=qzTimes();
+  const dots=`<div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${p?((p.me?.pts||0)>0?'ok':(p.me?.pts||0)<0?'ko':'nul'):k===qz.i?'cur':''}"></i>`}).join('')}</div>`;
+  const top=`<div class="qz-top">${card(reg(w))}<div><b>« ${esc(w.ti)} »</b>${dots}</div></div>`;
+  // pause entre deux questions : révélation de la précédente
+  if(t.starts>0){
+    const last=qz.past[qz.past.length-1];
+    if(!last)return `${top}<div class="qz-ready"><p>Prêts ? Vous répondez tous les deux.</p><p class="qz-rule">⚡ Réponse express dans les 2 premières secondes : <b>+2</b> si c’est juste, <b>-1</b> sinon, et l’autre ne peut plus répondre.</p><div class="qz-count">${Math.ceil(t.starts)}</div></div>`;
+    return `${top}<p class="qz-q">${esc(last.q)}</p>
+      <div class="qz-opts${last.opts.length===2?' two':''}">${last.opts.map((o,k)=>`<span class="qz-o ${k===last.ans?'good':k===last.me?.opt?'bad':'dim'}">${esc(o)}${k===last.op?.opt?`<em class="qz-tag">${esc(n)}</em>`:''}${k===last.me?.opt?'<em class="qz-tag me">Toi</em>':''}</span>`).join('')}</div>
+      <div class="qz-res">${qzWho(last.me,n,true)}${qzWho(last.op,n,false)}</div>
+      ${qz.cur?`<p class="qz-next">Question suivante dans ${Math.ceil(t.starts)}…</p>`:''}`;
+  }
+  if(!qz.cur)return top+mtWait('On compte les points…');
+  const express=t.since<qz.express&&!qz.mine&&!qz.opDone&&!qz.lock;
+  const lockedOut=qz.lock&&qz.lock!==v.me;
+  const answered=qz.mine;
+  return `${top}
+    <div class="qz-timer${answered||lockedOut?' stop':''}"><i style="animation-duration:${t.left}s"></i></div>
+    <div class="qz-x${express?' on':''}">${express?'⚡ Réponse express : +2 si c’est juste !':qz.opDone&&!answered?`${esc(n)} a déjà répondu`:'&nbsp;'}</div>
+    <p class="qz-q">${esc(qz.cur.q)}</p>
+    <div class="qz-opts${qz.cur.opts.length===2?' two':''}">${qz.cur.opts.map((o,k)=>`<button class="qz-o${answered&&answered.opt===k?' picked':''}${answered||lockedOut?' dim':''}" style="--i:${k}" data-mtans="${k}" ${answered||lockedOut?'disabled':''}>${esc(o)}</button>`).join('')}</div>
+    ${lockedOut?`<p class="qz-lock">⚡ ${esc(n)} a buzzé en express ! Tu ne peux plus répondre.</p>`:answered?`<p class="qz-wait">${answered.x?'⚡ Réponse express envoyée ! ':''}En attente de ${esc(n)}…</p>`:''}`;
 }
-function quizWatchHTML(v,n){
-  const qz=v.quiz,w=v.chosen;
-  return `<div class="qz-top">${card(reg(w))}<div><b>${n} répond sur « ${esc(w.ti)} »</b><div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${p?(p.good?'ok':'ko'):k===qz.i?'cur':''}"></i>`}).join('')}</div></div></div>
-    ${qz.cur?`<p class="qz-q watch">${esc(qz.cur.q)}</p><div class="qz-opts${qz.cur.opts.length===2?' two':''}">${qz.cur.opts.map(o=>`<span class="qz-o dim">${esc(o)}</span>`).join('')}</div>`:''}
-    ${mtWait(`${n} a ${qz.ok} bonne${qz.ok>1?'s':''} réponse${qz.ok>1?'s':''} sur ${qz.i}`)}`;
+function quizSchedule(v){
+  clearTimeout(mtTick);
+  if(v.phase!=='quiz'||!v.quiz)return;
+  const t=qzTimes();
+  // réafficher au début de la question, à la fin du créneau express, puis chaque seconde pendant le compte à rebours
+  let next=null;
+  if(t.starts>0)next=Math.min(1,t.starts);
+  else if(t.since<v.quiz.express)next=v.quiz.express-t.since+.05;
+  else if(!v.quiz.mine&&t.left>0&&!(v.quiz.lock&&v.quiz.lock!==v.me))next=t.left+.2;
+  if(next!==null)mtTick=setTimeout(()=>{
+    const tt=qzTimes();
+    if(MT&&MT.phase==='quiz'&&tt.starts<=0&&tt.left<=0&&!MT.quiz.mine)mtAnswer(-1);else renderMatch(MT);
+  },next*1000);
 }
 async function mtAnswer(opt){
-  if(!MT||mtBusy||MT.phase!=='quiz')return;clearTimeout(mtQTimer);
-  const i=MT.quiz.i,q=MT.quiz.cur;mtBusy=true;
-  document.querySelectorAll('#fsBody .qz-o').forEach(b=>b.disabled=true);
-  try{const r=await call('POST',`match/${MT_ID}/answer`,{i,opt});const v=r.match;
-    const past=v.turns&&v.phase!=='quiz'?null:v.quiz?.past?.[i];
-    const t=(v.turns||[])[(v.turns||[]).length-1],tq=t&&t.qs[i];
-    const ans=past?past.ans:tq?tq.ans:-1;
-    mtFeedback={i,q,pick:opt,ans,good:opt===ans,v:MT};MT=v;renderMatch(v);
-    setTimeout(()=>{mtFeedback=null;mtBusy=false;renderMatch(MT)},1300);
-  }catch(e){mtBusy=false;toast(msg(e));pollMatch()}
+  if(!MT||mtBusy||MT.phase!=='quiz'||!MT.quiz.cur)return;
+  const i=MT.quiz.i;mtBusy=true;
+  document.querySelectorAll('#fsBody .qz-o').forEach(b=>{b.disabled=true;if(+b.dataset.mtans===opt)b.classList.add('picked')});
+  try{const r=await call('POST',`match/${MT_ID}/answer`,{i,opt});mtBusy=false;setMatch(r.match)}
+  catch(e){mtBusy=false;if(!['locked','bad_question','already_answered','bad_phase'].includes(e.code))toast(msg(e));pollMatch()}
 }
+
 // --- pierre, feuille, ciseaux : révélation animée
 function rpsReveal(last,prev){
   const v=MT,body=$('#fsBody .mt-body');if(!body){renderMatch(prev);return}
@@ -1019,17 +1059,16 @@ function matchClick(d,b){
   if(d.mrps){b.classList.add('chosen');mtAct('rps',{c:d.mrps});return true}
   if(d.mtsel){const w=WK[d.mtsel];if(!w)return true;const i=MTSEL.works.findIndex(x=>x.id===w.id);
     if(i>=0)MTSEL.works.splice(i,1);else if(MTSEL.works.length<5)MTSEL.works.push(snap(w));else{toast('5 œuvres maximum');return true}
-    MTSEL.focus=false;renderMatch(MT);return true}
-  if(d.mtunsel){MTSEL.works=MTSEL.works.filter(x=>x.id!==d.mtunsel);renderMatch(MT);return true}
-  if('mtcat' in d){MTSEL.cat=!MTSEL.cat;MTSEL.q='';MTSEL.res=[];renderMatch(MT);setTimeout(()=>$('#mtq')?.focus(),40);return true}
+    mtSelUpdate();return true}
+  if(d.mtunsel){MTSEL.works=MTSEL.works.filter(x=>x.id!==d.mtunsel);mtSelUpdate();return true}
   if('mtsend' in d){mtAct('pick',{works:MTSEL.works},()=>{MTSEL.works=[];MTSEL.q='';MTSEL.cat=false});return true}
   if(d.mtpick1){MTSEL.choose=d.mtpick1;renderMatch(MT);return true}
   if('mtchoose' in d){if(MTSEL.choose)mtAct('choose',{id:MTSEL.choose},()=>{MTSEL.choose=null});return true}
-  if(d.mtans!==undefined){mtAnswer(+d.mtans);return true}
+  if(d.mtans!==undefined&&!b.disabled){mtAnswer(+d.mtans);return true}
   if('mtff' in d){if(confirm('Abandonner ce match ? Ton adversaire gagnera.'))mtAct('forfeit',{});return true}
   return false;
 }
-document.addEventListener('input',e=>{if(e.target.id==='mtq'){MTSEL.q=e.target.value;MTSEL.focus=true;mtSearch()}});
+document.addEventListener('input',e=>{if(e.target.id==='mtq'){MTSEL.q=e.target.value;mtSearch()}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMatches();if(MT_ID)pollMatch()}});
 
 /* ---------- Grimoire et étagère en plein écran ---------- */
@@ -1260,7 +1299,7 @@ function openSheet(id,refocus=true,opts={}){
       .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
   }
 }
-function refreshSheet(){if(sheetId==='__pick'){renderPicker();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
+function refreshSheet(){if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
 function closeSheet(){if(!sheetId)return;sheetId=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
@@ -1443,8 +1482,6 @@ document.addEventListener('click',e=>{
   if(d.pkpick){pkPick(d.pkpick);return}
   if(d.gsel){PK.sel=d.gsel;renderGuess();return}
   if('gsend' in d){sendGuess();return}
-  if('pkall' in d){PK.scope='all';renderPicker();pkSearch();setTimeout(()=>$('#pkq')?.focus(),40);return}
-  if('pkcoll' in d){PK.scope='coll';renderPicker();setTimeout(()=>$('#pkq')?.focus(),40);return}
   if('newchal' in d){openChallenge();return}
   if(d.chalwith){const w=d.chalwith;closeSheet();setTimeout(()=>openChallenge(w),220);return}
   if(d.chtab){chalTab=d.chtab;renderChal();return}
