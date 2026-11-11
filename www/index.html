@@ -1417,6 +1417,54 @@ nav.tabs button{position:relative}
 .cous{font-size:96px;line-height:1;margin:0 auto 18px;text-align:center;animation:cous 1s ease-in-out}
 @keyframes cous{0%{transform:scale(.3) rotate(-30deg);opacity:0}60%{transform:scale(1.15) rotate(8deg);opacity:1}100%{transform:none}}
 .fs[data-kind="swipe"] .ghint,.fs[data-kind="five"] .ghint{color:var(--muted);margin-top:14px}
+
+/* ===== images : fondu à l'apparition (plus de sauts) ===== */
+.cg-in img,.cover img{opacity:0;transition:opacity .35s ease}
+.cg-in img.ok,.cover img.ok{opacity:1}
+.cg-in .ph,.cover .ct{transition:opacity .25s}
+.cg-in:has(img.ok) .ph,.cover:has(img.ok) .ct{opacity:0}
+@media (prefers-reduced-motion:reduce){.cg-in img,.cover img{transition:none}}
+/* ===== fil : boutons « Vu ou pas vu ? » et « 5 par 5 » façon CTA ===== */
+.pb-b{position:relative;overflow:hidden;gap:10px;padding:14px 12px;color:#fff;border-radius:20px;box-shadow:0 12px 24px -14px rgba(10,15,35,.7)}
+.pb-swipe{background:radial-gradient(120% 120% at 0% 0%,rgba(255,255,255,.25),transparent 55%),linear-gradient(135deg,#FF4F7B,#FF8A3D)}
+.pb-five{background:radial-gradient(120% 120% at 0% 0%,rgba(255,255,255,.25),transparent 55%),linear-gradient(135deg,#4157F5,#18B39A)}
+.pb-b::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.35) 45%,transparent 60%);transform:translateX(-120%);animation:pbshine 4.5s ease-in-out infinite}
+.pb-five::after{animation-delay:2.2s}
+@keyframes pbshine{55%,100%{transform:translateX(120%)}}
+.pb-i{background:rgba(255,255,255,.22);color:#fff}
+.pb-t{flex:1;min-width:0}
+.pb-b b{color:#fff}
+.pb-b small{color:rgba(255,255,255,.88)}
+.pb-go{flex:none;font-size:18px;font-weight:900;transition:transform .2s}
+.pb-b:hover .pb-go{transform:translateX(3px)}
+@media (max-width:430px){.pb-b small{display:none}.pb-b b{font-size:14.5px}.pb-b{padding:13px 10px}}
+@media (prefers-reduced-motion:reduce){.pb-b::after{animation:none}}
+/* ===== swipe : pile de cartes ===== */
+.sw-stage{--pull:0}
+.sw-card{transition:transform .38s cubic-bezier(.3,1.25,.5,1),opacity .3s,filter .3s}
+.sw-card[data-pos="0"]{transform:none}
+.sw-card[data-pos="1"]{transform:translateY(calc(18px - 12px * var(--pull))) scale(calc(.93 + .05 * var(--pull)));filter:brightness(calc(.86 + .1 * var(--pull)));pointer-events:none}
+.sw-card[data-pos="2"]{transform:translateY(34px) scale(.86);filter:brightness(.75);opacity:.8;pointer-events:none}
+.sw-card.enter{opacity:0;transform:translateY(46px) scale(.8)}
+.sw-card.dragging{transition:none}
+.sw-card.back{display:none}
+.sw-card.seen .card{box-shadow:0 0 0 3px #1C9662,0 0 28px rgba(28,150,98,.55)}
+.sw-card.seen .sw-stamp.yes{animation:stampin .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes stampin{0%{transform:rotate(-14deg) scale(2);opacity:0}100%{transform:rotate(-14deg) scale(1);opacity:1}}
+.sw-info{min-height:52px}
+.sw-info-in{animation:infoin .35s ease}
+@keyframes infoin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* après « Vu ! » : on attire l'œil vers l'avis */
+.sw-rate{padding:12px 10px 14px;border-radius:22px;background:var(--surface);box-shadow:0 0 0 2px color-mix(in srgb,#1C9662 45%,transparent),0 14px 30px -16px rgba(10,15,35,.6);animation:ratein .5s cubic-bezier(.3,1.5,.5,1)}
+@keyframes ratein{0%{opacity:0;transform:translateY(40px) scale(.9)}100%{opacity:1;transform:none}}
+.sw-ask{font-size:17px;animation:askpulse 1.6s ease-in-out .5s 2}
+@keyframes askpulse{0%,100%{transform:scale(1)}15%{transform:scale(1.08) rotate(-2deg)}30%{transform:scale(1.08) rotate(2deg)}45%{transform:scale(1)}}
+.sw-rate .pl-r{opacity:0;animation:rpop .4s cubic-bezier(.3,1.6,.5,1) forwards}
+.sw-rate .pl-r:nth-child(1){animation-delay:.15s}.sw-rate .pl-r:nth-child(2){animation-delay:.22s}.sw-rate .pl-r:nth-child(3){animation-delay:.29s}.sw-rate .pl-r:nth-child(4){animation-delay:.36s}.sw-rate .pl-r:nth-child(5){animation-delay:.43s}
+@keyframes rpop{0%{opacity:0;transform:translateY(16px) scale(.7)}100%{opacity:1;transform:none}}
+.sw-acts .sw-b{transition:transform .2s cubic-bezier(.3,1.6,.5,1),box-shadow .2s}
+.sw-acts .sw-b:hover{transform:scale(1.08)}
+@media (prefers-reduced-motion:reduce){.sw-card,.sw-rate,.sw-ask,.sw-rate .pl-r,.sw-info-in{animation:none !important;transition:none !important;opacity:1}}
 </style>
 </head>
 <body>

@@ -1,3 +1,5 @@
+// Images chargées : apparition en fondu, puis plus jamais de flash lors des rafraîchissements
+document.addEventListener('load',e=>{const t=e.target;if(t&&t.tagName==='IMG'){t.classList.add('ok');IMG_OK.add(t.getAttribute('src'))}},true);
 // Images en erreur (remplace les gestionnaires en ligne, interdits par la CSP)
 document.addEventListener('error',e=>{const t=e.target;if(!t||t.tagName!=='IMG'||!t.dataset.err)return;
   if(t.dataset.err==='cover'){t.parentNode?.classList.remove('has-img');t.remove()}else if(t.dataset.err==='gal')t.parentNode?.remove();else t.remove()},true);
@@ -84,12 +86,14 @@ const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
 
 /* ---------- Œuvres et cartes ---------- */
 const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'');
-const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="cover">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
+const IMG_OK=new Set();
+const imgCls=u=>IMG_OK.has(u)?' class="ok"':'';
+const cover=w=>`<span class="cover t-${w.t}${w.img?' has-img':''}" aria-hidden="true">${w.img?`<img src="${esc(w.img)}"${imgCls(w.img)} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-err="cover">`:''}<span class="ct">${esc(short(w.ti))}</span></span>`;
 const GEM=(r,s=14)=>`<svg class="gem" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true"><path d="M12 2 21.5 9.5 12 22 2.5 9.5z" fill="var(--rc)"/><path d="M12 2 16.6 9.5H7.4z" fill="#fff" opacity=".6"/><path d="M2.5 9.5h4.9L12 22z" fill="#000" opacity=".2"/><path d="M21.5 9.5h-4.9L12 22z" fill="#fff" opacity=".25"/><path d="M7.4 9.5h9.2L12 22z" fill="#fff" opacity=".1"/></svg>`;
 const CROWN='<svg viewBox="0 0 34 22" width="30" height="20" aria-hidden="true"><path d="M3 19 1.5 6l8 6.5L17 2l7.5 10.5 8-6.5L31 19z" fill="url(#crg)" stroke="#9A5A06" stroke-width="1.2" stroke-linejoin="round"/><rect x="3" y="18" width="28" height="3" rx="1" fill="#C77A0B"/><circle cx="17" cy="12.5" r="2" fill="#fff" opacity=".8"/><defs><linearGradient id="crg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A6"/><stop offset="1" stop-color="#F2A21B"/></linearGradient></defs></svg>';
 // Carte : l'image seule, avec le cadre et l'éclat de sa rareté
 function card(w,r=0,cls=''){
-  const img=w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="rm">`:'';
+  const img=w.img?`<img src="${esc(w.img)}"${imgCls(w.img)} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-err="rm">`:'';
   return `<span class="card cs-g t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="cg-in">
     <span class="ph">${esc(short(w.ti))}</span>${img}<span class="cg-lines"></span>${r===5||/fet/.test(cls)?'<span class="cg-foil"></span>':''}</span></span>`;
 }
@@ -538,7 +542,7 @@ function renderFeed(){
     for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
     for(const c of challenges){const s=chalState(c);ev.push({k:'chal',c,s,who:c.from_id,ts:Date.parse(c.created_at)});if(s.st==='won')ev.push({k:'won',c,s,who:c.to_id,ts:s.wonAt})}
   }
-  const pb=$('#playbar');if(pb&&uid)pb.innerHTML=`<button class="pb-b" data-play="swipe"><span class="pb-i">👆</span><span><b>Vu ou pas vu ?</b><small>Swipe pour compléter ta collection</small></span></button><button class="pb-b" data-play="five"><span class="pb-i">✅</span><span><b>5 par 5</b><small>Coche ce que tu as vu</small></span></button>`;
+  const pb=$('#playbar');if(pb&&uid)pb.innerHTML=`<button class="pb-b pb-swipe" data-play="swipe"><span class="pb-i" aria-hidden="true">👆</span><span class="pb-t"><b>Vu ou pas vu ?</b><small>Swipe et complète ta collection</small></span><span class="pb-go" aria-hidden="true">→</span></button><button class="pb-b pb-five" data-play="five"><span class="pb-i" aria-hidden="true">✅</span><span class="pb-t"><b>5 par 5</b><small>Coche tout ce que tu as vu</small></span><span class="pb-go" aria-hidden="true">→</span></button>`;
   const fc=$('#feedCircles');
   if(fc){if(myCircles.length>1&&others().length){if(feedCircle&&!myCircles.includes(feedCircle))feedCircle='';
     fc.hidden=false;fc.innerHTML=chip('Tous les cercles',!feedCircle,'data-fcircle=""')+myCircles.map(c=>chip(circleLabel(c),feedCircle===c,`data-fcircle="${esc(c)}" title="Cercle ${esc(c)}"`,'chip cchip')).join('')}
@@ -700,15 +704,17 @@ function renderWeekly(){
 /* ---------- Compléter sa collection : swipe et 5 par 5 ----------
    Œuvres tirées au hasard parmi les plus populaires et les mieux notées de chaque catalogue,
    hors collection et hors œuvres déjà passées. */
-const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false};
+const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false,shown:new Set()};
 const skipped=()=>new Set(lsGet('sharefs-skip',[]));
-function skipWork(id){const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-600))}}
+function skipWork(id){PLAY.shown.add(id);const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-600))}}
 async function fillPool(min=8){
   if(PLAY.loading||PLAY.pool.length>=min)return;PLAY.loading=true;
   try{
-    const types=PLAY.type?[PLAY.type]:SEARCHT(),sk=skipped(),seen=new Set(PLAY.pool.map(w=>w.id));
+    const types=PLAY.type?[PLAY.type]:SEARCHT();
     const res=await Promise.all(types.map(t=>api('search',{type:t,q:'',page:1+Math.floor(Math.random()*5),limit:12}).catch(()=>({items:[]}))));
-    const fresh=rr(res.map(r=>shuffle((r.items||[]).map(reg)))).filter(w=>!isDone(w.id)&&!sk.has(w.id)&&!seen.has(w.id));
+    // filtrage au moment de l'ajout : une œuvre passée pendant le chargement ne revient pas
+    const sk=skipped(),seen=new Set([...PLAY.pool.map(w=>w.id),...PLAY.five.map(w=>w.id)]);
+    const fresh=rr(res.map(r=>shuffle((r.items||[]).map(reg)))).filter(w=>!isDone(w.id)&&!sk.has(w.id)&&!seen.has(w.id)&&!PLAY.shown.has(w.id)&&!mine.want[w.id]);
     PLAY.pool.push(...fresh);
   }finally{PLAY.loading=false}
 }
@@ -716,44 +722,80 @@ const playTypes=()=>`<div class="row play-types">${chip('Tout',!PLAY.type,'data-
 const playInfo=w=>`<div class="pl-ti">${esc(w.ti)}</div><div class="pl-me"><span class="tm t-${w.t}"></span>${metaLine(w)}</div>`;
 const rateRow=(id,attr)=>`<div class="pl-rates">${RN.map(n=>`<button class="pl-r r${n}${PLAY.rates[id]===n?' on':''}" ${attr}="${n}" data-pid="${esc(id)}" aria-pressed="${PLAY.rates[id]===n}">${GEM(n,14)}<span>${RAR[n].s}</span></button>`).join('')}</div>`;
 
-// --- Swipe
+// --- Swipe : une pile de cartes qui reste en place ; seule la carte du dessus part, les suivantes avancent
 function swipeHTML(){
-  const w=PLAY.pool[0],nx=PLAY.pool[1];
-  return `${playTypes()}<div class="sw-stage">${!w?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant. Change de type ou reviens plus tard !'}</div>`:
-    `${nx?`<div class="sw-card back" aria-hidden="true">${card(nx)}</div>`:''}<div class="sw-card" id="swc" data-sid="${esc(w.id)}"><span class="sw-stamp yes">Vu !</span><span class="sw-stamp no">Pas vu</span><span class="sw-stamp later">À voir</span>${card(w)}</div>`}</div>
-    ${w?`<div class="sw-info">${playInfo(w)}</div>`:''}
-    ${w&&PLAY.rating?`<div class="sw-rate"><p>T’en as pensé quoi ?</p>${rateRow(w.id,'data-swrate')}</div>`:
-      w?`<div class="sw-acts"><button class="sw-b no" data-swipe="no" aria-label="Pas vu">✕</button><button class="sw-b later" data-swipe="later" aria-label="À voir plus tard">${BM(false)}</button><button class="sw-b yes" data-swipe="yes" aria-label="Vu">✓</button></div>
-      <p class="ghint">Glisse à droite si tu l’as vu, à gauche sinon, vers le haut pour le garder.</p>`:''}`;
+  return `${playTypes()}<div class="sw-stage" id="swStage"></div><div class="sw-info" id="swInfo"></div><div id="swCtl"></div>`;
+}
+function swCardEl(w,pos){
+  const d=document.createElement('div');d.className='sw-card';d.dataset.sid=w.id;d.dataset.pos=pos;
+  d.innerHTML=`<span class="sw-stamp yes">Vu !</span><span class="sw-stamp no">Pas vu</span><span class="sw-stamp later">À voir</span>${card(w)}`;
+  return d;
+}
+// Pile : au plus 3 cartes ; positions 0 (dessus), 1, 2
+function syncStack(){
+  const st=$('#swStage');if(!st)return;
+  const want=PLAY.pool.slice(0,3),have=[...st.querySelectorAll('.sw-card:not(.gone)')];
+  have.forEach(el=>{if(!want.some(w=>w.id===el.dataset.sid))el.remove()});
+  want.forEach((w,i)=>{let el=st.querySelector(`.sw-card:not(.gone)[data-sid="${CSS.escape(w.id)}"]`);
+    if(!el){el=swCardEl(w,i);el.classList.add('enter');st.prepend(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('enter')))}
+    el.dataset.pos=i;el.style.zIndex=10-i});
+  // précharger les images suivantes pour éviter les sauts
+  PLAY.pool.slice(3,6).forEach(w=>{if(w.img&&!IMG_OK.has(w.img)){const im=new Image();im.referrerPolicy='no-referrer';im.onload=()=>IMG_OK.add(w.img);im.src=w.img}});
+  if(!want.length)st.innerHTML=`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant. Change de type ou reviens plus tard !'}</div>`;
+  else st.querySelector('.sw-empty')?.remove();
+}
+function syncInfo(){
+  const w=PLAY.pool[0],inf=$('#swInfo'),ctl=$('#swCtl');if(!inf||!ctl)return;
+  inf.innerHTML=w?`<div class="sw-info-in" key="${esc(w.id)}">${playInfo(w)}</div>`:'';
+  if(!w){ctl.innerHTML='';return}
+  ctl.innerHTML=PLAY.rating?`<div class="sw-rate"><p class="sw-ask">T’en as pensé quoi ?</p>${rateRow(w.id,'data-swrate')}</div>`:
+    `<div class="sw-acts"><button class="sw-b no" data-swipe="no" aria-label="Pas vu">✕</button><button class="sw-b later" data-swipe="later" aria-label="À voir plus tard">${BM(false)}</button><button class="sw-b yes" data-swipe="yes" aria-label="Vu">✓</button></div>
+    <p class="ghint">Glisse à droite si tu l’as vu, à gauche sinon, vers le haut pour le garder.</p>`;
 }
 function renderSwipe(){
-  const b=$('#fsBody');if(!b||$('#fs').dataset.kind!=='swipe')return;
-  b.innerHTML=swipeHTML();bindSwipe();
-  if(PLAY.pool.length<5&&!PLAY.loading)fillPool().then(()=>{PLAY.tried=true;if(!PLAY.rating&&!$('#swc.dragging'))renderSwipe()});
+  if($('#fs').dataset.kind!=='swipe')return;
+  if(!$('#swStage')){$('#fsBody').innerHTML=swipeHTML()}
+  syncStack();syncInfo();bindSwipe();
+  if(PLAY.pool.length<6&&!PLAY.loading)fillPool().then(()=>{PLAY.tried=true;if($('#fs').dataset.kind==='swipe'&&!$('.sw-card.dragging')){syncStack();if(!PLAY.rating)syncInfo();bindSwipe()}});
 }
+function topCard(){return $('#swStage .sw-card:not(.gone)[data-pos="0"]')}
 function bindSwipe(){
-  const c=$('#swc');if(!c||PLAY.rating)return;let st=null;
-  c.addEventListener('pointerdown',e=>{st={x:e.clientX,y:e.clientY};try{c.setPointerCapture(e.pointerId)}catch(err){}c.classList.add('dragging')});
+  const c=topCard();if(!c||c.dataset.bound||PLAY.rating)return;c.dataset.bound=1;let st=null;
+  c.addEventListener('pointerdown',e=>{if(PLAY.rating)return;st={x:e.clientX,y:e.clientY};try{c.setPointerCapture(e.pointerId)}catch(err){}c.classList.add('dragging')});
   c.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
     c.style.transform=`translate(${dx}px,${dy}px) rotate(${dx/14}deg)`;
-    c.style.setProperty('--yes',Math.max(0,Math.min(1,dx/110)));c.style.setProperty('--no',Math.max(0,Math.min(1,-dx/110)));c.style.setProperty('--later',Math.max(0,Math.min(1,-dy/110)))});
-  const up=e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;st=null;c.classList.remove('dragging');
+    c.style.setProperty('--yes',Math.max(0,Math.min(1,dx/110)));c.style.setProperty('--no',Math.max(0,Math.min(1,-dx/110)));c.style.setProperty('--later',Math.max(0,Math.min(1,-dy/110)));
+    $('#swStage')?.style.setProperty('--pull',Math.min(1,Math.hypot(dx,dy)/160))});
+  const up=e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;st=null;c.classList.remove('dragging');$('#swStage')?.style.setProperty('--pull',0);
     if(dx>100)swipeAct('yes');else if(dx<-100)swipeAct('no');else if(dy<-100)swipeAct('later');
-    else{c.style.transition='transform .3s cubic-bezier(.3,1.4,.5,1)';c.style.transform='';['--yes','--no','--later'].forEach(v=>c.style.setProperty(v,0));setTimeout(()=>c.style.transition='',320)}};
+    else{c.style.transition='transform .35s cubic-bezier(.3,1.5,.5,1)';c.style.transform='';['--yes','--no','--later'].forEach(v=>c.style.setProperty(v,0));setTimeout(()=>c.style.transition='',360)}};
   c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);
 }
-function swipeAct(kind){
-  const w=PLAY.pool[0];if(!w)return;const c=$('#swc');
-  const fly=(x,y,r)=>new Promise(res=>{if(!c||RM){res();return}c.style.transition='transform .35s ease-in';c.style.transform=`translate(${x}px,${y}px) rotate(${r}deg)`;setTimeout(res,330)});
-  if(kind==='yes'){PLAY.rating=true;renderSwipe();return}
-  if(kind==='no'){skipWork(w.id);fly(-innerWidth,40,-24).then(()=>{PLAY.pool.shift();renderSwipe()});return}
-  if(kind==='later'){if(!mine.want[w.id]){mine.want[w.id]=Date.now();mine.works[w.id]=snap(w);save()}skipWork(w.id);
-    fly(0,-innerHeight,0).then(()=>{toast('Gardé pour plus tard 🔖');PLAY.pool.shift();renderSwipe()})}
+// La carte du dessus s'envole ; les autres avancent sans tout redessiner
+function flyOut(x,y,r){
+  const c=topCard();if(!c)return Promise.resolve();
+  c.classList.add('gone');c.style.transition=RM?'none':'transform .42s cubic-bezier(.5,0,.75,0), opacity .42s';
+  c.style.transform=`translate(${x}px,${y}px) rotate(${r}deg)`;c.style.opacity='0';
+  return new Promise(res=>setTimeout(()=>{c.remove();res()},RM?0:300));
 }
-function swipeRate(n){const w=PLAY.pool.shift();PLAY.rating=false;if(!w)return;revealStay=true;mine.works[w.id]=snap(w);setRate(w.id,n);renderSwipe()}
+function advance(){PLAY.pool.shift();PLAY.rating=false;renderSwipe()}
+function swipeAct(kind){
+  const w=PLAY.pool[0];if(!w)return;
+  PLAY.shown.add(w.id);
+  if(kind==='yes'){
+    const c=topCard();if(c){c.style.transition='transform .4s cubic-bezier(.3,1.4,.5,1)';c.style.transform='translate(0,-6px) rotate(0) scale(.94)';c.style.setProperty('--yes',1);c.style.setProperty('--no',0);c.style.setProperty('--later',0);c.classList.add('seen')}
+    PLAY.rating=true;syncInfo();return}
+  if(kind==='no'){skipWork(w.id);flyOut(-innerWidth*.9,60,-28);setTimeout(advance,RM?0:180);return}
+  if(kind==='later'){if(!mine.want[w.id]){mine.want[w.id]=Date.now();mine.works[w.id]=snap(w);save()}skipWork(w.id);
+    flyOut(0,-innerHeight*.8,0);toast('Gardé pour plus tard 🔖');setTimeout(advance,RM?0:180)}
+}
+function swipeRate(n){
+  const w=PLAY.pool[0];if(!w)return;revealStay=true;mine.works[w.id]=snap(w);
+  flyOut(innerWidth*.9,40,26);setTimeout(()=>{advance();setRate(w.id,n)},RM?0:260);
+}
 
 // --- 5 par 5
-async function nextFive(){PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();await fillPool(5);PLAY.tried=true;PLAY.five=PLAY.pool.splice(0,5);renderFive()}
+async function nextFive(){PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();await fillPool(5);PLAY.tried=true;PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive()}
 function fiveHTML(){
   const n=Object.keys(PLAY.checks).length,ready=n&&Object.keys(PLAY.checks).every(id=>PLAY.rates[id]);
   return `${playTypes()}${!PLAY.five.length?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant.'}</div>`:
@@ -866,7 +908,7 @@ function openFs(kind,src){
   $('#fsTitle').textContent={grim:'Mon grimoire',shelf:'Mon étagère',swipe:'Vu ou pas vu ?',five:'5 par 5'}[kind];
   fs.dataset.kind=kind;
   if(kind==='grim'){G.page=0;G.auto=true;body.innerHTML=grimHTML()}
-  else if(kind==='swipe'){body.innerHTML=swipeHTML();fillPool().then(()=>renderSwipe());bindSwipe()}
+  else if(kind==='swipe'){body.innerHTML=swipeHTML();PLAY.rating=false;renderSwipe()}
   else if(kind==='five'){PLAY.five=[];body.innerHTML=fiveHTML();nextFive()}
   else body.innerHTML=shelfHTML(COLL.items,Math.min(innerWidth,900)-80,false);
   fs.classList.add('open');fs.dataset.kind=kind;document.body.style.overflow='hidden';
@@ -1201,7 +1243,7 @@ document.addEventListener('click',e=>{
   if(d.gturn){turnPage(+d.gturn);return}
   if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
   if(d.play){openPlay(d.play,b);return}
-  if(d.ptype!==undefined){PLAY.type=d.ptype;PLAY.pool=[];PLAY.rating=false;if($('#fs').dataset.kind==='five'){PLAY.five=[];renderFive();nextFive()}else{renderSwipe();fillPool().then(renderSwipe)}return}
+  if(d.ptype!==undefined){PLAY.type=d.ptype;PLAY.pool=[];PLAY.rating=false;if($('#fs').dataset.kind==='five'){PLAY.five=[];renderFive();nextFive()}else{const st=$('#swStage');if(st)st.innerHTML='';renderSwipe()}return}
   if(d.swipe){swipeAct(d.swipe);return}
   if(d.swrate){swipeRate(+d.swrate);return}
   if(d.fcheck){if(PLAY.checks[d.fcheck]){delete PLAY.checks[d.fcheck];delete PLAY.rates[d.fcheck]}else PLAY.checks[d.fcheck]=1;renderFive();return}
