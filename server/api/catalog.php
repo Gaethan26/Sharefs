@@ -267,7 +267,8 @@ function work_dz(string $id): array {
   if (empty($x['id'])) fail(404, 'not_found');
   $w = from_dz($x);
   $tracks = array_slice(array_map(fn($t) => $t['title'] ?? '', $x['tracks']['data'] ?? []), 0, 6);
-  return clean(array_merge($w, ['imgs' => array_values(array_filter([$w['img'] ?? ''])), 'syn' => $tracks ? 'Titres : ' . implode(', ', $tracks) . (count($x['tracks']['data'] ?? []) > 6 ? '…' : '') : '',
+  $allTracks = array_values(array_filter(array_map(fn($t) => $t['title'] ?? '', $x['tracks']['data'] ?? [])));
+  return clean(array_merge($w, ['tracks' => array_slice($allTracks, 0, 20), 'imgs' => array_values(array_filter([$w['img'] ?? ''])), 'syn' => $tracks ? 'Titres : ' . implode(', ', $tracks) . (count($x['tracks']['data'] ?? []) > 6 ? '…' : '') : '',
     'plat' => array_values(array_filter([$x['label'] ?? '']))]));
 }
 

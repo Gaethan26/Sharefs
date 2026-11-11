@@ -34,6 +34,10 @@ Les tables des défis et des commentaires sont créées automatiquement par l'AP
 - Jeux de société : BoardGameGeek (`bgg_token`, application à enregistrer sur boardgamegeek.com/applications). L'app affiche la mention « Powered by BGG ».
 - Musique : Deezer, sans clé (albums et pochettes). Les œuvres musicales enregistrées avant la v37 (identifiants `mb-`) restent lisibles via MusicBrainz.
 
+## Jeu 1v1 « Genre tu l'as vu !? »
+
+Code serveur dans `server/api/match.php` (table `matches`, créée automatiquement). Le serveur fait foi : le coup de l'adversaire et les bonnes réponses ne sont envoyés qu'une fois joués. L'app interroge la partie ouverte toutes les 1,2 s (réponse vide si rien n'a changé) et la liste des parties toutes les 8 s.
+
 ## Cartes secrètes
 
 Déposer les images dans `www/eggs/` (voir `www/eggs/LISEZMOI.md`). Sans image, une illustration originale s'affiche.

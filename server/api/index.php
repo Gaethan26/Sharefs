@@ -6,6 +6,7 @@ if (PHP_VERSION_ID < 80100) {
 }
 require __DIR__ . '/lib.php';
 require __DIR__ . '/catalog.php';
+require __DIR__ . '/match.php';
 
 cors();
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
@@ -13,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $M = $_SERVER['REQUEST_METHOD'];
 $path = trim((string) preg_replace('#^.*?/api(/|$)#', '', (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)), '/');
 
-if (preg_match('#^(state|challenges|fetish|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); migrate_rarities(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
+if (preg_match('#^(state|challenges|fetish|matches|match/|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); migrate_rarities(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
 
 const EMAIL_RE = '/^[^\s@]+@[^\s@]+\.[^\s@]+$/';
 
@@ -232,6 +233,44 @@ try {
       $u = need_user();
       q('DELETE FROM challenges WHERE id = ? AND from_id = ?', [$m[1], $u['id']]);
       out(['ok' => true]);
+
+    /* ---------- Jeu 1v1 « Genre tu l'as vu !? » ---------- */
+    case $M === 'GET' && $path === 'matches':
+      $u = need_user();
+      out(['matches' => match_list($u['id'])]);
+
+    case $M === 'POST' && $path === 'matches':
+      $u = need_user();
+      $to = (string) (body()['to'] ?? '');
+      if ($to === $u['id'] || !in_array($to, mates($u['id']), true)) fail(400, 'bad_recipient');
+      throttle('match|' . $u['id'], 30, 3600);
+      // une seule partie en cours par paire de joueurs : on la reprend
+      $live = q("SELECT id FROM matches WHERE status = 'live' AND ((a_id = ? AND b_id = ?) OR (a_id = ? AND b_id = ?)) LIMIT 1", [$u['id'], $to, $to, $u['id']])->fetchColumn();
+      if ($live) out(['match' => match_view(match_row($live), $u['id'])]);
+      $id = uuid();
+      q('INSERT INTO matches (id, a_id, b_id, state) VALUES (?, ?, ?, ?)', [$id, $u['id'], $to, enc(match_new_state())]);
+      out(['match' => match_view(match_row($id), $u['id'])]);
+
+    case $M === 'GET' && preg_match('#^match/([0-9a-f-]{36})$#', $path, $mm):
+      $u = need_user();
+      $v = (int) ($_GET['v'] ?? -1);
+      $ver = q('SELECT version, a_id, b_id FROM matches WHERE id = ?', [$mm[1]])->fetch();
+      if (!$ver) fail(404, 'not_found');
+      if ($ver['a_id'] !== $u['id'] && $ver['b_id'] !== $u['id']) fail(403, 'forbidden');
+      if ((int) $ver['version'] === $v) out(['same' => true]);
+      out(['match' => match_view(match_row($mm[1]), $u['id'])]);
+
+    case $M === 'POST' && preg_match('#^match/([0-9a-f-]{36})/(rps|pick|choose|answer|forfeit)$#', $path, $mm):
+      $u = need_user(); $b = body();
+      $act = $mm[2];
+      $view = match_tx($mm[1], $u['id'], function (array &$st, string $side, array $m) use ($act, $b) {
+        if ($act === 'rps') rps_play($st, $side, (string) ($b['c'] ?? ''));
+        elseif ($act === 'pick') match_pick($st, $side, $b['works'] ?? null);
+        elseif ($act === 'choose') match_choose($st, $side, (string) ($b['id'] ?? ''), [$m['a_id'], $m['b_id']]);
+        elseif ($act === 'answer') match_answer($st, $side, (int) ($b['i'] ?? -1), (int) ($b['opt'] ?? -1));
+        else { $st['phase'] = 'done'; $st['forfeit'] = $side; $st['winner'] = op_side($side); }
+      });
+      out(['match' => $view]);
 
     /* ---------- Œuvres fétiches ---------- */
     case $M === 'POST' && $path === 'fetish':

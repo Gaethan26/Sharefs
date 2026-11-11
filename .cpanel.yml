@@ -6,4 +6,4 @@ deployment:
     - /bin/cp -f www/index.html www/app.js www/config.js www/.htaccess $DEPLOYPATH/
     - /bin/mkdir -p $DEPLOYPATH/eggs
     - /bin/cp -f www/eggs/* $DEPLOYPATH/eggs/
-    - /bin/cp -f server/api/index.php server/api/lib.php server/api/catalog.php server/api/config.sample.php server/api/.htaccess $DEPLOYPATH/api/
+    - /bin/cp -f server/api/index.php server/api/lib.php server/api/catalog.php server/api/match.php server/api/config.sample.php server/api/.htaccess $DEPLOYPATH/api/

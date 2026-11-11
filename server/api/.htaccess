@@ -4,7 +4,7 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [QSA,L]
 
 # Seul index.php est appelable ; configuration, bibliothèques, journaux et marqueurs sont interdits
-<FilesMatch "(^(config|config\.sample|lib|catalog|check)\.php$|^error_log$|\.log$|^\.)">
+<FilesMatch "(^(config|config\.sample|lib|catalog|match|check)\.php$|^error_log$|\.log$|^\.)">
   Require all denied
 </FilesMatch>
 

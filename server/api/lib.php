@@ -120,7 +120,7 @@ function ensure_schema(): void {
   static $done = false;
   if ($done) return;
   $done = true;
-  $flag = __DIR__ . '/.schema-v4';
+  $flag = __DIR__ . '/.schema-v5';
   if (is_file($flag)) return;
   db()->exec("CREATE TABLE IF NOT EXISTS challenges (
     id CHAR(36) PRIMARY KEY, from_id CHAR(36) NOT NULL, to_id CHAR(36) NOT NULL, works TEXT NOT NULL, note VARCHAR(280) NULL,
@@ -141,6 +141,12 @@ function ensure_schema(): void {
     work TEXT NOT NULL, correct TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY one_per_day (guesser_id, target_id, day), INDEX (target_id, season), INDEX (guesser_id, season),
     FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  db()->exec("CREATE TABLE IF NOT EXISTS matches (
+    id CHAR(36) PRIMARY KEY, a_id CHAR(36) NOT NULL, b_id CHAR(36) NOT NULL, state MEDIUMTEXT NOT NULL, status VARCHAR(10) NOT NULL DEFAULT 'live',
+    version INT NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (a_id, status), INDEX (b_id, status),
+    FOREIGN KEY (a_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (b_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   db()->exec("CREATE TABLE IF NOT EXISTS fetish_options (
     guesser_id CHAR(36) NOT NULL, target_id CHAR(36) NOT NULL, season VARCHAR(16) NOT NULL, options TEXT NOT NULL, day DATE NOT NULL,

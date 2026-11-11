@@ -375,14 +375,14 @@ function renderChal(){
   const el=$('#chalBody');if(!el)return;
   const mineCh=challenges.filter(c=>c.to_id===uid||c.from_id===uid).map(c=>({c,s:chalState(c)}));
   const live=mineCh.filter(x=>x.s.st==='live'),done=mineCh.filter(x=>x.s.st!=='live'),list=chalTab==='live'?live:done;
-  el.innerHTML=`<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
+  el.innerHTML=`${matchZoneHTML()}<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
     <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
     <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>
     ${fetishHTML()}
     <h2 class="rk-title">${TROPHY}Classement</h2>
     ${rankTable(ranking())}
     <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi, 3 points par œuvre fétiche trouvée. On entre au classement en remportant un défi ou en trouvant une œuvre fétiche.</p>`;
-  const b=liveForMe(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}
+  updateChalBadge();
 }
 // Formulaire de défi
 const CH={to:'',works:[],note:'',q:'',res:[],err:'',open:false,anim:false};let chT=null,chSeq=0;
@@ -838,6 +838,200 @@ function setPlayType(t){
 }
 function openPlay(kind,src){PLAY.rating=false;PLAY.tried=false;openFs(kind,src)}
 
+/* ---------- Jeu 1v1 « Genre tu l'as vu !? » ----------
+   Le serveur fait foi ; l'app interroge la partie ouverte toutes les 1,2 s (réponse vide si rien n'a changé)
+   et la liste des parties toutes les 8 s pour le badge « À toi ». */
+let MATCHES=[],MT=null,MT_ID=null,mtPollT=null,mtListT=null,mtBusy=false,mtAnim=false,mtSeenLog=0,mtQTimer=null,mtFeedback=null,mtWonShown=new Set();
+const MTSEL={works:[],q:'',cat:false,res:[]};
+const RPS_E={r:'✊',p:'✋',s:'✌️'},RPS_N={r:'Pierre',p:'Feuille',s:'Ciseaux'};
+const mtOp=v=>v[v.me==='a'?'b':'a'];
+const mtSc=v=>({me:v.score[v.me],op:v.score[v.me==='a'?'b':'a']});
+function mtStatus(m){
+  const n=esc(nameOf(m.op));
+  if(m.phase==='done')return m.winner===m.me?`Victoire 🏆 ${m.score.me}–${m.score.op}`:`Défaite ${m.score.me}–${m.score.op}`;
+  return {rps:m.myTurn?'Pierre, feuille, ciseaux !':`${n} réfléchit…`,tiebreak:m.myTurn?'Égalité ! Manche décisive':`${n} réfléchit…`,
+    pick:m.myTurn?`Choisis 5 œuvres pour ${n}`:`${n} choisit tes 5 œuvres`,choose:m.myTurn?'Choisis ton œuvre':`${n} choisit son œuvre`,
+    quiz:m.myTurn?'À toi de répondre':`${n} répond aux questions`}[m.phase]||'';
+}
+function matchZoneHTML(){
+  const ops=others();
+  const live=MATCHES.filter(m=>m.status==='live'),done=MATCHES.filter(m=>m.status!=='live').slice(0,4);
+  const row=m=>`<button class="mt-row${m.myTurn?' turn':''}" data-mopen="${esc(m.id)}">${avatar(m.op)}<span class="mt-rt"><b>vs ${esc(nameOf(m.op))}</b><span>${mtStatus(m)}</span></span>
+    ${m.status==='live'?`<span class="mt-rs">${m.score.me}–${m.score.op}</span>`:''}${m.myTurn?'<span class="mt-go">À toi !</span>':''}</button>`;
+  return `<section class="mt-zone"><span class="fe-spark" aria-hidden="true"></span>
+    <div class="mt-zh"><span class="mt-logo" aria-hidden="true">⚔️</span><div><h2>Genre tu l’as vu !?</h2><p>Pierre, feuille, ciseaux… puis prouve que tu l’as vraiment vu.</p></div></div>
+    ${ops.length?`<div class="mt-ops" role="list">${ops.map(id=>`<button class="mt-op" role="listitem" data-mnew="${esc(id)}" aria-label="Défier ${esc(nameOf(id))}">${avatar(id)}<span>${esc(nameOf(id))}</span><i>Défier</i></button>`).join('')}</div>`:'<p class="mt-none">Invite des amis dans ton cercle pour jouer.</p>'}
+    ${live.length?`<div class="mt-list">${live.map(row).join('')}</div>`:''}
+    ${done.length?`<details class="mt-old"><summary>Parties terminées</summary><div class="mt-list">${done.map(row).join('')}</div></details>`:''}
+  </section>`;
+}
+const myTurnCount=()=>MATCHES.filter(m=>m.status==='live'&&m.myTurn).length;
+async function loadMatches(){
+  if(!uid||document.hidden)return;
+  try{const r=await api('matches');const prev=MATCHES;MATCHES=r.matches||[];
+    // prévenir quand une partie (fermée) attend notre coup
+    for(const m of MATCHES)if(m.myTurn&&m.status==='live'&&m.id!==MT_ID&&!prev.some(p=>p.id===m.id&&p.myTurn&&p.version===m.version))
+      if(prev.length||loadMatches.once)toast(`À toi de jouer contre ${nameOf(m.op)} !`);
+    loadMatches.once=true;
+    if(JSON.stringify(prev.map(m=>[m.id,m.version]))!==JSON.stringify(MATCHES.map(m=>[m.id,m.version]))){if($('#v-chal')?.classList.contains('on'))renderChal();else updateChalBadge()}
+  }catch(e){}
+}
+function updateChalBadge(){const b=liveForMe()+myTurnCount(),nb=document.querySelector('nav [data-tab="chal"] .nbadge');if(nb){nb.textContent=b;nb.hidden=!b}}
+function startMatchLoops(){clearInterval(mtListT);mtListT=setInterval(loadMatches,8000);loadMatches()}
+async function newMatch(to,src){
+  try{const r=await call('POST','matches',{to});openMatch(r.match.id,src,r.match)}catch(e){toast(msg(e))}
+}
+function openMatch(id,src,first){
+  MT_ID=id;MT=first||null;mtSeenLog=first?first.rpsLog.length:-1;mtFeedback=null;MTSEL.works=[];MTSEL.q='';MTSEL.cat=false;MTSEL.res=[];
+  openFs('match',src);
+  if(MT)renderMatch();else pollMatch();
+  clearInterval(mtPollT);mtPollT=setInterval(pollMatch,1200);
+}
+function closeMatch(){clearInterval(mtPollT);clearTimeout(mtQTimer);MT_ID=null;MT=null;loadMatches()}
+async function pollMatch(){
+  if(!MT_ID||$('#fs').dataset.kind!=='match'||!$('#fs').classList.contains('open')){clearInterval(mtPollT);return}
+  if(mtBusy||document.hidden)return;
+  try{const r=await api('match/'+MT_ID,{v:MT?MT.version:-1});if(r.match)setMatch(r.match)}catch(e){}
+}
+function setMatch(v){
+  if(MT&&v.version<MT.version)return;
+  const prev=MT;MT=v;
+  if(mtSeenLog<0)mtSeenLog=v.rpsLog.length;
+  if(v.rpsLog.length>mtSeenLog){const last=v.rpsLog[v.rpsLog.length-1];mtSeenLog=v.rpsLog.length;rpsReveal(last,prev);return}
+  if(!mtAnim)renderMatch(prev);
+}
+function mtHead(v){
+  const op=mtOp(v),s=mtSc(v),n=esc(nameOf(op));
+  const step=v.phase==='done'?'Fin du match':v.phase==='tiebreak'?`Manche décisive · ${v.tb?.[v.me]||0}–${v.tb?.[v.me==='a'?'b':'a']||0} (premier à 2)`:v.turn?`Tour ${v.turn} sur 2`:'Qui commence ?';
+  return `<div class="mt-score"><div class="mt-p${v.myTurn&&v.phase!=='done'?' act':''}">${avatar(uid)}<b>Toi</b><span class="mt-s">${s.me}</span></div><span class="mt-vs">VS</span>
+    <div class="mt-p${!v.myTurn&&v.phase!=='done'?' act':''}">${avatar(op)}<b>${n}</b><span class="mt-s">${s.op}</span></div></div>
+    <div class="mt-step">${step}</div>`;
+}
+function mtWait(text){return `<div class="mt-wait"><div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${text}</p></div>`}
+function renderMatch(prev){
+  const v=MT,body=$('#fsBody');if(!v||!body||$('#fs').dataset.kind!=='match')return;
+  clearTimeout(mtQTimer);
+  const op=mtOp(v),n=esc(nameOf(op)),me=v.me;
+  let h='';
+  if(mtFeedback){h=quizHTML(mtFeedback.v)}
+  else if(v.phase==='rps'||v.phase==='tiebreak'){
+    h=v.rps.me?`<div class="rps-wait"><span class="rps-h me">${RPS_E[v.rps.me]}</span><span class="rps-vs">vs</span><span class="rps-h op shake">✊</span></div>${mtWait(v.rps.opDone?'On révèle…':`${n} réfléchit…`)}`
+      :`<p class="mt-big">${v.phase==='tiebreak'?'Égalité parfaite ! Pierre, feuille, ciseaux en 2 manches gagnantes.':'Pierre, feuille, ciseaux ! Le gagnant choisit les œuvres de l’autre.'}</p>
+        <div class="rps">${['r','p','s'].map((c,i)=>`<button class="rps-b" style="--i:${i}" data-mrps="${c}"><span class="rps-e">${RPS_E[c]}</span><span>${RPS_N[c]}</span></button>`).join('')}</div>`;
+  }else if(v.phase==='pick'){
+    h=v.picker===me?pickHTML(v,op):`${mtWait(`${n} choisit 5 œuvres pour toi…`)}<div class="mt-backs" aria-hidden="true">${'<span class="cardback"></span>'.repeat(5)}</div>`;
+  }else if(v.phase==='choose'){
+    h=v.target===me?`<p class="mt-big">${n} t’a choisi 5 œuvres. Garde celle que tu connais le mieux.</p>
+        <div class="mt-five">${v.picks.map((w,i)=>`<button class="mt-c${MTSEL.choose===w.id?' on':''}" style="--i:${i}" data-mtpick1="${esc(w.id)}">${card(reg(w))}<span class="mt-ct">${esc(w.ti)}</span><span class="mt-ck"><span class="tm t-${w.t}"></span>${esc(T[w.t]?.n||'')}</span></button>`).join('')}</div>
+        <button class="btn pri mt-cta" data-mtchoose ${MTSEL.choose?'':'disabled'}>${MTSEL.choose?'C’est parti pour 5 questions !':'Choisis une œuvre'}</button>`
+      :`<div class="mt-five small">${v.picks.map(w=>`<span class="mt-c">${card(reg(w))}<span class="mt-ct">${esc(w.ti)}</span></span>`).join('')}</div>${mtWait(`${n} choisit son œuvre…`)}`;
+  }else if(v.phase==='quiz'){
+    h=v.target===me?quizHTML(v):quizWatchHTML(v,n);
+  }else if(v.phase==='done'){
+    const win=v.winner===me,s=mtSc(v);
+    h=`<div class="mt-end ${win?'win':'lose'}"><div class="mt-trophy">${win?'🏆':'🥘'}</div><p class="mt-res">${win?'Victoire !':'Défaite…'}</p>
+        <p class="mt-final">${s.me} – ${s.op}${v.forfeit?` · ${v.forfeit===me?'abandon':`${n} a abandonné`}`:''}${v.tb?` · manche décisive ${v.tb[me]}–${v.tb[me==='a'?'b':'a']}`:''}</p>
+        <p class="mt-sub">${win?'Tu l’avais vraiment vu.':'T’es un couscous, tu seras meilleur la prochaine fois.'}</p></div>
+      ${(v.turns||[]).map(t=>`<details class="mt-recap"><summary>${t.target===me?'Toi':n} sur « ${esc(t.work.ti)} » : <b>${t.ok}/5</b></summary>
+        <ol>${t.qs.map(q=>`<li><span>${esc(q.q)}</span><em class="${q.pick===q.ans?'ok':'ko'}">${esc(q.opts[q.ans])}${q.pick!==q.ans?` (réponse donnée : ${q.pick>=0?esc(q.opts[q.pick]):'temps écoulé'})`:''}</em></li>`).join('')}</ol></details>`).join('')}
+      <button class="btn pri mt-cta" data-mnew="${esc(op)}">Revanche !</button>`;
+    if(win&&!mtWonShown.has(v.id)){mtWonShown.add(v.id);setTimeout(confetti,200)}
+  }
+  body.innerHTML=`<div class="mt" data-phase="${mtFeedback?'quiz':v.phase}">${mtHead(v)}<div class="mt-body${!mtFeedback&&(!prev||prev.phase!==v.phase)?' enter':''}">${h}</div>
+    ${v.phase!=='done'?'<button class="link mt-ff" data-mtff>Abandonner</button>':''}</div>`;
+  if(v.phase==='quiz'&&v.target===me&&v.quiz?.cur&&!mtFeedback){const left=v.quiz.cur.left,i=v.quiz.i;mtQTimer=setTimeout(()=>{if(MT&&MT.phase==='quiz'&&MT.quiz.i===i)mtAnswer(-1)},left*1000)}
+  if(v.phase==='pick'&&v.picker===me){const q=$('#mtq');if(q&&MTSEL.focus){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+}
+// --- choisir 5 œuvres pour l'adversaire : dans sa collection, ou dans tout le catalogue
+function pickPool(op){
+  const q=norm(MTSEL.q.trim());
+  if(MTSEL.cat)return MTSEL.res;
+  const d=dataOf(op);
+  return Object.entries(d.done||{}).sort((a,b)=>b[1]-a[1]).map(([id])=>d.works?.[id]||WK[id]).filter(Boolean).map(w=>WK[w.id]||reg(w)).filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q)).slice(0,60);
+}
+function pickHTML(v,op){
+  const n=esc(nameOf(op)),sel=MTSEL.works,pool=pickPool(op);
+  return `<p class="mt-big">Choisis 5 œuvres que ${n} dit avoir vues. Il en gardera une et répondra à 5 questions.</p>
+    <div class="mt-sel">${[0,1,2,3,4].map(i=>sel[i]?`<button class="mt-slot full" data-mtunsel="${esc(sel[i].id)}" aria-label="Retirer ${esc(sel[i].ti)}">${card(sel[i])}</button>`:'<span class="mt-slot"></span>').join('')}</div>
+    <input class="mini" id="mtq" type="search" autocomplete="off" placeholder="${MTSEL.cat?'Chercher dans tout le catalogue…':`Chercher dans la collection de ${n}…`}" value="${esc(MTSEL.q)}">
+    <div class="mt-grid" id="mtGrid">${pool.length?pool.map(w=>`<button class="mt-g${sel.some(s=>s.id===w.id)?' on':''}" data-mtsel="${esc(w.id)}">${card(w)}<span class="mt-ct">${esc(w.ti)}</span></button>`).join('')
+      :`<p class="meta">${MTSEL.cat?(MTSEL.q.trim()?'Rien trouvé.':'Tape un titre.'):`${n} n’a encore rien dans sa collection : cherche dans le catalogue.`}</p>`}</div>
+    <button class="link fe-back" data-mtcat>${MTSEL.cat?`Revenir à la collection de ${n}`:'Pas assez ? Chercher dans tout le catalogue'}</button>
+    <button class="btn pri mt-cta" data-mtsend ${sel.length===5?'':'disabled'}>${sel.length===5?`Envoyer ces 5 œuvres à ${n}`:`Encore ${5-sel.length} à choisir`}</button>`;
+}
+let mtSearchT=null;
+function mtSearch(){
+  clearTimeout(mtSearchT);
+  if(!MTSEL.cat){renderMatch(MT);return}
+  const q=MTSEL.q.trim();if(q.length<2){MTSEL.res=[];renderMatch(MT);return}
+  mtSearchT=setTimeout(async()=>{const res=await Promise.all(SEARCHT().map(t=>api('search',{type:t,q,limit:4}).catch(()=>({items:[]}))));MTSEL.res=rr(res.map(r=>(r.items||[]).map(reg)));renderMatch(MT)},300);
+}
+// --- questionnaire
+function quizHTML(v){
+  const qz=v.quiz,cur=qz.cur,fb=mtFeedback,w=v.chosen;
+  const q=fb?fb.q:cur;if(!q)return mtWait('On compte les points…');
+  const i=fb?fb.i:qz.i;
+  return `<div class="qz-top">${card(reg(w))}<div><b>« ${esc(w.ti)} »</b><div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${fb&&k===fb.i?(fb.good?'ok':'ko'):p?(p.good?'ok':'ko'):k===i?'cur':''}"></i>`}).join('')}</div></div></div>
+    <div class="qz-timer${fb?' stop':''}"><i style="animation-duration:${fb?0:cur.left}s"></i></div>
+    <p class="qz-q">${esc(q.q)}</p>
+    <div class="qz-opts${q.opts.length===2?' two':''}">${q.opts.map((o,k)=>`<button class="qz-o${fb?(k===fb.ans?' good':k===fb.pick?' bad':' dim'):''}" style="--i:${k}" data-mtans="${k}" ${fb?'disabled':''}>${esc(o)}</button>`).join('')}</div>
+    ${fb?`<p class="qz-fb ${fb.good?'ok':'ko'}">${fb.good?'Bien vu ! +1':fb.pick<0?'Temps écoulé…':'Raté…'}</p>`:''}`;
+}
+function quizWatchHTML(v,n){
+  const qz=v.quiz,w=v.chosen;
+  return `<div class="qz-top">${card(reg(w))}<div><b>${n} répond sur « ${esc(w.ti)} »</b><div class="qz-dots">${Array.from({length:qz.n},(_,k)=>{const p=qz.past[k];return `<i class="${p?(p.good?'ok':'ko'):k===qz.i?'cur':''}"></i>`}).join('')}</div></div></div>
+    ${qz.cur?`<p class="qz-q watch">${esc(qz.cur.q)}</p><div class="qz-opts${qz.cur.opts.length===2?' two':''}">${qz.cur.opts.map(o=>`<span class="qz-o dim">${esc(o)}</span>`).join('')}</div>`:''}
+    ${mtWait(`${n} a ${qz.ok} bonne${qz.ok>1?'s':''} réponse${qz.ok>1?'s':''} sur ${qz.i}`)}`;
+}
+async function mtAnswer(opt){
+  if(!MT||mtBusy||MT.phase!=='quiz')return;clearTimeout(mtQTimer);
+  const i=MT.quiz.i,q=MT.quiz.cur;mtBusy=true;
+  document.querySelectorAll('#fsBody .qz-o').forEach(b=>b.disabled=true);
+  try{const r=await call('POST',`match/${MT_ID}/answer`,{i,opt});const v=r.match;
+    const past=v.turns&&v.phase!=='quiz'?null:v.quiz?.past?.[i];
+    const t=(v.turns||[])[(v.turns||[]).length-1],tq=t&&t.qs[i];
+    const ans=past?past.ans:tq?tq.ans:-1;
+    mtFeedback={i,q,pick:opt,ans,good:opt===ans,v:MT};MT=v;renderMatch(v);
+    setTimeout(()=>{mtFeedback=null;mtBusy=false;renderMatch(MT)},1300);
+  }catch(e){mtBusy=false;toast(msg(e));pollMatch()}
+}
+// --- pierre, feuille, ciseaux : révélation animée
+function rpsReveal(last,prev){
+  const v=MT,body=$('#fsBody .mt-body');if(!body){renderMatch(prev);return}
+  mtAnim=true;
+  const me=v.me,op=me==='a'?'b':'a',n=esc(nameOf(mtOp(v)));
+  body.innerHTML=`<div class="rps-show"><span class="rps-h me pump">✊</span><span class="rps-vs">vs</span><span class="rps-h op pump">✊</span></div><p class="rps-cd">Pierre… feuille… ciseaux !</p>`;
+  setTimeout(()=>{
+    const res=last.w===null?'Égalité ! On rejoue.':last.w===me?(last.phase==='rps'?`Gagné ! Tu choisis les 5 œuvres de ${n}.`:'Manche pour toi !'):(last.phase==='rps'?`Perdu ! ${n} choisit tes 5 œuvres.`:`Manche pour ${n}…`);
+    body.innerHTML=`<div class="rps-show done"><span class="rps-h me ${last.w===me?'win':last.w?'lose':''}">${RPS_E[last[me]]}</span><span class="rps-vs">vs</span><span class="rps-h op ${last.w===op?'win':last.w?'lose':''}">${RPS_E[last[op]]}</span></div><p class="rps-res ${last.w===me?'ok':last.w?'ko':''}">${res}</p>`;
+    if(last.w===me&&navigator.vibrate)try{navigator.vibrate([10,40,10])}catch(e){}
+    setTimeout(()=>{mtAnim=false;renderMatch()},1900);
+  },RM?50:1300);
+}
+async function mtAct(path,body,after){
+  if(mtBusy)return;mtBusy=true;
+  try{const r=await call('POST',`match/${MT_ID}/${path}`,body);mtBusy=false;after&&after();setMatch(r.match)}catch(e){mtBusy=false;toast(msg(e));pollMatch()}
+}
+function matchClick(d,b){
+  if(d.mnew!==undefined){newMatch(d.mnew,b);return true}
+  if(d.mopen){openMatch(d.mopen,b);return true}
+  if(!MT)return false;
+  if(d.mrps){b.classList.add('chosen');mtAct('rps',{c:d.mrps});return true}
+  if(d.mtsel){const w=WK[d.mtsel];if(!w)return true;const i=MTSEL.works.findIndex(x=>x.id===w.id);
+    if(i>=0)MTSEL.works.splice(i,1);else if(MTSEL.works.length<5)MTSEL.works.push(snap(w));else{toast('5 œuvres maximum');return true}
+    MTSEL.focus=false;renderMatch(MT);return true}
+  if(d.mtunsel){MTSEL.works=MTSEL.works.filter(x=>x.id!==d.mtunsel);renderMatch(MT);return true}
+  if('mtcat' in d){MTSEL.cat=!MTSEL.cat;MTSEL.q='';MTSEL.res=[];renderMatch(MT);setTimeout(()=>$('#mtq')?.focus(),40);return true}
+  if('mtsend' in d){mtAct('pick',{works:MTSEL.works},()=>{MTSEL.works=[];MTSEL.q='';MTSEL.cat=false});return true}
+  if(d.mtpick1){MTSEL.choose=d.mtpick1;renderMatch(MT);return true}
+  if('mtchoose' in d){if(MTSEL.choose)mtAct('choose',{id:MTSEL.choose},()=>{MTSEL.choose=null});return true}
+  if(d.mtans!==undefined){mtAnswer(+d.mtans);return true}
+  if('mtff' in d){if(confirm('Abandonner ce match ? Ton adversaire gagnera.'))mtAct('forfeit',{});return true}
+  return false;
+}
+document.addEventListener('input',e=>{if(e.target.id==='mtq'){MTSEL.q=e.target.value;MTSEL.focus=true;mtSearch()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadMatches();if(MT_ID)pollMatch()}});
+
 /* ---------- Grimoire et étagère en plein écran ---------- */
 const COLL={items:[]};
 function shelfHTML(items,max,expand,who=collWho){
@@ -932,11 +1126,12 @@ let fsSrc=null,fsKind='';
 const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,r.top)}px ${Math.max(0,innerWidth-r.right)}px ${Math.max(0,innerHeight-r.bottom)}px ${Math.max(0,r.left)}px round 14px)`};
 function openFs(kind,src){
   const fs=$('#fs'),body=$('#fsBody');fsSrc=src;fsKind=kind;
-  $('#fsTitle').textContent={grim:'Mon grimoire',shelf:'Mon étagère',swipe:'Vu ou pas vu ?',five:'5 par 5'}[kind];
+  $('#fsTitle').textContent={grim:'Mon grimoire',shelf:'Mon étagère',swipe:'Vu ou pas vu ?',five:'5 par 5',match:'Genre tu l’as vu !?'}[kind];
   fs.dataset.kind=kind;
   if(kind==='grim'){G.page=0;G.auto=true;body.innerHTML=grimHTML()}
   else if(kind==='swipe'){body.innerHTML=swipeHTML();PLAY.rating=false;renderSwipe()}
   else if(kind==='five'){PLAY.five=[];body.innerHTML=fiveHTML();nextFive()}
+  else if(kind==='match'){body.innerHTML=mtWait('Chargement du match…')}
   else body.innerHTML=shelfHTML(COLL.items,Math.min(innerWidth,900)-80,false);
   fs.classList.add('open');fs.dataset.kind=kind;document.body.style.overflow='hidden';
   if(!RM&&src){fs.animate([{clipPath:clipOf(src)},{clipPath:'inset(0 0 0 0 round 0)'}],{duration:480,easing:'cubic-bezier(.3,.8,.2,1)'})}
@@ -949,6 +1144,7 @@ function openFs(kind,src){
 }
 function closeFs(){
   const fs=$('#fs');if(!fs.classList.contains('open'))return;
+  if(fsKind==='match')closeMatch();
   const end=()=>{fs.classList.remove('open');$('#fsBody').innerHTML='';document.body.style.overflow='';revealStay=false;revealQ=[];fsSrc?.focus?.({preventScroll:true})};
   if(!RM&&fsSrc&&fsSrc.isConnected)fs.animate([{clipPath:'inset(0 0 0 0 round 0)'},{clipPath:clipOf(fsSrc)}],{duration:380,easing:'cubic-bezier(.4,0,.2,1)'}).onfinish=end;else end();
 }
@@ -1269,6 +1465,7 @@ document.addEventListener('click',e=>{
   if('fsclose' in d){closeFs();return}
   if(d.gturn){turnPage(+d.gturn);return}
   if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
+  if(matchClick(d,b))return;
   if(d.play){openPlay(d.play,b);return}
   if(d.ptype!==undefined){setPlayType(d.ptype);return}
   if(d.swipe){swipeAct(d.swipe);return}
@@ -1423,6 +1620,7 @@ let poll=null;
 async function enterApp(loaded=false){
   hideGate();if(!loaded)await loadAll();
   clearInterval(poll);poll=setInterval(()=>{if(document.visibilityState==='visible'&&uid)loadAll()},25000);
+  startMatchLoops();
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&uid)loadAll()});
 
