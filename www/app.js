@@ -542,7 +542,7 @@ function renderFeed(){
     for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
     for(const c of challenges){const s=chalState(c);ev.push({k:'chal',c,s,who:c.from_id,ts:Date.parse(c.created_at)});if(s.st==='won')ev.push({k:'won',c,s,who:c.to_id,ts:s.wonAt})}
   }
-  const pb=$('#playbar');if(pb&&uid)pb.innerHTML=`<button class="pb-b pb-swipe" data-play="swipe"><span class="pb-i" aria-hidden="true">👆</span><span class="pb-t"><b>Vu ou pas vu ?</b><small>Swipe et complète ta collection</small></span><span class="pb-go" aria-hidden="true">→</span></button><button class="pb-b pb-five" data-play="five"><span class="pb-i" aria-hidden="true">✅</span><span class="pb-t"><b>5 par 5</b><small>Coche tout ce que tu as vu</small></span><span class="pb-go" aria-hidden="true">→</span></button>`;
+  const pb=$('#playbar');if(pb&&uid)pb.innerHTML=`<button class="pb-b pb-swipe" data-play="swipe"><span class="fe-spark" aria-hidden="true"></span><span class="pb-t"><b>Vu ou pas vu ?</b><small>Combien tu en as vu, vraiment ?</small></span><span class="pb-go">Jouer<i aria-hidden="true">→</i></span></button><button class="pb-b pb-five" data-play="five"><span class="pb-t"><b>5 par 5</b><small>Des cartes à débloquer en rafale</small></span><span class="pb-go">Jouer<i aria-hidden="true">→</i></span></button>`;
   const fc=$('#feedCircles');
   if(fc){if(myCircles.length>1&&others().length){if(feedCircle&&!myCircles.includes(feedCircle))feedCircle='';
     fc.hidden=false;fc.innerHTML=chip('Tous les cercles',!feedCircle,'data-fcircle=""')+myCircles.map(c=>chip(circleLabel(c),feedCircle===c,`data-fcircle="${esc(c)}" title="Cercle ${esc(c)}"`,'chip cchip')).join('')}
@@ -707,6 +707,8 @@ function renderWeekly(){
 const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false,shown:new Set()};
 const skipped=()=>new Set(lsGet('sharefs-skip',[]));
 function skipWork(id){PLAY.shown.add(id);const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-600))}}
+const playable=w=>!isDone(w.id)&&!mine.want[w.id]&&!skipped().has(w.id);
+function cleanPool(){PLAY.pool=PLAY.pool.filter(playable)}
 async function fillPool(min=8){
   if(PLAY.loading||PLAY.pool.length>=min)return;PLAY.loading=true;
   try{
@@ -748,12 +750,14 @@ function syncInfo(){
   const w=PLAY.pool[0],inf=$('#swInfo'),ctl=$('#swCtl');if(!inf||!ctl)return;
   inf.innerHTML=w?`<div class="sw-info-in" key="${esc(w.id)}">${playInfo(w)}</div>`:'';
   if(!w){ctl.innerHTML='';return}
-  ctl.innerHTML=PLAY.rating?`<div class="sw-rate"><p class="sw-ask">T’en as pensé quoi ?</p>${rateRow(w.id,'data-swrate')}</div>`:
+  $('#fsBody').classList.toggle('sw-rating',!!PLAY.rating);
+  ctl.innerHTML=PLAY.rating?`<div class="sw-rate"><p class="sw-ask">T’en as pensé quoi ?</p><div class="sw-big">${RN.map(n=>`<button class="sw-rb r${n}" data-swrate="${n}">${GEM(n,26)}<span class="sw-rb-s">${RAR[n].s}</span><span class="sw-rb-n">${RAR[n].n}</span></button>`).join('')}</div></div>`:
     `<div class="sw-acts"><button class="sw-b no" data-swipe="no" aria-label="Pas vu">✕</button><button class="sw-b later" data-swipe="later" aria-label="À voir plus tard">${BM(false)}</button><button class="sw-b yes" data-swipe="yes" aria-label="Vu">✓</button></div>
     <p class="ghint">Glisse à droite si tu l’as vu, à gauche sinon, vers le haut pour le garder.</p>`;
 }
 function renderSwipe(){
   if($('#fs').dataset.kind!=='swipe')return;
+  if(!PLAY.rating)cleanPool();
   if(!$('#swStage')){$('#fsBody').innerHTML=swipeHTML()}
   syncStack();syncInfo();bindSwipe();
   if(PLAY.pool.length<6&&!PLAY.loading)fillPool().then(()=>{PLAY.tried=true;if($('#fs').dataset.kind==='swipe'&&!$('.sw-card.dragging')){syncStack();if(!PLAY.rating)syncInfo();bindSwipe()}});
@@ -778,12 +782,12 @@ function flyOut(x,y,r){
   c.style.transform=`translate(${x}px,${y}px) rotate(${r}deg)`;c.style.opacity='0';
   return new Promise(res=>setTimeout(()=>{c.remove();res()},RM?0:300));
 }
-function advance(){PLAY.pool.shift();PLAY.rating=false;renderSwipe()}
+function advance(){PLAY.pool.shift();PLAY.rating=false;$('#fsBody')?.classList.remove('sw-rating');renderSwipe()}
 function swipeAct(kind){
   const w=PLAY.pool[0];if(!w)return;
   PLAY.shown.add(w.id);
   if(kind==='yes'){
-    const c=topCard();if(c){c.style.transition='transform .4s cubic-bezier(.3,1.4,.5,1)';c.style.transform='translate(0,-6px) rotate(0) scale(.94)';c.style.setProperty('--yes',1);c.style.setProperty('--no',0);c.style.setProperty('--later',0);c.classList.add('seen')}
+    const c=topCard();if(c){c.style.transition='transform .45s cubic-bezier(.3,1.3,.5,1)';c.style.transform='';c.style.setProperty('--yes',1);c.style.setProperty('--no',0);c.style.setProperty('--later',0);c.classList.add('seen')}
     PLAY.rating=true;syncInfo();return}
   if(kind==='no'){skipWork(w.id);flyOut(-innerWidth*.9,60,-28);setTimeout(advance,RM?0:180);return}
   if(kind==='later'){if(!mine.want[w.id]){mine.want[w.id]=Date.now();mine.works[w.id]=snap(w);save()}skipWork(w.id);
@@ -795,15 +799,29 @@ function swipeRate(n){
 }
 
 // --- 5 par 5
-async function nextFive(){PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();await fillPool(5);PLAY.tried=true;PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive()}
+async function nextFive(){PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();cleanPool();await fillPool(5);PLAY.tried=true;cleanPool();PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive()}
 function fiveHTML(){
   const n=Object.keys(PLAY.checks).length,ready=n&&Object.keys(PLAY.checks).every(id=>PLAY.rates[id]);
   return `${playTypes()}${!PLAY.five.length?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant.'}</div>`:
-    `<div class="f5">${PLAY.five.map(w=>`<div class="f5-row${PLAY.checks[w.id]?' on':''}"><button class="f5-main" data-fcheck="${esc(w.id)}" aria-pressed="${!!PLAY.checks[w.id]}"><span class="f5-c">${card(w)}</span><span class="f5-txt">${playInfo(w)}</span><span class="f5-box" aria-hidden="true">✓</span></button>${PLAY.checks[w.id]?rateRow(w.id,'data-frate'):''}</div>`).join('')}</div>
+    `<div class="f5">${PLAY.five.map(w=>`<div class="f5-row${PLAY.checks[w.id]?' on':''}" data-fid="${esc(w.id)}"><button class="f5-main" data-fcheck="${esc(w.id)}" aria-pressed="${!!PLAY.checks[w.id]}"><span class="f5-c">${card(w)}</span><span class="f5-txt">${playInfo(w)}</span><span class="f5-box" aria-hidden="true">✓</span></button>${PLAY.checks[w.id]?rateRow(w.id,'data-frate'):''}</div>`).join('')}</div>
     <div class="f5-acts"><button class="btn" data-fnext>5 autres</button><button class="btn pri" data-fgo ${ready?'':'disabled'}>${n?`Débloquer ${n} carte${n>1?'s':''}`:'Coche ce que tu as vu'}</button></div>
-    ${n&&!ready?'<p class="ghint">Donne ton avis sur chaque œuvre cochée pour débloquer ses cartes.</p>':''}`}`;
+    ${n&&!ready?'<p class="ghint f5-hint">Donne ton avis sur chaque œuvre cochée pour débloquer ses cartes.</p>':''}`}`;
 }
 function renderFive(){const b=$('#fsBody');if(b&&$('#fs').dataset.kind==='five')b.innerHTML=fiveHTML()}
+function fiveFoot(){
+  const n=Object.keys(PLAY.checks).length,ready=n&&Object.keys(PLAY.checks).every(id=>PLAY.rates[id]);
+  const go=$('#fsBody [data-fgo]');if(go){go.disabled=!ready;go.textContent=n?`Débloquer ${n} carte${n>1?'s':''}`:'Coche ce que tu as vu'}
+  let h=$('#fsBody .f5-hint');if(n&&!ready){if(!h){h=document.createElement('p');h.className='ghint f5-hint';h.textContent='Donne ton avis sur chaque œuvre cochée pour débloquer ses cartes.';$('#fsBody .f5-acts')?.after(h)}}else h?.remove();
+}
+function fiveRow(id){
+  const row=$(`#fsBody .f5-row[data-fid="${CSS.escape(id)}"]`);if(!row)return renderFive();
+  const on=!!PLAY.checks[id];row.classList.toggle('on',on);row.querySelector('.f5-main')?.setAttribute('aria-pressed',on);
+  let rates=row.querySelector('.pl-rates');
+  if(on&&!rates){row.insertAdjacentHTML('beforeend',rateRow(id,'data-frate'));row.querySelector('.pl-rates').classList.add('in')}
+  else if(!on&&rates)rates.remove();
+  else if(on&&rates)rates.querySelectorAll('.pl-r').forEach(b=>{const sel=+b.dataset.frate===PLAY.rates[id];b.classList.toggle('on',sel);b.setAttribute('aria-pressed',sel)});
+  fiveFoot();
+}
 function unlockFive(){
   const ids=Object.keys(PLAY.checks).filter(id=>PLAY.rates[id]);if(!ids.length)return;
   ids.forEach(id=>{const w=WK[id];mine.works[id]=snap(w);mine.rate[id]=PLAY.rates[id];if(!mine.done[id])mine.done[id]=Date.now();delete mine.want[id]});
@@ -1246,8 +1264,8 @@ document.addEventListener('click',e=>{
   if(d.ptype!==undefined){PLAY.type=d.ptype;PLAY.pool=[];PLAY.rating=false;if($('#fs').dataset.kind==='five'){PLAY.five=[];renderFive();nextFive()}else{const st=$('#swStage');if(st)st.innerHTML='';renderSwipe()}return}
   if(d.swipe){swipeAct(d.swipe);return}
   if(d.swrate){swipeRate(+d.swrate);return}
-  if(d.fcheck){if(PLAY.checks[d.fcheck]){delete PLAY.checks[d.fcheck];delete PLAY.rates[d.fcheck]}else PLAY.checks[d.fcheck]=1;renderFive();return}
-  if(d.frate){PLAY.rates[d.pid]=+d.frate;renderFive();return}
+  if(d.fcheck){if(PLAY.checks[d.fcheck]){delete PLAY.checks[d.fcheck];delete PLAY.rates[d.fcheck]}else PLAY.checks[d.fcheck]=1;fiveRow(d.fcheck);return}
+  if(d.frate){PLAY.rates[d.pid]=+d.frate;fiveRow(d.pid);return}
   if('fnext' in d){PLAY.five.forEach(w=>skipWork(w.id));nextFive();return}
   if('fgo' in d){unlockFive();return}
   if(d.box){openBox(d.box,b);return}
