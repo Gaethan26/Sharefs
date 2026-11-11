@@ -704,25 +704,27 @@ function renderWeekly(){
 /* ---------- Compléter sa collection : swipe et 5 par 5 ----------
    Œuvres tirées au hasard parmi les plus populaires et les mieux notées de chaque catalogue,
    hors collection et hors œuvres déjà passées. */
-const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false,shown:new Set()};
+const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false,shown:new Set(),gen:0};
 const skipped=()=>new Set(lsGet('sharefs-skip',[]));
 function skipWork(id){PLAY.shown.add(id);const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-600))}}
 const playable=w=>!isDone(w.id)&&!mine.want[w.id]&&!skipped().has(w.id);
 function cleanPool(){PLAY.pool=PLAY.pool.filter(playable)}
 async function fillPool(min=8){
-  if(PLAY.loading||PLAY.pool.length>=min)return;PLAY.loading=true;
+  if(PLAY.loading===PLAY.gen+1||PLAY.pool.length>=min)return;
+  const gen=PLAY.gen;PLAY.loading=gen+1;
   try{
     const types=PLAY.type?[PLAY.type]:SEARCHT();
     const res=await Promise.all(types.map(t=>api('search',{type:t,q:'',page:1+Math.floor(Math.random()*5),limit:12}).catch(()=>({items:[]}))));
     // filtrage au moment de l'ajout : une œuvre passée pendant le chargement ne revient pas
     const sk=skipped(),seen=new Set([...PLAY.pool.map(w=>w.id),...PLAY.five.map(w=>w.id)]);
     const fresh=rr(res.map(r=>shuffle((r.items||[]).map(reg)))).filter(w=>!isDone(w.id)&&!sk.has(w.id)&&!seen.has(w.id)&&!PLAY.shown.has(w.id)&&!mine.want[w.id]);
+    if(gen!==PLAY.gen)return;
     PLAY.pool.push(...fresh);
-  }finally{PLAY.loading=false}
+  }finally{if(PLAY.loading===gen+1)PLAY.loading=false}
 }
 const playTypes=()=>`<div class="row play-types">${chip('Tout',!PLAY.type,'data-ptype=""')}${SEARCHT().map(t=>chip(`<span class="tm t-${t}"></span>${T[t].p}`,PLAY.type===t,`data-ptype="${t}"`)).join('')}</div>`;
 const playInfo=w=>`<div class="pl-ti">${esc(w.ti)}</div><div class="pl-me"><span class="tm t-${w.t}"></span>${metaLine(w)}</div>`;
-const rateRow=(id,attr)=>`<div class="pl-rates">${RN.map(n=>`<button class="pl-r r${n}${PLAY.rates[id]===n?' on':''}" ${attr}="${n}" data-pid="${esc(id)}" aria-pressed="${PLAY.rates[id]===n}">${GEM(n,14)}<span>${RAR[n].s}</span></button>`).join('')}</div>`;
+const rateRow=(id,attr)=>`<div class="pl-rates sw-big f5-big${PLAY.rates[id]?' has':''}">${RN.map(n=>`<button class="pl-r sw-rb r${n}${PLAY.rates[id]===n?' on':''}" ${attr}="${n}" data-pid="${esc(id)}" aria-pressed="${PLAY.rates[id]===n}">${GEM(n,22)}<span class="sw-rb-s">${RAR[n].s}</span><span class="sw-rb-n">${RAR[n].n}</span></button>`).join('')}</div>`;
 
 // --- Swipe : une pile de cartes qui reste en place ; seule la carte du dessus part, les suivantes avancent
 function swipeHTML(){
@@ -799,7 +801,7 @@ function swipeRate(n){
 }
 
 // --- 5 par 5
-async function nextFive(){PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();cleanPool();await fillPool(5);PLAY.tried=true;cleanPool();PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive()}
+async function nextFive(){const gen=PLAY.gen;PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();cleanPool();await fillPool(5);if(gen!==PLAY.gen)return;PLAY.tried=true;cleanPool();PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive()}
 function fiveHTML(){
   const n=Object.keys(PLAY.checks).length,ready=n&&Object.keys(PLAY.checks).every(id=>PLAY.rates[id]);
   return `${playTypes()}${!PLAY.five.length?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant.'}</div>`:
@@ -819,7 +821,7 @@ function fiveRow(id){
   let rates=row.querySelector('.pl-rates');
   if(on&&!rates){row.insertAdjacentHTML('beforeend',rateRow(id,'data-frate'));row.querySelector('.pl-rates').classList.add('in')}
   else if(!on&&rates)rates.remove();
-  else if(on&&rates)rates.querySelectorAll('.pl-r').forEach(b=>{const sel=+b.dataset.frate===PLAY.rates[id];b.classList.toggle('on',sel);b.setAttribute('aria-pressed',sel)});
+  else if(on&&rates){rates.classList.toggle('has',!!PLAY.rates[id]);rates.querySelectorAll('.pl-r').forEach(b=>{const sel=+b.dataset.frate===PLAY.rates[id];b.classList.toggle('on',sel);b.setAttribute('aria-pressed',sel)})}
   fiveFoot();
 }
 function unlockFive(){
@@ -828,6 +830,12 @@ function unlockFive(){
   save();renderAll();PLAY.five.forEach(w=>{if(!PLAY.checks[w.id])skipWork(w.id)});
   revealStay=true;revealQ=ids.slice(1);reveal(ids[0]);nextFive();
 }
+function setPlayType(t){
+  PLAY.type=t;PLAY.gen++;PLAY.pool=[];PLAY.rating=false;PLAY.tried=false;PLAY.loading=false;
+  document.querySelectorAll('#fsBody .play-types .chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.ptype===t));
+  if($('#fs').dataset.kind==='five'){PLAY.five=[];nextFive()}
+  else{const st=$('#swStage');if(st)st.innerHTML='';$('#fsBody').classList.remove('sw-rating');renderSwipe()}
+}
 function openPlay(kind,src){PLAY.rating=false;PLAY.tried=false;openFs(kind,src)}
 
 /* ---------- Grimoire et étagère en plein écran ---------- */
@@ -835,7 +843,8 @@ const COLL={items:[]};
 function shelfHTML(items,max,expand,who=collWho){
   items=[...items].sort((a,b)=>a.ts-b.ts);let html='';
   const sps=specialsOf(who||uid);
-  if(sps.length)html+=`<div class="shelfrow gold">${sps.map(sp=>`<button class="spc" ${specialAttr(sp)} aria-label="${esc(sp.ti)}" title="${esc(sp.ti)}">${specialCard(sp)}</button>`).join('')}</div><div class="board gold"></div>`;
+  if(sps.length){const per=Math.max(3,Math.floor((max+10)/72));
+    for(let i=0;i<sps.length;i+=per)html+=`<div class="shelfrow gold">${sps.slice(i,i+per).map(sp=>`<button class="spc" ${specialAttr(sp)} aria-label="${esc(sp.ti)}" title="${esc(sp.ti)}">${specialCard(sp)}</button>`).join('')}</div><div class="board gold"></div>`}
   for(const t of TYPE_ORDER){
     const its=items.filter(x=>x.w.t===t),rows=[];let cur=[],acc=0;
     for(const it of its){const ww=spW(it.w)+7;if(acc+ww>max-(rows.length?0:64)&&cur.length){rows.push(cur);cur=[];acc=0}cur.push(it);acc+=ww}
@@ -1261,7 +1270,7 @@ document.addEventListener('click',e=>{
   if(d.gturn){turnPage(+d.gturn);return}
   if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
   if(d.play){openPlay(d.play,b);return}
-  if(d.ptype!==undefined){PLAY.type=d.ptype;PLAY.pool=[];PLAY.rating=false;if($('#fs').dataset.kind==='five'){PLAY.five=[];renderFive();nextFive()}else{const st=$('#swStage');if(st)st.innerHTML='';renderSwipe()}return}
+  if(d.ptype!==undefined){setPlayType(d.ptype);return}
   if(d.swipe){swipeAct(d.swipe);return}
   if(d.swrate){swipeRate(+d.swrate);return}
   if(d.fcheck){if(PLAY.checks[d.fcheck]){delete PLAY.checks[d.fcheck];delete PLAY.rates[d.fcheck]}else PLAY.checks[d.fcheck]=1;fiveRow(d.fcheck);return}

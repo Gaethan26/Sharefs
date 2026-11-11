@@ -1508,6 +1508,20 @@ nav.tabs button{position:relative}
 /* ===== 5 par 5 : avis qui se déplie sans tout recharger ===== */
 .f5-row .pl-rates.in{animation:ratesin .35s cubic-bezier(.3,1.4,.5,1)}
 @keyframes ratesin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+/* ===== 5 par 5 : grandes tuiles de rareté ===== */
+.f5-big{margin-top:10px;gap:6px}
+.f5-big .sw-rb{min-height:46px;padding:6px 14px 6px 12px;border-radius:15px;opacity:1;animation:rbin .45s cubic-bezier(.3,1.5,.5,1) both}
+.f5-big .sw-rb::before{border-radius:12px}
+.f5-big .sw-rb .gem{width:24px;height:24px}
+.f5-big .sw-rb-s{font-size:22px}
+.f5-big .sw-rb:nth-child(1){animation-delay:.04s}.f5-big .sw-rb:nth-child(2){animation-delay:.08s}.f5-big .sw-rb:nth-child(3){animation-delay:.12s}.f5-big .sw-rb:nth-child(4){animation-delay:.16s}.f5-big .sw-rb:nth-child(5){animation-delay:.2s}
+.f5-big.has .sw-rb:not(.on){filter:brightness(.55) saturate(.6);transition:filter .25s}
+.f5-big.has .sw-rb.on{opacity:1;transform:scale(1.02);box-shadow:0 0 0 2px #fff,0 0 20px var(--rc)}
+.f5-big .sw-rb.on .gem path:first-child{fill:var(--rc)}
+.f5-row .pl-rates.in{animation:none}
+.f5-big .sw-rb{flex-direction:row;line-height:1;font-size:inherit;text-align:left}
+.f5-big .sw-rb.on{background:linear-gradient(160deg,#1C2340,#10142A) padding-box,var(--rf) border-box;border-color:transparent;color:#fff;text-shadow:none}
+.f5-big .sw-rb.r5.on{background:linear-gradient(160deg,#2A1F14,#120D08) padding-box,var(--rf) border-box}
 </style>
 </head>
 <body>
