@@ -23,6 +23,19 @@ function match_row(string $id, bool $lock = false): array {
   return $r;
 }
 
+/* Lecture d'une partie, avec mise au format des parties lancées par une ancienne version (questionnaire express) */
+function match_state(array $m): array {
+  $st = json_decode((string) $m['state'], true);
+  if (!is_array($st)) $st = match_new_state();
+  $st += match_new_state();
+  if (!empty($st['quiz']) && (!isset($st['quiz']['p']['a']['i'], $st['quiz']['p']['b']['i']) || empty($st['quiz']['qs']))) {
+    if (empty($st['quiz']['qs'])) { $st['quiz'] = null; if ($st['phase'] === 'quiz') $st['phase'] = 'choose'; }
+    else $st['quiz'] = ['qs' => $st['quiz']['qs'], 'p' => ['a' => ['i' => 0, 't0' => null, 'res' => []], 'b' => ['i' => 0, 't0' => null, 'res' => []]]];
+  }
+  if ($st['phase'] === 'quiz' && empty($st['quiz'])) $st['phase'] = $st['picks'] ? 'choose' : 'pick';
+  foreach (['a', 'b'] as $x) $st['score'][$x] = (int) ($st['score'][$x] ?? 0);
+  return $st;
+}
 function match_new_state(): array {
   return ['phase' => 'rps', 'rps' => ['a' => null, 'b' => null], 'rpsLog' => [], 'tb' => null, 'turn' => 0,
     'picker' => null, 'target' => null, 'picks' => [], 'chosen' => null, 'quiz' => null,
@@ -36,7 +49,7 @@ function match_tx(string $id, string $uid, callable $fn): array {
   try {
     $m = match_row($id, true);
     $side = match_side($m, $uid);
-    $st = json_decode($m['state'], true);
+    $st = match_state($m);
     if (($st['phase'] ?? '') === 'done') fail(409, 'match_over');
     $fn($st, $side, $m);
     $status = $st['phase'] === 'done' ? 'done' : 'live';
@@ -61,7 +74,7 @@ function my_turn(array $st, string $me): bool {
 
 /* Ce que voit un joueur : jamais le coup en attente de l'adversaire, jamais une bonne réponse avant d'avoir répondu soi-même */
 function match_view(array $m, string $uid): array {
-  $st = json_decode($m['state'], true);
+  $st = match_state($m);
   $me = match_side($m, $uid); $op = op_side($me);
   $v = ['id' => $m['id'], 'version' => (int) $m['version'], 'status' => $m['status'], 'me' => $me, 'a' => $m['a_id'], 'b' => $m['b_id'],
     'phase' => $st['phase'], 'turn' => $st['turn'], 'picker' => $st['picker'], 'target' => $st['target'], 'score' => $st['score'],
@@ -85,7 +98,7 @@ function match_view(array $m, string $uid): array {
 function match_list(string $uid): array {
   $rows = q('SELECT * FROM matches WHERE a_id = ? OR b_id = ? ORDER BY (status = \'live\') DESC, updated_at DESC LIMIT 20', [$uid, $uid])->fetchAll();
   return array_map(function ($m) use ($uid) {
-    $st = json_decode($m['state'], true); $me = match_side($m, $uid); $op = op_side($me);
+    $st = match_state($m); $me = match_side($m, $uid); $op = op_side($me);
     return ['id' => $m['id'], 'op' => $m[$op . '_id'], 'me' => $me, 'phase' => $st['phase'], 'myTurn' => my_turn($st, $me),
       'score' => ['me' => $st['score'][$me], 'op' => $st['score'][$op]], 'winner' => $st['winner'], 'status' => $m['status'],
       'version' => (int) $m['version'], 'updated' => iso($m['updated_at'])];

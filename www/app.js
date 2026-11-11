@@ -883,20 +883,37 @@ function setMatches(list){
   if(!first)for(const m of MATCHES)if(m.status==='live'&&m.myTurn&&m.id!==MT_ID&&!prev.some(p=>p.id===m.id&&p.myTurn&&p.version===m.version))toast(`À toi de jouer contre ${nameOf(m.op)} !`);
   updateChalBadge();
 }
-function startMatchLoops(){}
-async function loadMatches(){try{const r=await api('matches');setMatches(r.matches);if($('#v-chal')?.classList.contains('on'))renderChal()}catch(e){}}
+let mtPollT=null,mtListT=null,mtKey='';
+function startMatchLoops(){clearInterval(mtListT);mtListT=setInterval(()=>{if(!document.hidden&&uid&&!MT_ID)loadMatches(true)},15000)}
+// Ce qui change vraiment l'écran : la phase, mon rôle, mon coup, ma progression. Le reste (score, avancée de l'autre) est mis à jour sur place.
+function screenKey(v){if(!v)return '';const q=v.quiz;
+  return JSON.stringify([v.id,v.phase,v.me,v.picker,v.target,v.rps.me,v.rps.me?v.rps.opDone:0,v.rpsLog.length,(v.picks||[]).map(w=>w.id),v.chosen?.id||'',q?[q.i,q.started,q.n]:0,v.turns?.length||0,v.winner])}
+function patchMatch(v){
+  const ss=document.querySelectorAll('#fsBody .mt-score .mt-s'),sc=mtSc(v);
+  if(ss[0])ss[0].textContent=sc.me;if(ss[1])ss[1].textContent=sc.op;
+  const ps=document.querySelectorAll('#fsBody .mt-score .mt-p');if(ps.length===2&&v.phase!=='done'){ps[0].classList.toggle('act',!!v.myTurn);ps[1].classList.toggle('act',!v.myTurn)}
+  const opl=$('#fsBody .qz-opp');if(opl&&v.quiz)opl.textContent=`${nameOf(mtOpId(v))} : ${v.quiz.op.done?'a terminé':`${v.quiz.op.i}/${v.quiz.n} questions`}`;
+}
+function startMatchPoll(){clearInterval(mtPollT);mtPollT=setInterval(()=>{if(MT_ID&&!document.hidden&&!mtBusy&&!mtQuizFb&&!mtRevealing)refreshMatch(true)},2500)}
+async function loadMatches(quiet){
+  try{const r=await api('matches');const before=JSON.stringify(MATCHES.map(m=>[m.id,m.version]));setMatches(r.matches);
+    if(!$('#v-chal')?.classList.contains('on'))return;
+    if(!quiet)renderChal();
+    else if(before!==JSON.stringify(MATCHES.map(m=>[m.id,m.version]))){const z=$('#chalBody .mt-zone');if(z)z.outerHTML=matchZoneHTML();else renderChal()}
+  }catch(e){}}
 
 // ---------- Ouvrir, rafraîchir, jouer ----------
 async function newMatch(to,src){try{const r=await call('POST','matches',{to});openMatch(r.match.id,src,r.match)}catch(e){toast(msg(e))}}
 async function openMatch(id,src,first){
-  MT_ID=id;MT=null;MTSEL.works=[];MTSEL.q='';MTSEL.choose=null;
+  MT_ID=id;MT=null;mtKey='';MTSEL.works=[];MTSEL.q='';MTSEL.choose=null;
   openFs('match',src);
   if(first)setMatch(first);else await refreshMatch();
+  startMatchPoll();
 }
-function closeMatch(){clearTimeout(mtQT);clearTimeout(mtAfterT);MT_ID=null;MT=null;loadMatches()}
-async function refreshMatch(){
+function closeMatch(){clearInterval(mtPollT);clearTimeout(mtQT);clearTimeout(mtAfterT);MT_ID=null;MT=null;mtKey='';loadMatches(true)}
+async function refreshMatch(quiet){
   if(!MT_ID)return;
-  try{const r=await api('match/'+MT_ID,{v:MT?MT.version:-1});if(r.match)setMatch(r.match);else if(MT)renderMatch()}catch(e){toast(msg(e))}
+  try{const r=await api('match/'+MT_ID,{v:MT?MT.version:-1});if(r.match)setMatch(r.match)}catch(e){if(!quiet)toast(msg(e))}
 }
 async function mtAct(path,body){
   if(mtBusy||!MT_ID)return null;mtBusy=true;
@@ -909,10 +926,11 @@ function setMatch(v){
   const seenKey='sharefs-rps-'+v.id,seen=lsGet(seenKey,prev?prev.rpsLog.length:v.rpsLog.length);
   if(v.rpsLog.length>seen){lsSet(seenKey,v.rpsLog.length);rpsReveal(v.rpsLog[v.rpsLog.length-1]);return}
   lsSet(seenKey,v.rpsLog.length);
+  const k=screenKey(v);
+  if(k===mtKey&&$('#fsBody .mt')){patchMatch(v);return}
   renderMatch(prev);
 }
-function mtWait(text){return `<div class="mt-wait"><div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${text}</p>
-  <button class="btn mt-refresh" data-mtrefresh>Actualiser</button><p class="mt-hint">Tu peux fermer : ton tour s’affichera dans l’onglet Défis.</p></div>`}
+function mtWait(text){return `<div class="mt-wait"><div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${text}</p><p class="mt-hint">Tu peux fermer : ton tour s’affichera dans l’onglet Défis.</p></div>`}
 function mtHead(v){
   const op=mtOpId(v),s=mtSc(v),n=esc(nameOf(op)),live=v.phase!=='done';
   const step=!live?'Fin du match':v.phase==='tiebreak'?`Manche décisive · ${v.tb?.[v.me]||0}–${v.tb?.[mtOpS(v)]||0} (premier à 2)`:v.turn?`Tour ${v.turn} sur 2`:'Qui commence ?';
@@ -947,6 +965,7 @@ function renderMatch(prev){
       <button class="btn pri mt-cta" data-mnew="${esc(op)}">Revanche !</button>`;
     if(win&&!mtWonShown.has(v.id)){mtWonShown.add(v.id);setTimeout(confetti,200)}
   }
+  mtKey=screenKey(v);
   body.innerHTML=`<div class="mt" data-phase="${v.phase}">${mtHead(v)}<div class="mt-body${!prev||prev.phase!==v.phase?' enter':''}">${h}</div>
     ${v.phase!=='done'?'<button class="link mt-ff" data-mtff>Abandonner</button>':''}</div>`;
   if(v.phase==='pick'&&v.picker===me)mtPickMount();
@@ -975,10 +994,10 @@ function mtSelUpdate(){
 function pickHTML(v,op){
   const n=esc(nameOf(op));
   return `<p class="mt-big">Choisis 5 œuvres que ${n} dit avoir vues. Il en gardera une, et vous répondrez tous les deux aux questions.</p>
-    <div class="mt-sel" id="mtSel"></div>
-    <input class="mini" id="mtq" type="search" autocomplete="off" placeholder="Cherche une œuvre : sa collection et tout le catalogue…" value="${esc(MTSEL.q)}">
-    <div class="mt-grid" id="mtGrid"></div>
-    <button class="btn pri mt-cta" data-mtsend disabled>Encore 5 à choisir</button>`;
+    <div class="mt-pickbar"><div class="mt-sel" id="mtSel"></div>
+      <button class="btn pri mt-cta mt-send" data-mtsend disabled>Encore 5 à choisir</button>
+      <input class="mini" id="mtq" type="search" autocomplete="off" placeholder="Cherche une œuvre : sa collection et tout le catalogue…" value="${esc(MTSEL.q)}"></div>
+    <div class="mt-grid" id="mtGrid"></div>`;
 }
 function mtPickMount(){mtSelUpdate();wsRun(MTSEL.q,pickPool(mtOpId(MT)),mtResults)}
 
@@ -1023,7 +1042,9 @@ async function mtAnswer(opt){
 }
 
 // ---------- Pierre, feuille, ciseaux : révélation animée (une seule fois par manche) ----------
+let mtRevealing=false;
 function rpsReveal(last){
+  mtRevealing=true;mtKey='';
   const v=MT,body=$('#fsBody');if(!body||$('#fs').dataset.kind!=='match'){renderMatch();return}
   if(!body.querySelector('.mt'))body.innerHTML=`<div class="mt">${mtHead(v)}<div class="mt-body"></div></div>`;
   const zone=body.querySelector('.mt-body');
@@ -1042,7 +1063,7 @@ function matchClick(d,b){
   if(d.mopen){openMatch(d.mopen,b);return true}
   if(!MT)return false;
   if('mtrefresh' in d){b.disabled=true;b.textContent='…';refreshMatch();return true}
-  if('mtcont' in d){renderMatch();return true}
+  if('mtcont' in d){mtRevealing=false;renderMatch();return true}
   if(d.mrps){b.classList.add('chosen');mtAct('rps',{c:d.mrps});return true}
   if(d.mtsel){const w=WK[d.mtsel];if(!w)return true;const i=MTSEL.works.findIndex(x=>x.id===w.id);
     if(i>=0)MTSEL.works.splice(i,1);else if(MTSEL.works.length<5)MTSEL.works.push(snap(w));else{toast('5 œuvres maximum');return true}
