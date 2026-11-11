@@ -15,6 +15,21 @@ function http_json(string $url, array $headers = [], ?string $post = null): arra
   $j = json_decode($res, true);
   return is_array($j) ? $j : [];
 }
+function clean_char($s): string {
+  $s = trim((string) preg_replace('/\s*\((voice|voix|uncredited|non crédité)[^)]*\)/iu', '', (string) $s));
+  $s = trim((string) preg_replace('#\s*/.*$#u', '', $s)); // « Lui-même / Narrateur » → premier rôle
+  if (mb_strlen($s) < 2 || mb_strlen($s) > 40 || preg_match('/^(himself|herself|lui-même|elle-même|self|narrator|narrateur)$/iu', $s)) return '';
+  return $s;
+}
+function ol_story(string $title, string $author): array {
+  if ($title === '') return [];
+  try {
+    $d = http_json('https://openlibrary.org/search.json?' . http_build_query(['title' => $title, 'author' => $author, 'limit' => 1, 'fields' => 'person,place']));
+    $doc = $d['docs'][0] ?? [];
+    return ['chars' => array_slice(array_values(array_filter(array_map('clean_char', $doc['person'] ?? []))), 0, 12),
+      'places' => array_slice(array_values(array_filter(array_map('clean_char', $doc['place'] ?? []))), 0, 8)];
+  } catch (Throwable $e) { return []; }
+}
 function clean(array $o): array { return array_filter($o, fn($v) => $v !== '' && $v !== null && $v !== []); }
 function yr($s): ?int { $y = (int) substr((string) $s, 0, 4); return $y > 1000 ? $y : null; }
 function need_key(string ...$k): void { foreach ($k as $x) if (!cfg($x)) fail(503, 'missing_key:' . $x); }
@@ -40,7 +55,14 @@ function search_tmdb(string $k, string $q, int $page, int $lim): array {
   return ['items' => array_map(fn($x) => from_tmdb($x, $k), array_slice($items, 0, $lim)), 'more' => ($d['page'] ?? 1) < ($d['total_pages'] ?? 1)];
 }
 function work_tmdb(string $k, string $id): array {
-  $x = tmdb("/$k/$id", ['append_to_response' => 'credits,images', 'include_image_language' => 'fr,en,null']);
+  $x = tmdb("/$k/$id", ['append_to_response' => $k === 'tv' ? 'credits,aggregate_credits,images,season/1' : 'credits,images', 'include_image_language' => 'fr,en,null']);
+  // personnages et rôles (acteur → personnage)
+  $roles = [];
+  if ($k === 'tv') foreach (array_slice($x['aggregate_credits']['cast'] ?? [], 0, 12) as $c) { $ch = $c['roles'][0]['character'] ?? ''; if ($ch !== '') $roles[] = [$c['name'] ?? '', $ch]; }
+  foreach (array_slice($x['credits']['cast'] ?? [], 0, 12) as $c) if (!empty($c['character'])) $roles[] = [$c['name'] ?? '', $c['character']];
+  $roles = array_values(array_filter(array_map(fn($r) => [$r[0], clean_char($r[1])], $roles), fn($r) => $r[0] !== '' && $r[1] !== ''));
+  $seen = []; $roles = array_values(array_filter($roles, function ($r) use (&$seen) { $k2 = mb_strtolower($r[1]); if (isset($seen[$k2])) return false; $seen[$k2] = 1; return true; }));
+  $eps = $k === 'tv' ? array_values(array_filter(array_map(fn($e) => trim((string) ($e['name'] ?? '')), $x['season/1']['episodes'] ?? []), fn($n) => $n !== '' && !preg_match('/^(épisode|episode)\s*\d+$/iu', $n))) : [];
   $w = from_tmdb(array_merge($x, ['genre_ids' => []]), $k);
   $cr = $k === 'movie' ? array_column(array_filter($x['credits']['crew'] ?? [], fn($c) => ($c['job'] ?? '') === 'Director'), 'name') : array_column($x['created_by'] ?? [], 'name');
   return clean(array_merge($w, [
@@ -50,6 +72,8 @@ function work_tmdb(string $k, string $id): array {
     'p' => $x['production_countries'][0]['iso_3166_1'] ?? ($x['origin_country'][0] ?? ''),
     'syn' => mb_substr($x['overview'] ?? '', 0, 800),
     'cast' => array_slice(array_column($x['credits']['cast'] ?? [], 'name'), 0, 4),
+    'roles' => array_slice($roles, 0, 10), 'chars' => array_slice(array_column($roles, 1), 0, 12), 'eps' => array_slice($eps, 0, 12),
+    'tag' => trim((string) ($x['tagline'] ?? '')),
     'img' => !empty($x['poster_path']) ? 'https://image.tmdb.org/t/p/w500' . $x['poster_path'] : ($w['img'] ?? ''),
     'imgs' => array_values(array_unique(array_merge(
       array_map(fn($i) => 'https://image.tmdb.org/t/p/w780' . $i['file_path'], array_slice($x['images']['backdrops'] ?? [], 0, 10)),
@@ -88,7 +112,8 @@ function work_book(string $id): array {
   $big = gb_img($im['extraLarge'] ?? $im['large'] ?? $im['medium'] ?? '');
   $imgs = array_values(array_unique(array_filter([$big, gb_img($im['thumbnail'] ?? ''), $isbn ? "https://covers.openlibrary.org/b/isbn/$isbn-L.jpg?default=false" : ''])));
   $w = from_book($x);
-  return clean(array_merge($w, ['syn' => mb_substr($syn, 0, 800), 'pub' => $v['publisher'] ?? '', 'img' => $big ?: ($w['img'] ?? ''), 'imgs' => $imgs]));
+  $story = ol_story((string) ($v['title'] ?? ''), (string) (($v['authors'] ?? [''])[0] ?? ''));
+  return clean(array_merge($w, $story, ['syn' => mb_substr($syn, 0, 800), 'pub' => $v['publisher'] ?? '', 'img' => $big ?: ($w['img'] ?? ''), 'imgs' => $imgs]));
 }
 
 /* Open Library : sans clé, utilisé quand Google Books ne répond pas (quota partagé sur l'IP de l'hébergeur) */
@@ -126,6 +151,8 @@ function work_ol(string $key): array {
     'img' => $covers ? "https://covers.openlibrary.org/b/id/{$covers[0]}-L.jpg" : '',
     'imgs' => array_map(fn($c) => "https://covers.openlibrary.org/b/id/$c-L.jpg", array_slice($covers, 0, 6)),
     'g' => array_slice($x['subjects'] ?? [], 0, 3),
+    'chars' => array_slice(array_values(array_filter(array_map('clean_char', $x['subject_people'] ?? []))), 0, 12),
+    'places' => array_slice(array_values(array_filter(array_map('clean_char', $x['subject_places'] ?? []))), 0, 8),
     'syn' => mb_substr(trim((string) preg_replace('/\s+/', ' ', strip_tags((string) $desc))), 0, 800)]);
 }
 function search_books(string $q, int $page, int $lim): array {
@@ -145,9 +172,9 @@ function twitch_token(): string {
   return $d['access_token'];
 }
 // Requête IGDB ; si le jeton Twitch en cache est refusé (secret régénéré, jeton révoqué), on en redemande un et on réessaie une fois
-function igdb(string $body): array {
+function igdb(string $body, string $endpoint = 'games'): array {
   for ($try = 0; $try < 2; $try++) {
-    $ch = curl_init('https://api.igdb.com/v4/games');
+    $ch = curl_init('https://api.igdb.com/v4/' . $endpoint);
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
       CURLOPT_HTTPHEADER => ['Accept: application/json', 'Client-ID: ' . cfg('twitch_client_id'), 'Authorization: Bearer ' . twitch_token(), 'Content-Type: text/plain'], CURLOPT_USERAGENT => 'Sharefs/1.0']);
     $res = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
@@ -178,13 +205,15 @@ function search_games(string $q, int $page, int $lim): array {
   return ['items' => array_map('from_game', array_slice($d, 0, $lim)), 'more' => count($d) > $lim];
 }
 function work_game(string $id): array {
-  $d = igdb('fields ' . GF . ',summary,platforms.abbreviation; where id = ' . (int) $id . ';');
+  $d = igdb('fields ' . GF . ',summary,storyline,platforms.abbreviation; where id = ' . (int) $id . ';');
+  $chars = [];
+  try { $chars = array_values(array_filter(array_map(fn($c) => clean_char($c['name'] ?? ''), igdb('fields name; where games = (' . (int) $id . '); limit 15;', 'characters')))); } catch (Throwable $e) {}
   if (!$d) fail(404, 'not_found');
   $x = $d[0];
   $imgs = array_map(fn($i) => igdb_img($i['image_id'], 't_screenshot_big'), array_slice(array_merge($x['artworks'] ?? [], $x['screenshots'] ?? []), 0, 12));
   $w = from_game($x);
   if (!empty($x['cover']['image_id'])) $w['img'] = igdb_img($x['cover']['image_id'], 't_cover_big_2x');
-  return clean(array_merge($w, ['syn' => mb_substr($x['summary'] ?? '', 0, 800), 'imgs' => $imgs, 'plat' => array_slice(array_values(array_filter(array_column($x['platforms'] ?? [], 'abbreviation'))), 0, 6)]));
+  return clean(array_merge($w, ['syn' => mb_substr($x['summary'] ?? '', 0, 800), 'story' => mb_substr($x['storyline'] ?? '', 0, 800), 'chars' => array_slice($chars, 0, 12), 'imgs' => $imgs, 'plat' => array_slice(array_values(array_filter(array_column($x['platforms'] ?? [], 'abbreviation'))), 0, 6)]));
 }
 
 /* ---------- Jeux de société : BoardGameGeek (XML API2, jeton d'application requis) ---------- */
@@ -207,14 +236,15 @@ function from_bgg(SimpleXMLElement $it): array {
   $name = '';
   foreach ($it->name as $n) { if ((string) $n['type'] === 'primary') { $name = (string) $n['value']; break; } }
   if ($name === '') $name = bgg_attr($it->name[0] ?? null);
-  $designers = []; $cats = [];
+  $designers = []; $cats = []; $mech = [];
   foreach ($it->link as $l) {
     if ((string) $l['type'] === 'boardgamedesigner' && count($designers) < 2) $designers[] = (string) $l['value'];
     if ((string) $l['type'] === 'boardgamecategory' && count($cats) < 3) $cats[] = (string) $l['value'];
+    if ((string) $l['type'] === 'boardgamemechanic' && count($mech) < 6) $mech[] = (string) $l['value'];
   }
   $img = trim((string) ($it->image ?? '')) ?: trim((string) ($it->thumbnail ?? '')) ?: bgg_attr($it->thumbnail ?? null);
   return clean(['id' => 'bgg-' . (string) $it['id'], 't' => 'b', 'ti' => $name, 'y' => (int) bgg_attr($it->yearpublished ?? null) ?: null,
-    'c' => implode(', ', $designers), 'img' => $img, 'g' => $cats, 'd' => (int) bgg_attr($it->playingtime ?? null) ?: null]);
+    'c' => implode(', ', $designers), 'img' => $img, 'g' => $cats, 'mech' => $mech, 'd' => (int) bgg_attr($it->playingtime ?? null) ?: null]);
 }
 function search_bgg(string $q, int $page, int $lim): array {
   if ($q === '') {
@@ -340,7 +370,7 @@ function catalog_search(string $type, string $q, int $page, int $lim): array {
   return $r;
 }
 function catalog_work(string $id): array {
-  if (($c = cache_get("w3|$id")) !== null) return $c;
+  if (($c = cache_get("w4|$id")) !== null) return $c;
   if (preg_match('/^tmdb-(movie|tv)-(\d+)$/', $id, $m)) $r = work_tmdb($m[1], $m[2]);
   elseif (preg_match('/^gb-([\w-]+)$/', $id, $m)) $r = work_book($m[1]);
   elseif (preg_match('/^ol-(OL\d+W)$/', $id, $m)) $r = work_ol($m[1]);
@@ -349,6 +379,6 @@ function catalog_work(string $id): array {
   elseif (preg_match('/^dz-(\d+)$/', $id, $m)) $r = work_dz($m[1]);
   elseif (preg_match('/^igdb-(\d+)$/', $id, $m)) $r = work_game($m[1]);
   else fail(400, 'bad_id');
-  cache_set("w3|$id", $r, 7 * 86400);
+  cache_set("w4|$id", $r, 7 * 86400);
   return $r;
 }

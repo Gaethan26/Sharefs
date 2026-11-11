@@ -229,51 +229,131 @@ function qz_bucket(int $v, array $edges, array $labels): array {
   return ['opts' => $labels, 'ans' => $i];
 }
 
-/* Questions sur l'œuvre elle-même (personnages, lieux, objets, scènes), écrites par Claude.
-   Facultatif : sans clé 'anthropic_key', on garde les questions tirées des fiches. Mises en cache 30 jours par œuvre. */
-function content_questions(array $w): array {
-  $key = (string) cfg('anthropic_key', '');
-  if ($key === '' || empty($w['id'])) return [];
-  $ck = 'qz2|' . $w['id'];
-  if (($c = cache_get($ck)) !== null) return $c;
-  $kind = ['f' => 'le film', 's' => 'la série', 'l' => 'le livre', 'j' => 'le jeu vidéo', 'b' => 'le jeu de société', 'm' => 'l’album'][$w['t']] ?? 'l’œuvre';
-  $desc = $kind . ' « ' . $w['ti'] . ' »' . (!empty($w['y']) ? ' (' . $w['y'] . ')' : '') . (!empty($w['c']) ? ', de ' . $w['c'] : '');
-  $prompt = "Écris 8 questions de quiz en français sur le CONTENU de $desc : personnages, lieux, objets, créatures, scènes marquantes, répliques, déroulé de l'histoire, mécaniques de jeu ou chansons selon le cas.\n"
-    . "Elles doivent pouvoir être répondues par quelqu'un qui a vraiment vu, lu, joué ou écouté l'œuvre, sans chercher ailleurs. Pas de questions sur l'année, l'auteur, le réalisateur, le studio ou le casting.\n"
-    . "Chaque question a exactement 4 propositions courtes (moins de 60 caractères), une seule juste, et 3 fausses crédibles tirées du même univers.\n"
-    . "N'écris que des questions dont tu es certain de la réponse. Varie la difficulté. Évite de révéler la fin.\n"
-    . "Si tu ne connais pas assez bien cette œuvre précise, réponds {\"known\": false}.\n"
-    . "Réponds uniquement en JSON, sans texte autour : {\"known\": true, \"questions\": [{\"q\": \"…\", \"good\": \"…\", \"bad\": [\"…\", \"…\", \"…\"]}]}";
-  $ch = curl_init((string) cfg('anthropic_url', 'https://api.anthropic.com/v1/messages'));
-  curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_POST => true,
-    CURLOPT_HTTPHEADER => ['content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'],
-    CURLOPT_POSTFIELDS => json_encode(['model' => cfg('anthropic_model', 'claude-sonnet-5-5'), 'max_tokens' => 2000,
-      'messages' => [['role' => 'user', 'content' => $prompt]]], JSON_UNESCAPED_UNICODE)]);
-  $res = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-  if ($res === false || $code !== 200) { error_log('[sharefs] Claude API ' . $code . ' ' . substr((string) $res, 0, 200)); return []; }
-  $text = '';
-  foreach ((json_decode($res, true)['content'] ?? []) as $b) if (($b['type'] ?? '') === 'text') $text .= $b['text'];
-  $text = trim((string) preg_replace('/^```(json)?|```$/m', '', trim($text)));
-  $j = json_decode($text, true);
-  $out = [];
-  if (is_array($j) && !empty($j['known'])) foreach (($j['questions'] ?? []) as $q) {
-    $good = trim((string) ($q['good'] ?? '')); $bad = array_values(array_unique(array_filter(array_map(fn($x) => trim((string) $x), (array) ($q['bad'] ?? [])))));
-    $qt = trim((string) ($q['q'] ?? ''));
-    if ($qt === '' || $good === '' || count($bad) < 3 || in_array($good, $bad, true) || mb_strlen($qt) > 220) continue;
-    $opts = array_merge([$good], array_slice($bad, 0, 3)); shuffle($opts);
-    $out[] = ['q' => $qt, 'opts' => array_map(fn($o) => mb_substr($o, 0, 80), $opts), 'ans' => array_search($good, $opts, true)];
+/* ---------- Questions sur ce qu'il se passe dans l'œuvre, tirées des données des catalogues (sans IA) ----------
+   Personnages (TMDB, IGDB, Open Library), rôles, lieux, épisodes, titres, mécaniques, et résumé à compléter. */
+const QZ_CHARS = [
+  'f' => ['Sherlock Holmes', 'James Bond', 'Indiana Jones', 'Ellen Ripley', 'Hermione Granger', 'Tony Stark', 'Jack Sparrow', 'Marty McFly', 'Sarah Connor', 'Amélie Poulain', 'Hannibal Lecter', 'Forrest Gump', 'Neo', 'Maximus', 'Rocky Balboa', 'Vito Corleone'],
+  's' => ['Walter White', 'Jon Snow', 'Arya Stark', 'Tony Soprano', 'Michael Scott', 'Eleven', 'Don Draper', 'Sherlock Holmes', 'Rachel Green', 'Dale Cooper', 'Saul Goodman', 'Lucifer', 'Jessica Day', 'Malotru', 'Perceval', 'Daenerys Targaryen'],
+  'j' => ['Mario', 'Link', 'Lara Croft', 'Kratos', 'Master Chief', 'Geralt de Riv', 'Aloy', 'Samus Aran', 'Solid Snake', 'Ezio Auditore', 'Joel', 'Ellie', 'Cloud Strife', 'Sonic', 'Zagreus', 'Arthur Morgan'],
+  'l' => ['Jean Valjean', 'Hermione Granger', 'Sherlock Holmes', 'Emma Bovary', 'Bilbon Sacquet', 'Arsène Lupin', 'Dracula', 'Jay Gatsby', 'Paul Atréides', 'Meursault', 'Winston Smith', 'Elizabeth Bennet', 'Edmond Dantès', 'Gavroche', 'Lisbeth Salander', 'Jo March'],
+];
+const QZ_PLACES = ['Paris', 'Londres', 'New York', 'Tokyo', 'Rome', 'Venise', 'Moscou', 'Berlin', 'Los Angeles', 'Mars', 'la Lune', 'une île déserte', 'le Far West', 'Égypte', 'Écosse', 'Inde', 'Brésil', 'Antarctique'];
+const QZ_MECH = ['Placement d’ouvriers', 'Construction de deck', 'Draft', 'Pose de tuiles', 'Majorité', 'Enchères', 'Lancer de dés', 'Coopération', 'Rôles cachés', 'Collection de sets', 'Programmation', 'Déplacement sur plateau'];
+const QZ_STOP = ['Le', 'La', 'Les', 'Un', 'Une', 'Des', 'Du', 'De', 'Dans', 'Quand', 'Mais', 'Alors', 'Lorsque', 'Avec', 'Après', 'Avant', 'Pendant', 'Cette', 'Ce', 'Cet', 'Ces', 'Il', 'Elle', 'Ils', 'Elles', 'Son', 'Sa', 'Ses', 'Leur', 'Leurs', 'Pour', 'Par', 'Sur', 'Sous', 'Entre', 'Tout', 'Tous', 'Toute', 'Toutes', 'Mon', 'Ma', 'Mes', 'Notre', 'Nos', 'Votre', 'Vos', 'Au', 'Aux', 'En', 'Et', 'Ou', 'Où', 'Mais', 'Puis', 'Bientôt', 'Désormais', 'Ainsi', 'Cependant', 'Pourtant', 'Lui', 'Eux', 'Celui', 'Celle', 'Chaque', 'Comment', 'Pourquoi', 'Lorsqu', 'Jusqu', 'Depuis', 'Seul', 'Seule', 'Une', 'Rien', 'Personne', 'Contre', 'Malgré', 'Grâce', 'Face', 'Afin', 'Tandis', 'Enfin', 'Aujourd', 'The', 'And', 'When', 'His', 'Her', 'After'];
+
+// Résumé à compléter : un nom propre du résumé (personnage, lieu…) est masqué
+function qz_cloze(string $text, array $w, array $pool): ?array {
+  $text = trim((string) preg_replace('/\s+/', ' ', $text));
+  if (mb_strlen($text) < 60) return null;
+  $titleWords = array_map('mb_strtolower', preg_split('/[\s’\'\-:,]+/u', (string) ($w['ti'] ?? '')));
+  $sentences = preg_split('/(?<=[.!?…])\s+/u', $text);
+  $cands = [];
+  foreach ($sentences as $si => $sen) {
+    if (mb_strlen($sen) < 30) continue;
+    if (!preg_match_all('/(?<=[\s«“(\'’-])([A-ZÉÈÊÀÂÎÔÛÇ][\p{L}’\'-]{2,}(?:\s[A-ZÉÈÊÀÂÎÔÛÇ][\p{L}’\'-]{2,})?)/u', ' ' . $sen, $m, PREG_OFFSET_CAPTURE)) continue;
+    foreach ($m[1] as [$word, $off]) {
+      if ($off <= 1) continue; // le premier mot d'une phrase n'est pas forcément un nom propre
+      $first = explode(' ', $word)[0];
+      if (in_array($first, QZ_STOP, true) || in_array(mb_strtolower($first), $titleWords, true)) continue;
+      $cands[] = [$si, $word];
+    }
   }
-  cache_set($ck, $out, $out ? 30 * 86400 : 86400);
+  if (!$cands) return null;
+  // on préfère un mot qui est aussi un personnage connu de l'œuvre
+  $chars = array_map('mb_strtolower', $w['chars'] ?? []);
+  usort($cands, fn($x, $y) => (int) in_array(mb_strtolower($y[1]), $chars, true) - (int) in_array(mb_strtolower($x[1]), $chars, true));
+  [$si, $word] = random_int(0, 2) === 0 ? $cands[array_rand($cands)] : $cands[0];
+  $sen = $sentences[$si];
+  $blank = preg_replace('/' . preg_quote($word, '/') . '/u', '____', $sen, 1);
+  if (mb_strlen($blank) > 170) { $pos = mb_strpos($blank, '____'); $start = max(0, $pos - 80); $blank = ($start > 0 ? '…' : '') . mb_substr($blank, $start, 160) . '…'; }
+  // réponses du même genre : personnages pour un personnage, lieux pour un lieu
+  $lw = mb_strtolower($word);
+  if (in_array($lw, $chars, true)) $pool = array_merge(array_diff($pool, QZ_PLACES), QZ_CHARS[$w['t']] ?? []);
+  elseif (in_array($lw, array_map('mb_strtolower', $w['places'] ?? []), true)) $pool = QZ_PLACES;
+  $o = qz_opts($word, array_filter($pool, fn($x) => mb_stripos($text, $x) === false));
+  return $o ? ['q' => 'Complète le résumé : « ' . $blank . ' »'] + $o : null;
+}
+
+function story_questions(array $w, array $others): array {
+  $t = $w['t']; $ti = '« ' . $w['ti'] . ' »';
+  $oChars = []; $oPlaces = []; $oEps = []; $oTracks = []; $oNames = [];
+  foreach ($others as $o) {
+    foreach (($o['chars'] ?? []) as $c) $oChars[] = $c;
+    foreach (($o['places'] ?? []) as $c) $oPlaces[] = $c;
+    foreach (($o['eps'] ?? []) as $c) $oEps[] = $c;
+    foreach (($o['tracks'] ?? []) as $c) $oTracks[] = $c;
+    if (preg_match_all('/(?<=\s)([A-ZÉÈÀÂÎÔÛÇ][\p{L}’\'-]{3,})/u', ' ' . ($o['syn'] ?? ''), $m)) foreach ($m[1] as $x) if (!in_array($x, QZ_STOP, true)) $oNames[] = $x;
+  }
+  $chars = $w['chars'] ?? []; $roles = $w['roles'] ?? [];
+  $charPool = array_merge($oChars, QZ_CHARS[$t] ?? QZ_CHARS['f']);
+  $gen = [];
+  if (count($chars) >= 1) $gen[] = function () use ($chars, $charPool, $ti, $t) {
+    $verb = ['f' => 'apparaît dans le film', 's' => 'apparaît dans la série', 'j' => 'croise-t-on dans le jeu', 'l' => 'apparaît dans le livre'][$t] ?? 'apparaît dans';
+    $o = qz_opts($chars[array_rand(array_slice($chars, 0, 6))], array_diff($charPool, $chars));
+    return $o ? ['q' => "Lequel de ces personnages $verb $ti ?"] + $o : null;
+  };
+  if (count($chars) >= 4) $gen[] = function () use ($chars, $charPool, $ti) {
+    // l'intrus : un personnage qui n'est PAS dans l'œuvre
+    $fake = array_values(array_diff($charPool, $chars)); if (!$fake) return null;
+    $intrus = $fake[array_rand($fake)]; $real = array_slice($chars, 0, 8); shuffle($real);
+    $opts = array_merge([$intrus], array_slice($real, 0, 3)); shuffle($opts);
+    return ['q' => "Intrus : lequel de ces personnages n’apparaît PAS dans $ti ?", 'opts' => $opts, 'ans' => array_search($intrus, $opts, true)];
+  };
+  if (count($roles) >= 4) $gen[] = function () use ($roles, $ti) {
+    [$actor, $char] = $roles[array_rand(array_slice($roles, 0, 6))];
+    $o = qz_opts($char, array_column(array_filter($roles, fn($r) => $r[1] !== $char), 1));
+    return $o ? ['q' => "Dans $ti, quel personnage est joué par $actor ?"] + $o : null;
+  };
+  if (!empty($w['places'])) $gen[] = function () use ($w, $oPlaces, $ti) {
+    $o = qz_opts($w['places'][array_rand(array_slice($w['places'], 0, 4))], array_diff(array_merge($oPlaces, QZ_PLACES), $w['places']));
+    return $o ? ['q' => "Lequel de ces lieux apparaît dans $ti ?"] + $o : null;
+  };
+  if (count($w['eps'] ?? []) >= 3) $gen[] = function () use ($w, $oEps, $ti) {
+    $fake = array_merge($oEps, ['Le Retour', 'La Nuit des masques', 'Point de non-retour', 'Le Dernier Jour', 'Sous la surface', 'Les Liens du sang', 'Le Grand Saut', 'Échec et mat']);
+    $o = qz_opts($w['eps'][array_rand($w['eps'])], array_diff($fake, $w['eps']));
+    return $o ? ['q' => "Lequel de ces titres est un épisode de la saison 1 de $ti ?"] + $o : null;
+  };
+  if (count($w['eps'] ?? []) >= 4) $gen[] = function () use ($w, $ti) {
+    $first = $w['eps'][0]; $rest = array_slice($w['eps'], 1); shuffle($rest);
+    $opts = array_merge([$first], array_slice($rest, 0, 3)); shuffle($opts);
+    return ['q' => "Quel est le tout premier épisode de $ti ?", 'opts' => $opts, 'ans' => array_search($first, $opts, true)];
+  };
+  if (count($w['tracks'] ?? []) >= 4) $gen[] = function () use ($w, $ti) {
+    $first = $w['tracks'][0]; $rest = array_slice($w['tracks'], 1); shuffle($rest);
+    $opts = array_merge([$first], array_slice($rest, 0, 3)); shuffle($opts);
+    return ['q' => "Quel titre ouvre l’album $ti ?", 'opts' => $opts, 'ans' => array_search($first, $opts, true)];
+  };
+  if (count($w['tracks'] ?? []) >= 4) $gen[] = function () use ($w, $ti) {
+    $last = $w['tracks'][count($w['tracks']) - 1]; $rest = array_slice($w['tracks'], 0, -1); shuffle($rest);
+    $opts = array_merge([$last], array_slice($rest, 0, 3)); shuffle($opts);
+    return ['q' => "Quel titre clôt l’album $ti ?", 'opts' => $opts, 'ans' => array_search($last, $opts, true)];
+  };
+  if (!empty($w['mech'])) $gen[] = function () use ($w, $ti) {
+    $o = qz_opts($w['mech'][array_rand($w['mech'])], array_diff(QZ_MECH, $w['mech']));
+    return $o ? ['q' => "Quelle mécanique fait partie de $ti ?"] + $o : null;
+  };
+  $namePool = array_merge($oNames, $oChars, QZ_CHARS[$t] ?? [], QZ_PLACES);
+  foreach (array_filter([$w['syn'] ?? '', $w['story'] ?? '']) as $txt) $gen[] = fn() => qz_cloze($txt, $w, $namePool);
+  if (!empty($w['syn'])) $gen[] = fn() => qz_cloze($w['syn'], $w, $namePool); // un second résumé à trous possible
+  if (!empty($w['tag'])) $gen[] = function () use ($w, $others, $ti) {
+    $fakes = array_values(array_filter(array_map(fn($o) => $o['tag'] ?? '', $others)));
+    $fakes = array_merge($fakes, ['Certaines légendes ne meurent jamais.', 'Le monde ne sera plus jamais le même.', 'Tout commence par une rencontre.', 'La vérité est ailleurs.', 'Rien ne sera plus comme avant.']);
+    $o = qz_opts($w['tag'], $fakes); return $o ? ['q' => "Quelle est l’accroche de $ti ?"] + $o : null;
+  };
+  shuffle($gen);
+  $out = []; $seen = [];
+  foreach ($gen as $g) { $r = $g(); if ($r && !isset($seen[$r['q']])) { $seen[$r['q']] = 1; $out[] = $r; } }
   return $out;
 }
 
 function make_quiz(array $work, array $picks, array $uids): array {
-  // 4 questions sur le contenu de l'œuvre quand c'est possible, complétées par des questions tirées de sa fiche
-  $content = content_questions($work); shuffle($content);
-  $content = array_slice($content, 0, 4);
-  $meta = make_quiz_meta($work, $picks, $uids);
-  $qs = $content;
-  foreach ($meta as $m) if (count($qs) < 5) $qs[] = $m;
+  // 4 questions sur ce qu'il se passe dans l'œuvre quand les données le permettent, complétées par des questions de fiche
+  $full = function (array $w): array { try { return array_merge($w, catalog_work($w['id'])); } catch (Throwable $e) { return $w; } };
+  $w = $full($work); $others = [];
+  foreach ($picks as $p) if ($p['id'] !== $work['id']) $others[] = $full($p);
+  $story = array_slice(story_questions($w, $others), 0, 4);
+  $qs = $story;
+  foreach (make_quiz_meta($work, $picks, $uids) as $m) if (count($qs) < 5) $qs[] = $m;
   shuffle($qs);
   return array_slice($qs, 0, 5);
 }
