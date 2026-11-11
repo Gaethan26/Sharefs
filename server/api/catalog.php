@@ -244,7 +244,34 @@ function work_bgg(string $id): array {
   return clean(array_merge($w, ['syn' => mb_substr($syn, 0, 800), 'imgs' => array_values(array_filter([$w['img'] ?? ''])), 'plat' => [$players . ' joueurs']]));
 }
 
-/* ---------- Musique : MusicBrainz + Cover Art Archive (sans clé) ---------- */
+/* ---------- Musique : Deezer (sans clé, pochettes fiables) ---------- */
+function dz(string $path, array $p = []): array {
+  $j = json_decode(http_raw('https://api.deezer.com/' . $path . ($p ? '?' . http_build_query($p) : ''), ['Accept: application/json']), true);
+  if (!is_array($j)) return [];
+  if (isset($j['error'])) fail(502, 'provider_dz');
+  return $j;
+}
+function from_dz(array $x): array {
+  $genres = array_slice(array_map(fn($g) => $g['name'] ?? '', $x['genres']['data'] ?? []), 0, 3);
+  return clean(['id' => 'dz-' . ($x['id'] ?? ''), 't' => 'm', 'ti' => $x['title'] ?? '', 'y' => yr($x['release_date'] ?? ''),
+    'c' => $x['artist']['name'] ?? '', 'img' => $x['cover_xl'] ?? ($x['cover_big'] ?? ($x['cover_medium'] ?? '')),
+    'g' => array_values(array_filter($genres)), 'd' => isset($x['nb_tracks']) ? (int) $x['nb_tracks'] : null]);
+}
+function search_dz(string $q, int $page, int $lim): array {
+  $d = $q === '' ? dz('chart/0/albums', ['limit' => $lim, 'index' => ($page - 1) * $lim]) : dz('search/album', ['q' => $q, 'limit' => $lim, 'index' => ($page - 1) * $lim]);
+  $items = array_values(array_filter(array_map('from_dz', $d['data'] ?? []), fn($w) => !empty($w['ti']) && $w['id'] !== 'dz-'));
+  return ['items' => $items, 'more' => isset($d['next']) || ($q === '' && count($items) === $lim && $page < 5)];
+}
+function work_dz(string $id): array {
+  $x = dz('album/' . (int) $id);
+  if (empty($x['id'])) fail(404, 'not_found');
+  $w = from_dz($x);
+  $tracks = array_slice(array_map(fn($t) => $t['title'] ?? '', $x['tracks']['data'] ?? []), 0, 6);
+  return clean(array_merge($w, ['imgs' => array_values(array_filter([$w['img'] ?? ''])), 'syn' => $tracks ? 'Titres : ' . implode(', ', $tracks) . (count($x['tracks']['data'] ?? []) > 6 ? '…' : '') : '',
+    'plat' => array_values(array_filter([$x['label'] ?? '']))]));
+}
+
+/* ---------- Musique (ancien catalogue) : MusicBrainz + Cover Art Archive, gardé pour les œuvres déjà enregistrées ---------- */
 function mb(string $path, array $p): array {
   $j = json_decode(http_raw('https://musicbrainz.org/ws/2/' . $path . '?' . http_build_query($p + ['fmt' => 'json']), ['Accept: application/json']), true);
   return is_array($j) ? $j : [];
@@ -278,7 +305,7 @@ function catalog_search(string $type, string $q, int $page, int $lim): array {
   $r = match ($type) {
     'f' => search_tmdb('movie', $q, $page, $lim), 's' => search_tmdb('tv', $q, $page, $lim),
     'l' => search_books($q, $page, $lim), 'j' => search_games($q, $page, $lim),
-    'b' => search_bgg($q, $page, $lim), 'm' => search_mb($q, $page, $lim), default => fail(400, 'bad_type') };
+    'b' => search_bgg($q, $page, $lim), 'm' => search_dz($q, $page, $lim), default => fail(400, 'bad_type') };
   cache_set($key, $r, 3600);
   return $r;
 }
@@ -289,6 +316,7 @@ function catalog_work(string $id): array {
   elseif (preg_match('/^ol-(OL\d+W)$/', $id, $m)) $r = work_ol($m[1]);
   elseif (preg_match('/^bgg-(\d+)$/', $id, $m)) $r = work_bgg($m[1]);
   elseif (preg_match('/^mb-([0-9a-f-]{36})$/', $id, $m)) $r = work_mb($m[1]);
+  elseif (preg_match('/^dz-(\d+)$/', $id, $m)) $r = work_dz($m[1]);
   elseif (preg_match('/^igdb-(\d+)$/', $id, $m)) $r = work_game($m[1]);
   else fail(400, 'bad_id');
   cache_set("w3|$id", $r, 7 * 86400);

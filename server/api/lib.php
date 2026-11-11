@@ -120,7 +120,7 @@ function ensure_schema(): void {
   static $done = false;
   if ($done) return;
   $done = true;
-  $flag = __DIR__ . '/.schema-v3';
+  $flag = __DIR__ . '/.schema-v4';
   if (is_file($flag)) return;
   db()->exec("CREATE TABLE IF NOT EXISTS challenges (
     id CHAR(36) PRIMARY KEY, from_id CHAR(36) NOT NULL, to_id CHAR(36) NOT NULL, works TEXT NOT NULL, note VARCHAR(280) NULL,
@@ -140,6 +140,11 @@ function ensure_schema(): void {
     id CHAR(36) PRIMARY KEY, guesser_id CHAR(36) NOT NULL, target_id CHAR(36) NOT NULL, season VARCHAR(16) NOT NULL, day DATE NOT NULL,
     work TEXT NOT NULL, correct TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY one_per_day (guesser_id, target_id, day), INDEX (target_id, season), INDEX (guesser_id, season),
+    FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  db()->exec("CREATE TABLE IF NOT EXISTS fetish_options (
+    guesser_id CHAR(36) NOT NULL, target_id CHAR(36) NOT NULL, season VARCHAR(16) NOT NULL, options TEXT NOT NULL, day DATE NOT NULL,
+    PRIMARY KEY (guesser_id, target_id, season),
     FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   @file_put_contents($flag, date('c'));
@@ -162,7 +167,7 @@ function check_password(string $pass): void {
 }
 
 /* ---------- Validation des données envoyées par l'app ---------- */
-const IMG_HOSTS = ['image.tmdb.org', 'images.igdb.com', 'books.google.com', 'books.googleusercontent.com', 'covers.openlibrary.org', 'cf.geekdo-images.com', 'coverartarchive.org', 'archive.org'];
+const IMG_HOSTS = ['image.tmdb.org', 'images.igdb.com', 'books.google.com', 'books.googleusercontent.com', 'covers.openlibrary.org', 'cf.geekdo-images.com', 'coverartarchive.org', 'archive.org', 'dzcdn.net'];
 function clean_str($v, int $max): string {
   return mb_substr(trim((string) preg_replace('/[\x00-\x1F\x7F]/u', '', (string) $v)), 0, $max);
 }
@@ -196,7 +201,7 @@ function clean_map($m, bool $timestamps): object {
   foreach ((array) $m as $k => $v) {
     if (!clean_id($k) || !is_numeric($v)) continue;
     $v = (int) $v;
-    if ($timestamps ? $v < 0 : ($v < 1 || $v > 4)) continue;
+    if ($timestamps ? $v < 0 : ($v < 1 || $v > 5)) continue;
     $out[$k] = $v;
     if (count($out) >= 5000) break;
   }
@@ -232,5 +237,97 @@ function norm_title(string $s): string {
 function same_work(array $a, array $b): bool {
   if (($a['id'] ?? '') === ($b['id'] ?? '')) return true;
   return ($a['t'] ?? '') === ($b['t'] ?? '') && norm_title($a['ti'] ?? '') !== '' && norm_title($a['ti'] ?? '') === norm_title($b['ti'] ?? '');
+}
+
+/* ---------- Envoi d'e-mails : SMTP authentifié si configuré, sinon mail() avec expéditeur d'enveloppe ---------- */
+function send_mail(string $to, string $subject, string $text): bool {
+  $from = (string) cfg('mail_from', 'no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+  $domain = substr((string) strrchr($from, '@'), 1) ?: 'localhost';
+  $headers = [
+    'From' => mb_encode_mimeheader((string) cfg('mail_name', 'Sharefs'), 'UTF-8') . " <$from>",
+    'Reply-To' => $from, 'MIME-Version' => '1.0', 'Content-Type' => 'text/plain; charset=UTF-8', 'Content-Transfer-Encoding' => '8bit',
+    'Date' => date(DATE_RFC2822), 'Message-ID' => '<' . bin2hex(random_bytes(12)) . '@' . $domain . '>',
+  ];
+  $text = str_replace("\n", "\r\n", str_replace("\r\n", "\n", $text));
+  if (cfg('smtp_host')) return smtp_send($to, $subject, $text, $headers, $from);
+  $h = '';
+  foreach ($headers as $k => $v) $h .= "$k: $v\r\n";
+  $ok = mail($to, mb_encode_mimeheader($subject, 'UTF-8'), $text, rtrim($h), '-f' . $from);
+  if (!$ok) error_log('[sharefs] mail() a échoué pour ' . $to);
+  return $ok;
+}
+function smtp_send(string $to, string $subject, string $text, array $headers, string $from): bool {
+  $host = (string) cfg('smtp_host'); $port = (int) cfg('smtp_port', 465);
+  $fp = @stream_socket_client(($port === 465 ? 'ssl://' : 'tcp://') . $host . ':' . $port, $errno, $errstr, 12);
+  if (!$fp) { error_log("[sharefs] SMTP : connexion impossible à $host:$port ($errstr)"); return false; }
+  stream_set_timeout($fp, 12);
+  $read = function () use ($fp): string { $r = ''; while (($l = fgets($fp, 515)) !== false) { $r .= $l; if (strlen($l) < 4 || $l[3] === ' ') break; } return $r; };
+  $cmd = function (?string $c, int $expect) use ($fp, $read): string {
+    if ($c !== null) fwrite($fp, $c . "\r\n");
+    $r = $read();
+    if ((int) substr($r, 0, 3) !== $expect) throw new RuntimeException(trim($r) ?: 'pas de réponse');
+    return $r;
+  };
+  try {
+    $cmd(null, 220);
+    $me = gethostname() ?: 'localhost';
+    $cmd("EHLO $me", 250);
+    if ($port === 587) { $cmd('STARTTLS', 220); stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT); $cmd("EHLO $me", 250); }
+    $cmd('AUTH LOGIN', 334); $cmd(base64_encode((string) cfg('smtp_user', $from)), 334); $cmd(base64_encode((string) cfg('smtp_pass', '')), 235);
+    $cmd("MAIL FROM:<$from>", 250); $cmd("RCPT TO:<$to>", 250); $cmd('DATA', 354);
+    $msg = "To: <$to>\r\nSubject: " . mb_encode_mimeheader($subject, 'UTF-8') . "\r\n";
+    foreach ($headers as $k => $v) $msg .= "$k: $v\r\n";
+    $msg .= "\r\n" . preg_replace('/^\./m', '..', $text);
+    $cmd($msg . "\r\n.", 250);
+    fwrite($fp, "QUIT\r\n");
+  } catch (Throwable $e) {
+    error_log('[sharefs] SMTP : ' . $e->getMessage());
+    fclose($fp);
+    return false;
+  }
+  fclose($fp);
+  return true;
+}
+
+/* ---------- Passage à 5 raretés : les anciennes notes 2, 3, 4 deviennent 3, 4, 5 (une seule fois) ---------- */
+function migrate_rarities(): void {
+  $flag = __DIR__ . '/.rarities-v5';
+  if (is_file($flag)) return;
+  foreach (q('SELECT id, data FROM users WHERE data IS NOT NULL')->fetchAll() as $u) {
+    $d = json_decode((string) $u['data'], true);
+    if (!is_array($d) || empty($d['rate']) || !is_array($d['rate'])) continue;
+    foreach ($d['rate'] as $k => $v) if (in_array((int) $v, [2, 3, 4], true)) $d['rate'][$k] = (int) $v + 1;
+    q('UPDATE users SET data = ? WHERE id = ?', [json_encode($d, JSON_UNESCAPED_UNICODE), $u['id']]);
+  }
+  @file_put_contents($flag, date('c'));
+}
+
+/* ---------- Œuvres fétiches : 5 propositions par ami, dont la bonne ---------- */
+function fetish_options(string $me, string $target, string $season, array $answer, array $mates): array {
+  $row = q('SELECT options, day FROM fetish_options WHERE guesser_id = ? AND target_id = ? AND season = ?', [$me, $target, $season])->fetch();
+  $today = paris_day();
+  $opts = $row ? (json_decode($row['options'], true) ?: []) : [];
+  $used = array_map(fn($w) => $w['id'], $opts);
+  foreach (q('SELECT work FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND season = ?', [$me, $target, $season])->fetchAll() as $g) $used[] = json_decode($g['work'], true)['id'] ?? '';
+  // Œuvres plausibles : celles des collections du cercle, en priorité celles de l'ami
+  $pool = [];
+  foreach (array_merge([$target], $mates) as $uid) {
+    $d = json_decode((string) q('SELECT data FROM users WHERE id = ?', [$uid])->fetchColumn(), true);
+    foreach (($d['works'] ?? []) as $w) if (is_array($w) && ($cw = clean_work($w)) && !same_work($cw, $answer) && !in_array($cw['id'], $used, true)) $pool[$cw['id']] = $cw;
+  }
+  $pool = array_values($pool); shuffle($pool);
+  $decoy = function () use (&$pool, &$used) { $w = array_shift($pool); if ($w) $used[] = $w['id']; return $w; };
+  if (!$opts) {
+    $opts = [$answer];
+    while (count($opts) < 5 && ($w = $decoy())) $opts[] = $w;
+    shuffle($opts);
+  } elseif ($row['day'] !== $today) {
+    // Le lendemain d'un essai raté : seule l'œuvre choisie à tort est remplacée, à la même place
+    $last = q('SELECT work FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND season = ? AND correct = 0 ORDER BY created_at DESC LIMIT 1', [$me, $target, $season])->fetchColumn();
+    $lastId = $last ? (json_decode($last, true)['id'] ?? '') : '';
+    foreach ($opts as $i => $w) if (($w['id'] ?? '') === $lastId && ($n = $decoy())) $opts[$i] = $n;
+  }
+  q('REPLACE INTO fetish_options (guesser_id, target_id, season, options, day) VALUES (?, ?, ?, ?, ?)', [$me, $target, $season, enc($opts), $today]);
+  return $opts;
 }
 

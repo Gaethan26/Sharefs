@@ -112,3 +112,8 @@ CREATE TABLE IF NOT EXISTS fetish_guesses (
   UNIQUE KEY one_per_day (guesser_id, target_id, day), INDEX (target_id, season), INDEX (guesser_id, season),
   FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS fetish_options (
+  guesser_id CHAR(36) NOT NULL, target_id CHAR(36) NOT NULL, season VARCHAR(16) NOT NULL, options TEXT NOT NULL, day DATE NOT NULL,
+  PRIMARY KEY (guesser_id, target_id, season),
+  FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -32,7 +32,7 @@ Les tables des défis et des commentaires sont créées automatiquement par l'AP
 - Jeux vidéo : IGDB via Twitch (`twitch_client_id`, `twitch_client_secret`)
 - Livres : Google Books (`google_books_key`, facultatif), repli sur Open Library
 - Jeux de société : BoardGameGeek (`bgg_token`, application à enregistrer sur boardgamegeek.com/applications). L'app affiche la mention « Powered by BGG ».
-- Musique : MusicBrainz et Cover Art Archive, sans clé (1 requête par seconde, mises en cache)
+- Musique : Deezer, sans clé (albums et pochettes). Les œuvres musicales enregistrées avant la v37 (identifiants `mb-`) restent lisibles via MusicBrainz.
 
 ## Cartes secrètes
 

@@ -12,5 +12,11 @@ return [
   'google_books_key'     => '',   // facultatif
   'bgg_token'            => '',   // jeux de société : boardgamegeek.com/applications (application non commerciale)
 
+  // E-mails : boîte créée dans cPanel > Comptes de messagerie (recommandé : SMTP authentifié)
+  'smtp_host'            => '',   // serveur sortant indiqué par cPanel > Comptes de messagerie > Connecter les appareils
+  'smtp_port'            => 465,  // 465 (SSL) ou 587 (STARTTLS)
+  'smtp_user'            => '',   // adresse complète de la boîte
+  'smtp_pass'            => '',   // mot de passe de la boîte
+  'mail_name'            => 'Sharefs',
   'mail_from' => 'sharefs@ton-domaine.fr', // adresse créée dans cPanel > Comptes de messagerie
 ];

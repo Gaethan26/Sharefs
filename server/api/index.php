@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $M = $_SERVER['REQUEST_METHOD'];
 $path = trim((string) preg_replace('#^.*?/api(/|$)#', '', (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)), '/');
 
-if (preg_match('#^(state|challenges|fetish|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
+if (preg_match('#^(state|challenges|fetish|recs/[0-9a-f-]{36}/comments|comments/)#', $path)) { try { ensure_schema(); migrate_rarities(); } catch (Throwable $e) { error_log('[sharefs] schema : ' . $e->getMessage()); } }
 
 const EMAIL_RE = '/^[^\s@]+@[^\s@]+\.[^\s@]+$/';
 
@@ -104,10 +104,7 @@ try {
       if (q('SELECT 1 FROM users WHERE email = ?', [$email])->fetch()) {
         $code = (string) random_int(100000, 999999);
         q('REPLACE INTO resets (email, code_hash, exp, tries) VALUES (?, ?, ?, 0)', [$email, hash('sha256', $email . '|' . $code), time() + 900]);
-        $from = cfg('mail_from', 'no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-        @mail($email, mb_encode_mimeheader('Ton code Sharefs', 'UTF-8'),
-          "Ton code pour choisir un nouveau mot de passe : $code\n\nIl expire dans 15 minutes. Si tu n'as rien demandé, ignore cet e-mail.",
-          "From: Sharefs <$from>\r\nContent-Type: text/plain; charset=UTF-8");
+        send_mail($email, 'Ton code Sharefs', "Salut !\n\nTon code pour choisir un nouveau mot de passe : $code\n\nIl expire dans 15 minutes. Si tu n'as rien demandé, ignore cet e-mail.\n\nSharefs");
       }
       out(['ok' => true]);
 
@@ -246,6 +243,18 @@ try {
       q('INSERT INTO fetishes (user_id, season, work) VALUES (?, ?, ?)', [$u['id'], $season, enc($work)]);
       out(['ok' => true, 'season' => $season]);
 
+    case $M === 'GET' && $path === 'fetish/options':
+      $u = need_user();
+      $target = (string) ($_GET['target'] ?? '');
+      $mates = mates($u['id']);
+      if ($target === $u['id'] || !in_array($target, $mates, true)) fail(400, 'bad_recipient');
+      [$season] = current_season();
+      $f = q('SELECT work FROM fetishes WHERE user_id = ? AND season = ?', [$target, $season])->fetchColumn();
+      if (!$f) fail(404, 'no_fetish');
+      $opts = fetish_options($u['id'], $target, $season, json_decode($f, true), array_values(array_filter($mates, fn($m) => $m !== $target)));
+      $today = (bool) q('SELECT 1 FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND day = ?', [$u['id'], $target, paris_day()])->fetchColumn();
+      out(['options' => $opts, 'guessedToday' => $today]);
+
     case $M === 'POST' && $path === 'fetish/guess':
       $u = need_user(); $b = body();
       $target = (string) ($b['target_id'] ?? '');
@@ -259,6 +268,9 @@ try {
       $day = paris_day();
       if (q('SELECT 1 FROM fetish_guesses WHERE guesser_id = ? AND target_id = ? AND day = ?', [$u['id'], $target, $day])->fetchColumn()) fail(429, 'guess_used');
       $fw = json_decode($f, true);
+      // La réponse doit faire partie des 5 propositions affichées
+      $optRow = q('SELECT options FROM fetish_options WHERE guesser_id = ? AND target_id = ? AND season = ?', [$u['id'], $target, $season])->fetchColumn();
+      if ($optRow && !in_array($work['id'], array_map(fn($w) => $w['id'] ?? '', json_decode($optRow, true) ?: []), true)) fail(400, 'bad_work');
       $ok = same_work($fw, $work);
       q('INSERT INTO fetish_guesses (id, guesser_id, target_id, season, day, work, correct) VALUES (?, ?, ?, ?, ?, ?, ?)', [uuid(), $u['id'], $target, $season, $day, enc($work), $ok ? 1 : 0]);
       out(['correct' => $ok, 'work' => $ok ? $fw : null]);

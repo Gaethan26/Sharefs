@@ -10,14 +10,15 @@ const T={
   l:{n:'Livre',p:'Livres',done:'Lu',act:'J’ai lu',did:'a lu',fmt:x=>x+' pages'},
   j:{n:'Jeu vidéo',p:'Jeux vidéo',done:'Joué',act:'J’ai joué',did:'a joué à',fmt:()=>''},
   b:{n:'Jeu de société',p:'Jeux de société',done:'Joué',act:'J’ai joué',did:'a joué à',fmt:m=>m+' min'},
-  m:{n:'Musique',p:'Musique',done:'Écouté',act:'J’ai écouté',did:'a écouté',fmt:()=>''}
+  m:{n:'Musique',p:'Musique',done:'Écouté',act:'J’ai écouté',did:'a écouté',fmt:x=>x+' titres'}
 };
 const ALLT=['f','s','j','b','l','m'];
 let CATS={b:false};
 const SEARCHT=()=>ALLT.filter(t=>t!=='b'||CATS.b);
 const TVAR={f:'film',s:'serie',j:'jeu',b:'soc',l:'livre',m:'mus'};
 const TINK=t=>t==='f'?'#18213A':'#fff';
-const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Étonnant\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
+const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Peu commune',s:'Pas ouf'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Belle frappe\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
+const RN=[1,2,3,4,5];
 const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Zidane']];
 const ICON={
   f:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10h18v10H3z"/><path d="M2.6 5.3 19.8 2.6l.6 3.9L3.2 9.2z"/></svg>',
@@ -90,7 +91,7 @@ const CROWN='<svg viewBox="0 0 34 22" width="30" height="20" aria-hidden="true">
 function card(w,r=0,cls=''){
   const img=w.img?`<img src="${esc(w.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="rm">`:'';
   return `<span class="card cs-g t-${w.t}${r?' r'+r:''} ${cls}" style="${r?`--rc:var(--r${r})`:''}" aria-hidden="true"><span class="cg-in">
-    <span class="ph">${esc(short(w.ti))}</span>${img}<span class="cg-lines"></span>${r===4||/fet/.test(cls)?'<span class="cg-foil"></span>':''}</span></span>`;
+    <span class="ph">${esc(short(w.ti))}</span>${img}<span class="cg-lines"></span>${r===5||/fet/.test(cls)?'<span class="cg-foil"></span>':''}</span></span>`;
 }
 const CARDS_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="11" height="15" rx="2"/><path d="M8 3.5h10a2 2 0 012 2V18"/></svg>';
 const BM=on=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="${on?'currentColor':'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4.3-6 4.3z"/></svg>`;
@@ -128,18 +129,26 @@ const typesSel=()=>F.types.size?[...F.types].filter(t=>SEARCHT().includes(t)):SE
 const rr=lists=>{const out=[],max=Math.max(0,...lists.map(l=>l.length));for(let i=0;i<max;i++)for(const l of lists)if(l[i])out.push(l[i]);return out};
 const localMode=()=>F.mine;
 // Ma collection : les meilleures cartes d'abord, ce sont celles qu'on a le plus envie de recommander
-function localItems(){return Object.keys(mine.done).map(id=>WK[id]).filter(Boolean).sort((a,b)=>rateOf(b.id)-rateOf(a.id)||mine.done[b.id]-mine.done[a.id])}
+let localSeed=Math.random();
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const seeded=id=>{let h=Math.floor(localSeed*1e9);for(const c of id)h=(h*31+c.charCodeAt(0))|0;return h};
+// Ma collection : sans recherche, un ordre différent à chaque consultation ; avec une recherche, les meilleures cartes d'abord
+function localItems(){const list=Object.keys(mine.done).map(id=>WK[id]).filter(Boolean);
+  return $('#q').value.trim()?list.sort((a,b)=>rateOf(b.id)-rateOf(a.id)||mine.done[b.id]-mine.done[a.id]):list.sort((a,b)=>seeded(a.id)-seeded(b.id))}
 async function runSearch(more=false){
   if(localMode()){renderSearch();return}
   const q=$('#q').value.trim();const seq=++SR.seq;
   if(!more)SR={q,items:[],pages:{},moreT:new Set(),loading:true,err:'',seq};else SR.loading=true;
   renderResults();
   const ts=more?[...SR.moreT]:typesSel(),lim=typesSel().length>1?10:20;
+  // sans recherche : on part d'une page tirée au hasard parmi les plus populaires, et on mélange
+  if(!more&&!q)ts.forEach(t=>SR.pages[t]=Math.floor(Math.random()*4));
   const res=await Promise.all(ts.map(t=>{const p=(SR.pages[t]||0)+1;return api('search',{type:t,q,page:p,limit:lim}).then(r=>({t,p,r})).catch(err=>({t,err}))}));
   if(seq!==SR.seq)return;
   const lists=[];let errs=0;
   res.forEach(x=>{if(x.err){errs++;SR.moreT.delete(x.t);return}SR.pages[x.t]=x.p;x.r.more?SR.moreT.add(x.t):SR.moreT.delete(x.t);lists.push((x.r.items||[]).map(reg))});
   const seen=new Set(SR.items.map(w=>w.id));
+  if(!q)lists.forEach(shuffle);
   SR.items=SR.items.concat(rr(lists).filter(w=>!seen.has(w.id)));
   SR.err=errs&&errs===res.length?'Le catalogue ne répond pas. Vérifie les clés API dans config.php (README, section Catalogue).':'';
   SR.loading=false;renderSearch();
@@ -238,10 +247,10 @@ function fetishHTML(){
 }
 const PK={mode:'set',target:'',q:'',res:[],err:'',seq:0,scope:'coll'};
 function openPicker(mode,target=''){
-  Object.assign(PK,{mode,target,q:'',res:[],err:'',scope:'coll'});
+  Object.assign(PK,{mode,target,q:'',res:[],err:'',scope:'coll',opts:null,sel:null,today:false});
   lastFocus=document.activeElement;sheetId='__pick';renderPicker();
   $('#scrim').classList.add('open');$('#sheet').classList.add('open');$('#sheet').style.setProperty('--tc','var(--line)');
-  setTimeout(()=>$('#pkq')?.focus(),80);
+  if(mode==='guess')loadGuess();else setTimeout(()=>$('#pkq')?.focus(),80);
 }
 function pkTarget(){return PK.mode==='guess'?(FET?.others||[]).find(o=>o.user_id===PK.target):null}
 function pkResHTML(){
@@ -256,7 +265,35 @@ function pkResHTML(){
   return `${list.length?list.map(row).join(''):(PK.q.trim()?'<p class="meta" style="margin:12px 2px">Rien trouvé pour l’instant.</p>':'')}
     <button class="link fe-back" data-pkcoll>Revenir à ma collection</button>`;
 }
+function renderGuess(){
+  const who=esc(nameOf(PK.target));
+  const head=`<div class="grab"></div><div class="chf-h"><span class="chf-i fe-i">${HEART}</span><div><h3 id="shTitle">L’œuvre fétiche de ${who}</h3>
+    <p class="meta">Une seule de ces 5 œuvres est la bonne. Un essai par jour.</p></div></div>`;
+  if(!PK.opts){$('#sheetIn').innerHTML=head+'<p class="meta" style="margin:18px 2px">On mélange les cartes…</p>';return}
+  $('#sheetIn').innerHTML=head+`<div class="gs5">${PK.opts.map(w=>`<button class="gs5-o${PK.sel===w.id?' on':''}" data-gsel="${esc(w.id)}" ${PK.today?'disabled':''} aria-pressed="${PK.sel===w.id}">${card(w)}<span class="gs5-t">${esc(w.ti)}</span><span class="gs5-k"><span class="tm t-${w.t}"></span>${esc(T[w.t]?.n||'')}</span></button>`).join('')}</div>
+    ${PK.today?'<p class="gs5-done">Tu as déjà joué aujourd’hui pour '+who+'. Reviens demain !</p>':`<button class="btn pri gs5-go" data-gsend ${PK.sel?'':'disabled'}>${PK.sel?'C’est celle-là !':'Choisis une œuvre'}</button>`}
+    <p class="err" role="alert" style="color:var(--danger);font-weight:600;min-height:1.3em;margin:10px 0 0">${esc(PK.err)}</p>`;
+}
+async function loadGuess(){
+  try{const r=await api('fetish/options',{target:PK.target});PK.opts=(r.options||[]).map(w=>reg(w));PK.today=!!r.guessedToday}catch(e){PK.err=msg(e);PK.opts=[]}
+  if(sheetId==='__pick')renderGuess();
+}
+async function sendGuess(){
+  const w=WK[PK.sel];if(!w)return;const who=nameOf(PK.target);
+  const btn=$('#sheet [data-gsend]');if(btn){btn.disabled=true;btn.textContent='Verdict…'}
+  try{const r=await call('POST','fetish/guess',{target_id:PK.target,work:snap(w)});
+    closeSheet();
+    if(r.correct)fetishReveal(r.work?reg(r.work):w,who);else couscous(who);
+    loadAll();
+  }catch(e){PK.err=msg(e);renderGuess()}
+}
+function couscous(who){
+  const el=$('#reveal');el.style.setProperty('--rc','#9AA2B0');el.style.setProperty('--rf','linear-gradient(135deg,#E6E9EF,#9AA2B0)');revealId=null;
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="cous" aria-hidden="true">🥘</div><div class="cap">Raté pour ${esc(who)}<span class="rname">T’es un couscous</span>Tu seras meilleur demain.</div><div class="tap">Touche pour continuer</div></div>`;
+  el.classList.add('open');el.focus();clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),3800);
+}
 function renderPicker(){
+  if(PK.mode==='guess'){renderGuess();return}
   const o=pkTarget();
   $('#sheetIn').innerHTML=`<div class="grab"></div><div class="chf-h"><span class="chf-i fe-i">${HEART}</span><div><h3 id="shTitle">${PK.mode==='set'?`Mon œuvre fétiche de ${esc(FET?.label||'')}`:`L’œuvre fétiche de ${esc(nameOf(PK.target))}`}</h3>
     <p class="meta">${PK.mode==='set'?'Une seule par saison, impossible de la changer ensuite.':'Un seul essai aujourd’hui : choisis bien.'}</p></div></div>
@@ -392,7 +429,7 @@ async function sendChallenge(btn){
 // Fête quand un défi est relevé
 function confetti(){
   if(RM)return;const c=document.createElement('div');c.className='confetti';c.setAttribute('aria-hidden','true');
-  const cols=['var(--ink)','#A7B2C0','var(--r3)','var(--r4)'];
+  const cols=['var(--ink)','#A7B2C0','var(--r4)','var(--r5)'];
   c.innerHTML=Array.from({length:80},(_,i)=>`<i style="left:${Math.random()*100}%;background:${cols[i%4]};animation-delay:${(Math.random()*.7).toFixed(2)}s;animation-duration:${(1.8+Math.random()*1.6).toFixed(2)}s;--r:${Math.round(Math.random()*720-360)}deg"></i>`).join('');
   document.body.appendChild(c);setTimeout(()=>c.remove(),4200);
 }
@@ -444,7 +481,7 @@ const specialCard=sp=>sp.k==='egg'?eggCard(sp.id):card(sp.w,0,'fet');
 const specialAttr=sp=>sp.k==='egg'?`data-egg="${sp.id}"`:`data-open="${esc(sp.id)}"`;
 function easterEgg(k='boule'){
   if(uid&&EGGS[k]){mine.eggs=mine.eggs||{};if(!mine.eggs[k]){mine.eggs[k]=Date.now();save();setTimeout(()=>{renderColl();renderSide()},300)}}
-  const e=EGGS[k],el=$('#reveal');el.style.setProperty('--rc',e.ultimate?'#FFE08A':'var(--r4)');el.style.setProperty('--rf','linear-gradient(135deg,#FFF1C4,#FFD46B 40%,#F28C1B)');revealId=null;
+  const e=EGGS[k],el=$('#reveal');el.style.setProperty('--rc',e.ultimate?'#FFE08A':'var(--r5)');el.style.setProperty('--rf','linear-gradient(135deg,#FFF1C4,#FFD46B 40%,#F28C1B)');revealId=null;
   el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${eggCard(k)}<div class="cardback"></div></div><div class="burst"></div>
     <div class="cap">${e.cap}<span class="rname">${e.name}</span>${e.sub}</div><div class="tap">Tu verras, c’est d’la frappe.</div></div>`;
   el.classList.add('open');el.focus();confetti();if(e.ultimate)setTimeout(confetti,700);
@@ -501,6 +538,7 @@ function renderFeed(){
     for(const id of others()){const d=dataOf(id);for(const [wid,ts] of Object.entries(d.done))if(WK[wid])ev.push({k:'done',who:id,w:WK[wid],ts})}
     for(const c of challenges){const s=chalState(c);ev.push({k:'chal',c,s,who:c.from_id,ts:Date.parse(c.created_at)});if(s.st==='won')ev.push({k:'won',c,s,who:c.to_id,ts:s.wonAt})}
   }
+  const pb=$('#playbar');if(pb&&uid)pb.innerHTML=`<button class="pb-b" data-play="swipe"><span class="pb-i">👆</span><span><b>Vu ou pas vu ?</b><small>Swipe pour compléter ta collection</small></span></button><button class="pb-b" data-play="five"><span class="pb-i">✅</span><span><b>5 par 5</b><small>Coche ce que tu as vu</small></span></button>`;
   const fc=$('#feedCircles');
   if(fc){if(myCircles.length>1&&others().length){if(feedCircle&&!myCircles.includes(feedCircle))feedCircle='';
     fc.hidden=false;fc.innerHTML=chip('Tous les cercles',!feedCircle,'data-fcircle=""')+myCircles.map(c=>chip(circleLabel(c),feedCircle===c,`data-fcircle="${esc(c)}" title="Cercle ${esc(c)}"`,'chip cchip')).join('')}
@@ -586,16 +624,16 @@ function renderColl(){
   const d=dataOf(collWho);
   const done=Object.keys(d.done).filter(id=>WK[id]);
   const n=done.length,cur=[...RANKS].reverse().find(l=>n>=l[0]),next=RANKS.find(l=>n<l[0]),prev=cur[0];
-  const rc=[0,0,0,0,0];done.forEach(id=>rc[rateOf(id,collWho)]++);
+  const rc=[0,0,0,0,0,0];done.forEach(id=>rc[rateOf(id,collWho)]++);
   $('#rank').innerHTML=`<div class="medal">${n}</div><div style="flex:1;min-width:0"><div class="rt">${esc(cur[1])}</div>
     <div class="meta">${n} carte${n>1?'s':''} dans ${isMe?'ta':'sa'} collection${next?`, rang «\u00a0${next[1]}\u00a0» à\u00a0${next[0]}`:''}</div>
     <div class="bar"><i style="width:${next?((n-prev)/(next[0]-prev))*100:100}%"></i></div>
-    <div class="rarities">${[1,2,3,4].map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
+    <div class="rarities">${RN.map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
   $('#collTitle').textContent=collList==='want'?'Mes signets':collView==='shelf'?'L’étagère':'Mes cartes';
   $('#collQ').placeholder=collView==='shelf'&&collList!=='want'?'T’as pas vu ma cassette !?':'Fouiner dans mon grimoire';
-  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0" class="gf-all">Toutes</button>`+[1,2,3,4].map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${GEM(r,12)}${RAR[r].n}</button>`).join('');
+  $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0" class="gf-all">Toutes</button>`+RN.map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${GEM(r,12)}${RAR[r].n}</button>`).join('');
   const q=norm($('#collQ').value);
   let items=Object.entries(collList==='want'?d.want:d.done).map(([id,ts])=>({w:WK[id],ts,r:collList==='want'?0:rateOf(id,collWho)})).filter(x=>x.w);
   items=items.filter(x=>(!collType||x.w.t===collType)&&(!collRar||x.r===collRar)&&(!q||norm(x.w.ti+' '+(x.w.c||'')+' '+(x.w.g||[]).join(' ')).includes(q)));
@@ -650,14 +688,87 @@ async function loadWeekly(){
 function renderWeekly(){
   const el=$('#weekly');if(!el)return;
   if(!uid||collWho!==uid){el.hidden=true;return}
-  if(!WEEK||WEEK.wk!==weekNo()){el.hidden=false;el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div><div class="rt">Quelques idées…</div><div class="meta">On prépare la sélection…</div></div></div>`;loadWeekly();return}
+  if(!WEEK||WEEK.wk!==weekNo()){el.hidden=false;el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div><div class="rt">Les œuvres de la semaine</div><div class="meta">On prépare la sélection…</div></div></div>`;loadWeekly();return}
   const its=WEEK.items.map(w=>WK[w.id]||reg(w)),n=its.filter(w=>isDone(w.id)).length;
   el.hidden=false;
-  el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div style="flex:1;min-width:0"><div class="rt">Quelques idées…</div>
+  el.innerHTML=`<div class="wk-h"><span class="medal wk-m">${CAL}</span><div style="flex:1;min-width:0"><div class="rt">Les œuvres de la semaine</div>
       <div class="meta">C’est un classique !?</div></div></div>
     <div class="wk-works">${its.map(w=>`<button class="wk-w${isDone(w.id)?' ok':''}" data-open="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,isDone(w.id)?rateOf(w.id):0)}${isDone(w.id)?'<span class="chk" aria-hidden="true">✓</span>':''}<span class="wk-t">${esc(w.ti)}</span><span class="wk-k"><span class="tm t-${w.t}"></span>${T[w.t].n}</span></button>`).join('')}</div>`;
-  if(its.length&&n===its.length&&lsGet('sharefs-weekly-won',0)!==WEEK.wk){lsSet('sharefs-weekly-won',WEEK.wk);toast('Toutes les idées de la semaine sont cochées ! 🏆');confetti()}
+  if(its.length&&n===its.length&&lsGet('sharefs-weekly-won',0)!==WEEK.wk){lsSet('sharefs-weekly-won',WEEK.wk);toast('Toutes les œuvres de la semaine sont cochées ! 🏆');confetti()}
 }
+
+/* ---------- Compléter sa collection : swipe et 5 par 5 ----------
+   Œuvres tirées au hasard parmi les plus populaires et les mieux notées de chaque catalogue,
+   hors collection et hors œuvres déjà passées. */
+const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false};
+const skipped=()=>new Set(lsGet('sharefs-skip',[]));
+function skipWork(id){const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-600))}}
+async function fillPool(min=8){
+  if(PLAY.loading||PLAY.pool.length>=min)return;PLAY.loading=true;
+  try{
+    const types=PLAY.type?[PLAY.type]:SEARCHT(),sk=skipped(),seen=new Set(PLAY.pool.map(w=>w.id));
+    const res=await Promise.all(types.map(t=>api('search',{type:t,q:'',page:1+Math.floor(Math.random()*5),limit:12}).catch(()=>({items:[]}))));
+    const fresh=rr(res.map(r=>shuffle((r.items||[]).map(reg)))).filter(w=>!isDone(w.id)&&!sk.has(w.id)&&!seen.has(w.id));
+    PLAY.pool.push(...fresh);
+  }finally{PLAY.loading=false}
+}
+const playTypes=()=>`<div class="row play-types">${chip('Tout',!PLAY.type,'data-ptype=""')}${SEARCHT().map(t=>chip(`<span class="tm t-${t}"></span>${T[t].p}`,PLAY.type===t,`data-ptype="${t}"`)).join('')}</div>`;
+const playInfo=w=>`<div class="pl-ti">${esc(w.ti)}</div><div class="pl-me"><span class="tm t-${w.t}"></span>${metaLine(w)}</div>`;
+const rateRow=(id,attr)=>`<div class="pl-rates">${RN.map(n=>`<button class="pl-r r${n}${PLAY.rates[id]===n?' on':''}" ${attr}="${n}" data-pid="${esc(id)}" aria-pressed="${PLAY.rates[id]===n}">${GEM(n,14)}<span>${RAR[n].s}</span></button>`).join('')}</div>`;
+
+// --- Swipe
+function swipeHTML(){
+  const w=PLAY.pool[0],nx=PLAY.pool[1];
+  return `${playTypes()}<div class="sw-stage">${!w?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant. Change de type ou reviens plus tard !'}</div>`:
+    `${nx?`<div class="sw-card back" aria-hidden="true">${card(nx)}</div>`:''}<div class="sw-card" id="swc" data-sid="${esc(w.id)}"><span class="sw-stamp yes">Vu !</span><span class="sw-stamp no">Pas vu</span><span class="sw-stamp later">À voir</span>${card(w)}</div>`}</div>
+    ${w?`<div class="sw-info">${playInfo(w)}</div>`:''}
+    ${w&&PLAY.rating?`<div class="sw-rate"><p>T’en as pensé quoi ?</p>${rateRow(w.id,'data-swrate')}</div>`:
+      w?`<div class="sw-acts"><button class="sw-b no" data-swipe="no" aria-label="Pas vu">✕</button><button class="sw-b later" data-swipe="later" aria-label="À voir plus tard">${BM(false)}</button><button class="sw-b yes" data-swipe="yes" aria-label="Vu">✓</button></div>
+      <p class="ghint">Glisse à droite si tu l’as vu, à gauche sinon, vers le haut pour le garder.</p>`:''}`;
+}
+function renderSwipe(){
+  const b=$('#fsBody');if(!b||$('#fs').dataset.kind!=='swipe')return;
+  b.innerHTML=swipeHTML();bindSwipe();
+  if(PLAY.pool.length<5&&!PLAY.loading)fillPool().then(()=>{PLAY.tried=true;if(!PLAY.rating&&!$('#swc.dragging'))renderSwipe()});
+}
+function bindSwipe(){
+  const c=$('#swc');if(!c||PLAY.rating)return;let st=null;
+  c.addEventListener('pointerdown',e=>{st={x:e.clientX,y:e.clientY};try{c.setPointerCapture(e.pointerId)}catch(err){}c.classList.add('dragging')});
+  c.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
+    c.style.transform=`translate(${dx}px,${dy}px) rotate(${dx/14}deg)`;
+    c.style.setProperty('--yes',Math.max(0,Math.min(1,dx/110)));c.style.setProperty('--no',Math.max(0,Math.min(1,-dx/110)));c.style.setProperty('--later',Math.max(0,Math.min(1,-dy/110)))});
+  const up=e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;st=null;c.classList.remove('dragging');
+    if(dx>100)swipeAct('yes');else if(dx<-100)swipeAct('no');else if(dy<-100)swipeAct('later');
+    else{c.style.transition='transform .3s cubic-bezier(.3,1.4,.5,1)';c.style.transform='';['--yes','--no','--later'].forEach(v=>c.style.setProperty(v,0));setTimeout(()=>c.style.transition='',320)}};
+  c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);
+}
+function swipeAct(kind){
+  const w=PLAY.pool[0];if(!w)return;const c=$('#swc');
+  const fly=(x,y,r)=>new Promise(res=>{if(!c||RM){res();return}c.style.transition='transform .35s ease-in';c.style.transform=`translate(${x}px,${y}px) rotate(${r}deg)`;setTimeout(res,330)});
+  if(kind==='yes'){PLAY.rating=true;renderSwipe();return}
+  if(kind==='no'){skipWork(w.id);fly(-innerWidth,40,-24).then(()=>{PLAY.pool.shift();renderSwipe()});return}
+  if(kind==='later'){if(!mine.want[w.id]){mine.want[w.id]=Date.now();mine.works[w.id]=snap(w);save()}skipWork(w.id);
+    fly(0,-innerHeight,0).then(()=>{toast('Gardé pour plus tard 🔖');PLAY.pool.shift();renderSwipe()})}
+}
+function swipeRate(n){const w=PLAY.pool.shift();PLAY.rating=false;if(!w)return;revealStay=true;mine.works[w.id]=snap(w);setRate(w.id,n);renderSwipe()}
+
+// --- 5 par 5
+async function nextFive(){PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();await fillPool(5);PLAY.tried=true;PLAY.five=PLAY.pool.splice(0,5);renderFive()}
+function fiveHTML(){
+  const n=Object.keys(PLAY.checks).length,ready=n&&Object.keys(PLAY.checks).every(id=>PLAY.rates[id]);
+  return `${playTypes()}${!PLAY.five.length?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant.'}</div>`:
+    `<div class="f5">${PLAY.five.map(w=>`<div class="f5-row${PLAY.checks[w.id]?' on':''}"><button class="f5-main" data-fcheck="${esc(w.id)}" aria-pressed="${!!PLAY.checks[w.id]}"><span class="f5-c">${card(w)}</span><span class="f5-txt">${playInfo(w)}</span><span class="f5-box" aria-hidden="true">✓</span></button>${PLAY.checks[w.id]?rateRow(w.id,'data-frate'):''}</div>`).join('')}</div>
+    <div class="f5-acts"><button class="btn" data-fnext>5 autres</button><button class="btn pri" data-fgo ${ready?'':'disabled'}>${n?`Débloquer ${n} carte${n>1?'s':''}`:'Coche ce que tu as vu'}</button></div>
+    ${n&&!ready?'<p class="ghint">Donne ton avis sur chaque œuvre cochée pour débloquer ses cartes.</p>':''}`}`;
+}
+function renderFive(){const b=$('#fsBody');if(b&&$('#fs').dataset.kind==='five')b.innerHTML=fiveHTML()}
+function unlockFive(){
+  const ids=Object.keys(PLAY.checks).filter(id=>PLAY.rates[id]);if(!ids.length)return;
+  ids.forEach(id=>{const w=WK[id];mine.works[id]=snap(w);mine.rate[id]=PLAY.rates[id];if(!mine.done[id])mine.done[id]=Date.now();delete mine.want[id]});
+  save();renderAll();PLAY.five.forEach(w=>{if(!PLAY.checks[w.id])skipWork(w.id)});
+  revealStay=true;revealQ=ids.slice(1);reveal(ids[0]);nextFive();
+}
+function openPlay(kind,src){PLAY.rating=false;PLAY.tried=false;openFs(kind,src)}
 
 /* ---------- Grimoire et étagère en plein écran ---------- */
 const COLL={items:[]};
@@ -752,8 +863,11 @@ let fsSrc=null,fsKind='';
 const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,r.top)}px ${Math.max(0,innerWidth-r.right)}px ${Math.max(0,innerHeight-r.bottom)}px ${Math.max(0,r.left)}px round 14px)`};
 function openFs(kind,src){
   const fs=$('#fs'),body=$('#fsBody');fsSrc=src;fsKind=kind;
-  $('#fsTitle').textContent=kind==='grim'?'Mon grimoire':'Mon étagère';
+  $('#fsTitle').textContent={grim:'Mon grimoire',shelf:'Mon étagère',swipe:'Vu ou pas vu ?',five:'5 par 5'}[kind];
+  fs.dataset.kind=kind;
   if(kind==='grim'){G.page=0;G.auto=true;body.innerHTML=grimHTML()}
+  else if(kind==='swipe'){body.innerHTML=swipeHTML();fillPool().then(()=>renderSwipe());bindSwipe()}
+  else if(kind==='five'){PLAY.five=[];body.innerHTML=fiveHTML();nextFive()}
   else body.innerHTML=shelfHTML(COLL.items,Math.min(innerWidth,900)-80,false);
   fs.classList.add('open');fs.dataset.kind=kind;document.body.style.overflow='hidden';
   if(!RM&&src){fs.animate([{clipPath:clipOf(src)},{clipPath:'inset(0 0 0 0 round 0)'}],{duration:480,easing:'cubic-bezier(.3,.8,.2,1)'})}
@@ -766,7 +880,7 @@ function openFs(kind,src){
 }
 function closeFs(){
   const fs=$('#fs');if(!fs.classList.contains('open'))return;
-  const end=()=>{fs.classList.remove('open');$('#fsBody').innerHTML='';document.body.style.overflow='';fsSrc?.focus?.({preventScroll:true})};
+  const end=()=>{fs.classList.remove('open');$('#fsBody').innerHTML='';document.body.style.overflow='';revealStay=false;revealQ=[];fsSrc?.focus?.({preventScroll:true})};
   if(!RM&&fsSrc&&fsSrc.isConnected)fs.animate([{clipPath:'inset(0 0 0 0 round 0)'},{clipPath:clipOf(fsSrc)}],{duration:380,easing:'cubic-bezier(.4,0,.2,1)'}).onfinish=end;else end();
 }
 function bindGrim(){
@@ -850,7 +964,7 @@ function openSheet(id,refocus=true,opts={}){
   const fins=finishers(id),about=recsAbout(id),friends=others(),done=isDone(id),r=rateOf(id);
   const facts=[['Créateur',w.c],['Année',w.y],['Genres',(w.g||[]).join(', ')],['Durée',w.d&&T[w.t].fmt(w.d)],['Pays',country(w.p)],['Avec',(w.cast||[]).join(', ')],['Plateformes',(w.plat||[]).join(', ')],['Éditeur',w.pub]].filter(f=>f[1]);
   const deal=pickDeal&&!done;pickDeal=false;
-  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${[1,2,3,4].map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pgem">${GEM(n,22)}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
+  const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${RN.map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pgem">${GEM(n,22)}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
     <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span><h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -989,11 +1103,12 @@ function reveal(id){
   clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),2600);
 }
 // La carte quitte l'écran de révélation et vient se ranger à sa place dans la collection
+let revealQ=[],revealStay=false;
 function closeReveal(){
   const el=$('#reveal');if(!el.classList.contains('open'))return;
   clearTimeout(revealT);const id=revealId;revealId=null;
-  const end=()=>{el.classList.remove('open');el.innerHTML=''};
-  if(!id){end();return}
+  const end=()=>{el.classList.remove('open');el.innerHTML='';if(revealQ.length)setTimeout(()=>reveal(revealQ.shift()),280)};
+  if(!id||revealStay){end();return}
   collWho=uid;collList='done';collType='';collRar=0;$('#collQ').value='';
   setTab('coll');
   const target=document.querySelector(`#shelf [data-inspect="${CSS.escape(id)}"],#shelf [data-box="${CSS.escape(id)}"]`),flip=el.querySelector('.flip');
@@ -1047,7 +1162,7 @@ function setTab(t){
   window.scrollTo(0,0);
   if(t==='coll')renderColl();
   if(t==='chal')renderChal();
-  if(t==='search'){if(!searchStarted){searchStarted=true;runSearch()}setTimeout(()=>$('#q').focus(),30)}
+  if(t==='search'){if(!searchStarted||!$('#q').value.trim()){searchStarted=true;localSeed=Math.random();runSearch()}setTimeout(()=>$('#q').focus(),30)}
 }
 
 /* ---------- Événements ---------- */
@@ -1061,6 +1176,8 @@ document.addEventListener('click',e=>{
   if('fepick' in d){openPicker('set');return}
   if(d.feguess){openPicker('guess',d.feguess);return}
   if(d.pkpick){pkPick(d.pkpick);return}
+  if(d.gsel){PK.sel=d.gsel;renderGuess();return}
+  if('gsend' in d){sendGuess();return}
   if('pkall' in d){PK.scope='all';renderPicker();pkSearch();setTimeout(()=>$('#pkq')?.focus(),40);return}
   if('pkcoll' in d){PK.scope='coll';renderPicker();setTimeout(()=>$('#pkq')?.focus(),40);return}
   if('newchal' in d){openChallenge();return}
@@ -1083,6 +1200,14 @@ document.addEventListener('click',e=>{
   if('fsclose' in d){closeFs();return}
   if(d.gturn){turnPage(+d.gturn);return}
   if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
+  if(d.play){openPlay(d.play,b);return}
+  if(d.ptype!==undefined){PLAY.type=d.ptype;PLAY.pool=[];PLAY.rating=false;if($('#fs').dataset.kind==='five'){PLAY.five=[];renderFive();nextFive()}else{renderSwipe();fillPool().then(renderSwipe)}return}
+  if(d.swipe){swipeAct(d.swipe);return}
+  if(d.swrate){swipeRate(+d.swrate);return}
+  if(d.fcheck){if(PLAY.checks[d.fcheck]){delete PLAY.checks[d.fcheck];delete PLAY.rates[d.fcheck]}else PLAY.checks[d.fcheck]=1;renderFive();return}
+  if(d.frate){PLAY.rates[d.pid]=+d.frate;renderFive();return}
+  if('fnext' in d){PLAY.five.forEach(w=>skipWork(w.id));nextFive();return}
+  if('fgo' in d){unlockFive();return}
   if(d.box){openBox(d.box,b);return}
   if(d.inspect){inspect(d.inspect,b.querySelector('.card')||b);return}
   if(d.acrm!==undefined){lsSet('sharefs-recent',lsGet('sharefs-recent',[]).filter(x=>x!==d.acrm));acIdx=-1;renderAC();return}
@@ -1134,7 +1259,7 @@ document.addEventListener('input',e=>{const tg=e.target;
 });
 document.addEventListener('input',e=>{if(e.target.id==='recNote'){recNote=e.target.value;const c=$('#recCount');if(c)c.textContent=recNote.length+'/280'}if(e.target.id==='collQ')renderColl()});
 $('#scrim').addEventListener('click',closeSheet);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#box').classList.contains('open'))closeBox();else if($('#insp').classList.contains('open'))closeInspect();else if($('#sheet').classList.contains('open'))closeSheet();else if($('#fs').classList.contains('open'))closeFs();else if($('#lb').classList.contains('open'))closeGallery();else if($('#reveal').classList.contains('open'))closeReveal();else if($('#sheet').classList.contains('open'))closeSheet();else closeAC()}else if((e.key==='Enter'||e.key===' ')&&$('#reveal').classList.contains('open')){e.preventDefault();closeReveal()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#reveal').classList.contains('open'))closeReveal();else if($('#box').classList.contains('open'))closeBox();else if($('#insp').classList.contains('open'))closeInspect();else if($('#sheet').classList.contains('open'))closeSheet();else if($('#fs').classList.contains('open'))closeFs();else if($('#lb').classList.contains('open'))closeGallery();else if($('#reveal').classList.contains('open'))closeReveal();else if($('#sheet').classList.contains('open'))closeSheet();else closeAC()}else if((e.key==='Enter'||e.key===' ')&&$('#reveal').classList.contains('open')){e.preventDefault();closeReveal()}});
 const qEl=$('#q');
 qEl.addEventListener('input',onQuery);
 qEl.addEventListener('focus',renderAC);
@@ -1245,7 +1370,7 @@ function renderAccount(){
       <button class="btn" data-acc="logout">Me déconnecter</button>
       <button class="btn" data-acc="logoutall">Déconnecter tous mes appareils</button>
       <button class="btn danger" data-acc="delete">Supprimer mon compte</button>
-    </div></div><p class="credits">Données des œuvres : TMDB, Google Books, IGDB, BoardGameGeek (Powered by BGG), MusicBrainz et Cover Art Archive. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
+    </div></div><p class="credits">Données des œuvres : TMDB, Google Books, IGDB, BoardGameGeek (Powered by BGG) et Deezer. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
 }
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button[data-invite],button[data-acc]');if(!b)return;
