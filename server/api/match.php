@@ -229,7 +229,56 @@ function qz_bucket(int $v, array $edges, array $labels): array {
   return ['opts' => $labels, 'ans' => $i];
 }
 
+/* Questions sur l'œuvre elle-même (personnages, lieux, objets, scènes), écrites par Claude.
+   Facultatif : sans clé 'anthropic_key', on garde les questions tirées des fiches. Mises en cache 30 jours par œuvre. */
+function content_questions(array $w): array {
+  $key = (string) cfg('anthropic_key', '');
+  if ($key === '' || empty($w['id'])) return [];
+  $ck = 'qz2|' . $w['id'];
+  if (($c = cache_get($ck)) !== null) return $c;
+  $kind = ['f' => 'le film', 's' => 'la série', 'l' => 'le livre', 'j' => 'le jeu vidéo', 'b' => 'le jeu de société', 'm' => 'l’album'][$w['t']] ?? 'l’œuvre';
+  $desc = $kind . ' « ' . $w['ti'] . ' »' . (!empty($w['y']) ? ' (' . $w['y'] . ')' : '') . (!empty($w['c']) ? ', de ' . $w['c'] : '');
+  $prompt = "Écris 8 questions de quiz en français sur le CONTENU de $desc : personnages, lieux, objets, créatures, scènes marquantes, répliques, déroulé de l'histoire, mécaniques de jeu ou chansons selon le cas.\n"
+    . "Elles doivent pouvoir être répondues par quelqu'un qui a vraiment vu, lu, joué ou écouté l'œuvre, sans chercher ailleurs. Pas de questions sur l'année, l'auteur, le réalisateur, le studio ou le casting.\n"
+    . "Chaque question a exactement 4 propositions courtes (moins de 60 caractères), une seule juste, et 3 fausses crédibles tirées du même univers.\n"
+    . "N'écris que des questions dont tu es certain de la réponse. Varie la difficulté. Évite de révéler la fin.\n"
+    . "Si tu ne connais pas assez bien cette œuvre précise, réponds {\"known\": false}.\n"
+    . "Réponds uniquement en JSON, sans texte autour : {\"known\": true, \"questions\": [{\"q\": \"…\", \"good\": \"…\", \"bad\": [\"…\", \"…\", \"…\"]}]}";
+  $ch = curl_init((string) cfg('anthropic_url', 'https://api.anthropic.com/v1/messages'));
+  curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_POST => true,
+    CURLOPT_HTTPHEADER => ['content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'],
+    CURLOPT_POSTFIELDS => json_encode(['model' => cfg('anthropic_model', 'claude-sonnet-5-5'), 'max_tokens' => 2000,
+      'messages' => [['role' => 'user', 'content' => $prompt]]], JSON_UNESCAPED_UNICODE)]);
+  $res = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+  if ($res === false || $code !== 200) { error_log('[sharefs] Claude API ' . $code . ' ' . substr((string) $res, 0, 200)); return []; }
+  $text = '';
+  foreach ((json_decode($res, true)['content'] ?? []) as $b) if (($b['type'] ?? '') === 'text') $text .= $b['text'];
+  $text = trim((string) preg_replace('/^```(json)?|```$/m', '', trim($text)));
+  $j = json_decode($text, true);
+  $out = [];
+  if (is_array($j) && !empty($j['known'])) foreach (($j['questions'] ?? []) as $q) {
+    $good = trim((string) ($q['good'] ?? '')); $bad = array_values(array_unique(array_filter(array_map(fn($x) => trim((string) $x), (array) ($q['bad'] ?? [])))));
+    $qt = trim((string) ($q['q'] ?? ''));
+    if ($qt === '' || $good === '' || count($bad) < 3 || in_array($good, $bad, true) || mb_strlen($qt) > 220) continue;
+    $opts = array_merge([$good], array_slice($bad, 0, 3)); shuffle($opts);
+    $out[] = ['q' => $qt, 'opts' => array_map(fn($o) => mb_substr($o, 0, 80), $opts), 'ans' => array_search($good, $opts, true)];
+  }
+  cache_set($ck, $out, $out ? 30 * 86400 : 86400);
+  return $out;
+}
+
 function make_quiz(array $work, array $picks, array $uids): array {
+  // 4 questions sur le contenu de l'œuvre quand c'est possible, complétées par des questions tirées de sa fiche
+  $content = content_questions($work); shuffle($content);
+  $content = array_slice($content, 0, 4);
+  $meta = make_quiz_meta($work, $picks, $uids);
+  $qs = $content;
+  foreach ($meta as $m) if (count($qs) < 5) $qs[] = $m;
+  shuffle($qs);
+  return array_slice($qs, 0, 5);
+}
+
+function make_quiz_meta(array $work, array $picks, array $uids): array {
   // fiche détaillée de l'œuvre choisie, et des autres propositions pour fabriquer des réponses crédibles
   $full = function (array $w): array { try { return array_merge($w, catalog_work($w['id'])); } catch (Throwable $e) { return $w; } };
   $w = $full($work); $t = $w['t']; $ti = '« ' . $w['ti'] . ' »';

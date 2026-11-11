@@ -38,6 +38,14 @@ Les tables des défis et des commentaires sont créées automatiquement par l'AP
 
 Code serveur dans `server/api/match.php` (table `matches`, créée automatiquement). Tour par tour : chacun joue à son rythme ; les deux joueurs répondent aux mêmes 5 questions, chacun avec son propre chrono de 30 s par question. Le serveur fait foi : le coup de l'adversaire et les bonnes réponses ne sont envoyés qu'une fois joués. Mise à jour discrète en arrière-plan : la partie ouverte est vérifiée toutes les 2,5 s (réponse vide si rien n'a changé) et l'écran n'est redessiné que si la phase ou ton rôle change ; le score et l'avancée de l'adversaire sont mis à jour sur place. La liste des parties est vérifiée toutes les 15 s. Les parties créées par une ancienne version sont remises au bon format à la lecture.
 
+### Questions sur le contenu des œuvres (facultatif)
+
+Avec une clé de l'API Claude (`anthropic_key` dans `config.php`, créée sur console.anthropic.com), le questionnaire pose jusqu'à 4 questions sur l'œuvre elle-même (personnages, lieux, objets, scènes), complétées par des questions tirées de sa fiche. Les questions sont générées une seule fois par œuvre puis gardées 30 jours en cache. Sans clé, seules les questions tirées des fiches sont posées.
+
+## Swipe et 5 par 5
+
+Les œuvres proviennent de l'endpoint `discover`, qui parcourt les catalogues page après page (populaires d'abord, puis de plus en plus loin) : la pile ne s'épuise pas.
+
 ## Cartes secrètes
 
 Déposer les images dans `www/eggs/` (voir `www/eggs/LISEZMOI.md`). Sans image, une illustration originale s'affiche.

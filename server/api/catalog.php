@@ -300,6 +300,35 @@ function work_mb(string $id): array {
   return clean(array_merge($w, ['img' => $big, 'imgs' => [$big]]));
 }
 
+/* ---------- Découverte sans fin (swipe et 5 par 5) : on parcourt les catalogues page après page ---------- */
+const DISCOVER_BOOKS = ['roman', 'fantasy', 'science fiction', 'policier', 'thriller', 'classique', 'bande dessinée', 'manga', 'biographie', 'jeunesse', 'romance', 'horreur', 'histoire', 'essai', 'aventure', 'poésie'];
+const DISCOVER_MUSIC = ['pop', 'rock', 'rap', 'hip hop', 'jazz', 'electro', 'soul', 'funk', 'reggae', 'metal', 'chanson française', 'r&b', 'indie', 'disco', 'blues', 'classique', 'latino', 'afro', 'k-pop', 'country'];
+function catalog_discover(string $type, int $page, int $lim): array {
+  $page = max(1, $page);
+  $key = "d1|$type|$page|$lim";
+  if (($c = cache_get($key)) !== null) return $c;
+  $rot = function (array $topics) use ($page) { $n = count($topics); return [$topics[($page - 1) % $n], intdiv($page - 1, $n) + 1]; };
+  $r = match ($type) {
+    'f', 's' => (function () use ($type, $page, $lim) {
+      $k = $type === 'f' ? 'movie' : 'tv';
+      $d = tmdb("/discover/$k", ['sort_by' => 'popularity.desc', 'vote_count.gte' => $type === 'f' ? 150 : 80, 'page' => min(500, $page), 'include_adult' => 'false']);
+      $items = array_values(array_filter($d['results'] ?? [], fn($x) => !empty($x['poster_path'])));
+      return ['items' => array_map(fn($x) => from_tmdb($x, $k), array_slice($items, 0, $lim)), 'more' => $page < min(500, (int) ($d['total_pages'] ?? 1))];
+    })(),
+    'j' => (function () use ($page, $lim) {
+      $off = ($page - 1) * $lim; $n = $lim + 1;
+      $d = igdb('fields ' . GF . "; where total_rating_count > 15 & cover != null; sort total_rating_count desc; limit $n; offset $off;");
+      return ['items' => array_map('from_game', array_slice($d, 0, $lim)), 'more' => count($d) > $lim];
+    })(),
+    'l' => (function () use ($rot, $lim) { [$topic, $p] = $rot(DISCOVER_BOOKS); $x = search_books($topic, $p, $lim); $x['more'] = true; return $x; })(),
+    'm' => (function () use ($rot, $lim) { [$topic, $p] = $rot(DISCOVER_MUSIC); $x = search_dz($topic, $p, $lim); $x['more'] = true; return $x; })(),
+    'b' => search_bgg('', $page, $lim),
+    default => fail(400, 'bad_type'),
+  };
+  cache_set($key, $r, 6 * 3600);
+  return $r;
+}
+
 function catalog_search(string $type, string $q, int $page, int $lim): array {
   $key = "s3|$type|$q|$page|$lim";
   if (($c = cache_get($key)) !== null) return $c;

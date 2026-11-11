@@ -339,6 +339,10 @@ try {
       header('Cache-Control: private, max-age=600');
       out($r);
 
+    case $M === 'GET' && $path === 'discover':
+      $u = need_user(); throttle('cat|' . $u['id'], 900, 600);
+      out(catalog_discover((string) ($_GET['type'] ?? ''), (int) ($_GET['page'] ?? 1), max(1, min(20, (int) ($_GET['limit'] ?? 12)))));
+
     case $M === 'GET' && $path === 'work':
       $u = need_user(); throttle('cat|' . $u['id'], 900, 600);
       $r = catalog_work((string) ($_GET['id'] ?? ''));

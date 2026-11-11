@@ -697,20 +697,26 @@ function renderWeekly(){
    hors collection et hors œuvres déjà passées. */
 const PLAY={pool:[],loading:false,type:'',five:[],checks:{},rates:{},rating:false,shown:new Set(),gen:0};
 const skipped=()=>new Set(lsGet('sharefs-skip',[]));
-function skipWork(id){PLAY.shown.add(id);const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-600))}}
+function skipWork(id){PLAY.shown.add(id);const a=lsGet('sharefs-skip',[]);if(!a.includes(id)){a.push(id);lsSet('sharefs-skip',a.slice(-3000))}}
 const playable=w=>!isDone(w.id)&&!mine.want[w.id]&&!skipped().has(w.id);
 function cleanPool(){PLAY.pool=PLAY.pool.filter(playable)}
+// Pages de découverte par type : on avance sans fin dans chaque catalogue (populaires d'abord, puis de plus en plus loin)
+const DPAGE=lsGet('sharefs-dpage',{});
+function nextPage(t){const p=(DPAGE[t]||0)+1;DPAGE[t]=p;lsSet('sharefs-dpage',DPAGE);return p}
 async function fillPool(min=8){
   if(PLAY.loading===PLAY.gen+1||PLAY.pool.length>=min)return;
   const gen=PLAY.gen;PLAY.loading=gen+1;
   try{
     const types=PLAY.type?[PLAY.type]:SEARCHT();
-    const res=await Promise.all(types.map(t=>api('search',{type:t,q:'',page:1+Math.floor(Math.random()*5),limit:12}).catch(()=>({items:[]}))));
-    // filtrage au moment de l'ajout : une œuvre passée pendant le chargement ne revient pas
-    const sk=skipped(),seen=new Set([...PLAY.pool.map(w=>w.id),...PLAY.five.map(w=>w.id)]);
-    const fresh=rr(res.map(r=>shuffle((r.items||[]).map(reg)))).filter(w=>!isDone(w.id)&&!sk.has(w.id)&&!seen.has(w.id)&&!PLAY.shown.has(w.id)&&!mine.want[w.id]);
-    if(gen!==PLAY.gen)return;
-    PLAY.pool.push(...fresh);
+    // jusqu'à 6 tours : si une page ne contient que des œuvres déjà vues ou passées, on va chercher la suivante
+    for(let round=0;round<6&&PLAY.pool.length<min;round++){
+      const res=await Promise.all(types.map(t=>api('discover',{type:t,page:nextPage(t),limit:12}).then(r=>{if(r.more===false)DPAGE[t]=0;return r}).catch(()=>({items:[]}))));
+      if(gen!==PLAY.gen)return;
+      // filtrage au moment de l'ajout : une œuvre passée pendant le chargement ne revient pas
+      const sk=skipped(),seen=new Set([...PLAY.pool.map(w=>w.id),...PLAY.five.map(w=>w.id)]);
+      const fresh=rr(res.map(r=>shuffle((r.items||[]).map(reg)))).filter(w=>!isDone(w.id)&&!sk.has(w.id)&&!seen.has(w.id)&&!PLAY.shown.has(w.id)&&!mine.want[w.id]);
+      PLAY.pool.push(...fresh);
+    }
   }finally{if(PLAY.loading===gen+1)PLAY.loading=false}
 }
 const playTypes=()=>`<div class="row play-types">${chip('Tout',!PLAY.type,'data-ptype=""')}${SEARCHT().map(t=>chip(`<span class="tm t-${t}"></span>${T[t].p}`,PLAY.type===t,`data-ptype="${t}"`)).join('')}</div>`;
@@ -736,7 +742,7 @@ function syncStack(){
     el.dataset.pos=i;el.style.zIndex=10-i});
   // précharger les images suivantes pour éviter les sauts
   PLAY.pool.slice(3,6).forEach(w=>{if(w.img&&!IMG_OK.has(w.img)){const im=new Image();im.referrerPolicy='no-referrer';im.onload=()=>IMG_OK.add(w.img);im.src=w.img}});
-  if(!want.length)st.innerHTML=`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant. Change de type ou reviens plus tard !'}</div>`;
+  if(!want.length)st.innerHTML=`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'On cherche d’autres œuvres…'}</div>`;
   else st.querySelector('.sw-empty')?.remove();
 }
 function syncInfo(){
@@ -753,7 +759,7 @@ function renderSwipe(){
   if(!PLAY.rating)cleanPool();
   if(!$('#swStage')){$('#fsBody').innerHTML=swipeHTML()}
   syncStack();syncInfo();bindSwipe();
-  if(PLAY.pool.length<6&&!PLAY.loading)fillPool().then(()=>{PLAY.tried=true;if($('#fs').dataset.kind==='swipe'&&!$('.sw-card.dragging')){syncStack();if(!PLAY.rating)syncInfo();bindSwipe()}});
+  if(PLAY.pool.length<6&&!PLAY.loading)fillPool().then(()=>{PLAY.tried=true;if($('#fs').dataset.kind!=='swipe')return;if(!$('.sw-card.dragging')){syncStack();if(!PLAY.rating)syncInfo();bindSwipe()}if(!PLAY.pool.length)setTimeout(renderSwipe,1500)});
 }
 function topCard(){return $('#swStage .sw-card:not(.gone)[data-pos="0"]')}
 function bindSwipe(){
@@ -792,10 +798,10 @@ function swipeRate(n){
 }
 
 // --- 5 par 5
-async function nextFive(){const gen=PLAY.gen;PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();cleanPool();await fillPool(5);if(gen!==PLAY.gen)return;PLAY.tried=true;cleanPool();PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive()}
+async function nextFive(){const gen=PLAY.gen;PLAY.checks={};PLAY.rates={};PLAY.five=[];renderFive();cleanPool();await fillPool(5);if(gen!==PLAY.gen)return;PLAY.tried=true;cleanPool();PLAY.five=PLAY.pool.splice(0,5);PLAY.five.forEach(w=>PLAY.shown.add(w.id));renderFive();if(!PLAY.five.length&&$('#fs').dataset.kind==='five')setTimeout(nextFive,1500)}
 function fiveHTML(){
   const n=Object.keys(PLAY.checks).length,ready=n&&Object.keys(PLAY.checks).every(id=>PLAY.rates[id]);
-  return `${playTypes()}${!PLAY.five.length?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'Plus rien à proposer pour l’instant.'}</div>`:
+  return `${playTypes()}${!PLAY.five.length?`<div class="sw-empty">${PLAY.loading||!PLAY.tried?'On pioche des œuvres…':'On cherche d’autres œuvres…'}</div>`:
     `<div class="f5">${PLAY.five.map(w=>`<div class="f5-row${PLAY.checks[w.id]?' on':''}" data-fid="${esc(w.id)}"><button class="f5-main" data-fcheck="${esc(w.id)}" aria-pressed="${!!PLAY.checks[w.id]}"><span class="f5-c">${card(w)}</span><span class="f5-txt">${playInfo(w)}</span><span class="f5-box" aria-hidden="true">✓</span></button>${PLAY.checks[w.id]?rateRow(w.id,'data-frate'):''}</div>`).join('')}</div>
     <div class="f5-acts"><button class="btn" data-fnext>5 autres</button><button class="btn pri" data-fgo ${ready?'':'disabled'}>${n?`Débloquer ${n} carte${n>1?'s':''}`:'Coche ce que tu as vu'}</button></div>
     ${n&&!ready?'<p class="ghint f5-hint">Donne ton avis sur chaque œuvre cochée pour débloquer ses cartes.</p>':''}`}`;
@@ -1072,7 +1078,7 @@ function matchClick(d,b){
   if('mtsend' in d){const w=[...MTSEL.works];mtAct('pick',{works:w}).then(ok=>{if(ok){MTSEL.works=[];MTSEL.q=''}});return true}
   if(d.mtpick1){MTSEL.choose=d.mtpick1;document.querySelectorAll('#fsBody .mt-c').forEach(c=>c.classList.toggle('on',c.dataset.mtpick1===d.mtpick1));
     const go=$('#fsBody [data-mtchoose]');if(go){go.disabled=false;go.textContent='C’est parti !'}return true}
-  if('mtchoose' in d){if(MTSEL.choose)mtAct('choose',{id:MTSEL.choose}).then(ok=>{if(ok)MTSEL.choose=null});return true}
+  if('mtchoose' in d){if(MTSEL.choose){b.disabled=true;b.textContent='On prépare les questions…';b.classList.add('loading');mtAct('choose',{id:MTSEL.choose}).then(ok=>{if(ok)MTSEL.choose=null;else{b.disabled=false;b.textContent='C’est parti !'}})}return true}
   if('mtnext' in d){b.disabled=true;mtAct('qnext',{});return true}
   if(d.mtans!==undefined&&!b.disabled){mtAnswer(+d.mtans);return true}
   if('mtff' in d){if(confirm('Abandonner ce match ? Ton adversaire gagnera.'))mtAct('forfeit',{});return true}

@@ -10,6 +10,8 @@ return [
   'twitch_client_id'     => '',   // dev.twitch.tv/console (pour IGDB)
   'twitch_client_secret' => '',
   'google_books_key'     => '',   // facultatif
+  'anthropic_key'        => '',   // facultatif : questions sur le contenu des œuvres (console.anthropic.com)
+  'anthropic_model'      => 'claude-sonnet-5-5',
   'bgg_token'            => '',   // jeux de société : boardgamegeek.com/applications (application non commerciale)
 
   // E-mails : boîte créée dans cPanel > Comptes de messagerie (recommandé : SMTP authentifié)
