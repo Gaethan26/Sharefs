@@ -23,7 +23,8 @@ function db(): PDO {
   if ($pdo) return $pdo;
   $pdo = new PDO('mysql:host=' . cfg('db_host', 'localhost') . ';dbname=' . cfg('db_name') . ';charset=utf8mb4',
     cfg('db_user'), cfg('db_pass'),
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+     PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_TIMEOUT => 5]);
   $pdo->exec("SET time_zone = '+00:00'");
   return $pdo;
 }
@@ -31,10 +32,22 @@ function q(string $sql, array $p = []): PDOStatement { $s = db()->prepare($sql);
 
 class HttpError extends Exception { public int $status; function __construct(int $s, string $m) { parent::__construct($m); $this->status = $s; } }
 function fail(int $code, string $msg) { throw new HttpError($code, $msg); }
-function out($data, int $code = 200): void {
+function out($data, int $code = 200, bool $etag = false): void {
   http_response_code($code);
   header('Content-Type: application/json; charset=utf-8');
-  echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  $j = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  // état interrogé toutes les 25 s : si rien n'a changé, on répond 304 sans renvoyer les données
+  if ($etag && $code === 200) {
+    $tag = '"' . substr(hash('sha256', $j), 0, 32) . '"';
+    header('ETag: ' . $tag); header('Cache-Control: private, no-cache'); header('Vary: Origin, X-Sharefs-Token, Accept-Encoding');
+    if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $tag) { http_response_code(304); exit; }
+  }
+  // compression des réponses volumineuses (si l'hébergeur ne le fait pas déjà)
+  if (strlen($j) > 1400 && !ini_get('zlib.output_compression') && str_contains((string) ($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''), 'gzip') && function_exists('gzencode')) {
+    header('Content-Encoding: gzip'); header('Vary: Origin, X-Sharefs-Token, Accept-Encoding', false); $j = gzencode($j, 5);
+  }
+  header('Content-Length: ' . strlen($j));
+  echo $j;
   exit;
 }
 function raw_body(): string {
@@ -52,6 +65,10 @@ const DEFAULT_ORIGINS = ['https://sharefs.gaethan-boyer.fr', 'https://panenka.ga
 function cors(): void {
   header('X-Content-Type-Options: nosniff');
   header('Cache-Control: no-store');
+  header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'");
+  header('X-Frame-Options: DENY');
+  header('Referrer-Policy: no-referrer');
+  header('Cross-Origin-Resource-Policy: same-site');
   header('Vary: Origin');
   $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
   if ($origin !== '' && in_array($origin, (array) cfg('cors_origins', DEFAULT_ORIGINS), true)) {
@@ -112,7 +129,7 @@ function cache_get(string $k) {
 function cache_del(string $k): void { q('DELETE FROM cache WHERE k = ?', [hash('sha256', $k)]); }
 function cache_set(string $k, $v, int $ttl): void {
   q('REPLACE INTO cache (k, v, exp) VALUES (?, ?, ?)', [hash('sha256', $k), json_encode($v, JSON_UNESCAPED_UNICODE), time() + $ttl]);
-  if (random_int(1, 200) === 1) q('DELETE FROM cache WHERE exp < ?', [time()]);
+  if (random_int(1, 200) === 1) { q('DELETE FROM cache WHERE exp < ?', [time()]); q('DELETE FROM reports WHERE created_at < NOW() - INTERVAL 1 YEAR'); }
 }
 
 /* ---------- Mise à niveau automatique du schéma (défis, commentaires) ---------- */
@@ -120,7 +137,7 @@ function ensure_schema(): void {
   static $done = false;
   if ($done) return;
   $done = true;
-  $flag = __DIR__ . '/.schema-v5';
+  $flag = __DIR__ . '/.schema-v6';
   if (is_file($flag)) return;
   db()->exec("CREATE TABLE IF NOT EXISTS challenges (
     id CHAR(36) PRIMARY KEY, from_id CHAR(36) NOT NULL, to_id CHAR(36) NOT NULL, works TEXT NOT NULL, note VARCHAR(280) NULL,
@@ -153,7 +170,24 @@ function ensure_schema(): void {
     PRIMARY KEY (guesser_id, target_id, season),
     FOREIGN KEY (guesser_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  // modération : blocages et signalements (exigés par l'App Store et Google Play pour les contenus entre utilisateurs)
+  db()->exec("CREATE TABLE IF NOT EXISTS blocks (
+    user_id CHAR(36) NOT NULL, blocked_id CHAR(36) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, blocked_id), KEY (blocked_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  db()->exec("CREATE TABLE IF NOT EXISTS reports (
+    id CHAR(36) NOT NULL PRIMARY KEY, from_id CHAR(36) NOT NULL, target_id CHAR(36) NOT NULL, kind VARCHAR(12) NOT NULL,
+    ref_id VARCHAR(80) NOT NULL DEFAULT '', reason VARCHAR(500) NOT NULL DEFAULT '', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY (target_id), FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   @file_put_contents($flag, date('c'));
+}
+// personnes masquées pour moi : celles que j'ai bloquées et celles qui m'ont bloqué
+function hidden_ids(string $me): array {
+  return array_values(array_unique(array_merge(
+    q('SELECT blocked_id FROM blocks WHERE user_id = ?', [$me])->fetchAll(PDO::FETCH_COLUMN),
+    q('SELECT user_id FROM blocks WHERE blocked_id = ?', [$me])->fetchAll(PDO::FETCH_COLUMN))));
 }
 
 /* ---------- Mots de passe ---------- */

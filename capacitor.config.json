@@ -2,6 +2,25 @@
   "appId": "fr.sharefs.app",
   "appName": "Sharefs",
   "webDir": "www",
-  "ios": { "contentInset": "never" },
-  "android": { "backgroundColor": "#E9ECF2" }
+  "ios": {
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "backgroundColor": "#E9ECF2",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "backgroundColor": "#E9ECF2",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DEFAULT"
+    }
+  }
 }

@@ -77,6 +77,7 @@ try {
       $b = body(); $email = strtolower(trim((string) ($b['email'] ?? ''))); $pass = (string) ($b['password'] ?? '');
       if (!preg_match(EMAIL_RE, $email) || strlen($email) > 190) fail(400, 'bad_email');
       throttle('signup|' . client_ip(), 10, 3600);
+      if (empty($b['terms'])) fail(400, 'terms_required');
       check_password($pass);
       if (q('SELECT 1 FROM users WHERE email = ?', [$email])->fetch()) fail(409, 'email_taken');
       $id = uuid();
@@ -144,16 +145,22 @@ try {
       out(['ok' => true]);
 
     case $M === 'DELETE' && $path === 'me':
-      $u = need_user();
+      $u = need_user(); throttle('del|' . $u['id'], 5, 3600);
+      // confirmation par mot de passe : un téléphone déverrouillé ne suffit pas à tout effacer
+      $hash = q('SELECT pass FROM users WHERE id = ?', [$u['id']])->fetchColumn();
+      if (!$hash || !password_verify((string) (body()['password'] ?? ''), $hash)) fail(403, 'bad_password');
+      q('DELETE FROM recs WHERE from_id = ?', [$u['id']]);
       q('DELETE FROM users WHERE id = ?', [$u['id']]);
       out(['ok' => true]);
 
     /* ---------- État complet (fil, amis, cercles) ---------- */
     case $M === 'GET' && $path === 'state':
       $u = need_user(); $me = $u['id'];
-      $ids = array_values(array_unique(array_merge([$me], mates($me))));
+      $hid = hidden_ids($me);
+      $ids = array_values(array_diff(array_unique(array_merge([$me], mates($me))), $hid));
       $in = implode(',', array_fill(0, count($ids), '?'));
       $members = array_map('user_out', q("SELECT id, name, data FROM users WHERE id IN ($in)", $ids)->fetchAll());
+      $blocked = q('SELECT u.id, u.name FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.user_id = ? ORDER BY b.created_at', [$me])->fetchAll();
       $circles = q('SELECT c.code FROM circles c JOIN circle_members m ON m.circle_id = c.id WHERE m.user_id = ? ORDER BY c.created_at', [$me])->fetchAll(PDO::FETCH_COLUMN);
       $recs = q("SELECT r.*, (SELECT GROUP_CONCAT(t.user_id) FROM rec_targets t WHERE t.rec_id = r.id) AS to_ids
         FROM recs r
@@ -161,21 +168,47 @@ try {
            OR EXISTS (SELECT 1 FROM rec_targets t WHERE t.rec_id = r.id AND t.user_id = ?)
            OR (NOT EXISTS (SELECT 1 FROM rec_targets t WHERE t.rec_id = r.id) AND r.from_id IN ($in))
         ORDER BY r.created_at DESC LIMIT 300", array_merge([$me, $me], $ids))->fetchAll();
+      $recs = array_values(array_filter($recs, fn($r) => !in_array($r['from_id'], $hid, true)));
       $recIds = array_column($recs, 'id');
       $comments = [];
       if ($recIds) {
         $rin = implode(',', array_fill(0, count($recIds), '?'));
         $comments = array_map(fn($c) => ['id' => $c['id'], 'rec_id' => $c['rec_id'], 'from_id' => $c['from_id'], 'text' => $c['text'], 'created_at' => iso($c['created_at'])],
-          q("SELECT * FROM comments WHERE rec_id IN ($rin) ORDER BY created_at", $recIds)->fetchAll());
+          array_filter(q("SELECT * FROM comments WHERE rec_id IN ($rin) ORDER BY created_at", $recIds)->fetchAll(), fn($c) => !in_array($c['from_id'], $hid, true)));
+        $comments = array_values($comments);
       }
       $chals = array_map('chal_out', q("SELECT * FROM challenges WHERE from_id IN ($in) AND to_id IN ($in) ORDER BY created_at DESC LIMIT 300", array_merge($ids, $ids))->fetchAll());
       // Membres de chaque cercle (les cercles n'ont pas de nom : l'app les présente par leurs membres)
       $circleMembers = [];
       foreach (q('SELECT c.code, m2.user_id FROM circles c JOIN circle_members m ON m.circle_id = c.id AND m.user_id = ? JOIN circle_members m2 ON m2.circle_id = c.id', [$me])->fetchAll() as $row)
-        $circleMembers[$row['code']][] = $row['user_id'];
+        if (!in_array($row['user_id'], $hid, true)) $circleMembers[$row['code']][] = $row['user_id'];
       out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'circleMembers' => $circleMembers, 'recs' => array_map('rec_out', $recs),
         'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids),
-        'catalogs' => ['b' => (bool) cfg('bgg_token')], 'matches' => match_list($me)]);
+        'catalogs' => ['b' => (bool) cfg('bgg_token')], 'matches' => match_list($me), 'blocked' => $blocked], 200, true);
+
+    /* ---------- Modération : bloquer, débloquer, signaler ---------- */
+    case $M === 'POST' && $path === 'blocks':
+      $u = need_user(); $b = body(); $t = (string) ($b['user_id'] ?? '');
+      throttle('block|' . $u['id'], 30, 3600);
+      if ($t === $u['id'] || !q('SELECT 1 FROM users WHERE id = ?', [$t])->fetch()) fail(400, 'bad_user');
+      q('INSERT IGNORE INTO blocks (user_id, blocked_id) VALUES (?, ?)', [$u['id'], $t]);
+      out(['ok' => true]);
+
+    case $M === 'DELETE' && preg_match('#^blocks/([0-9a-f-]{36})$#', $path, $m):
+      $u = need_user();
+      q('DELETE FROM blocks WHERE user_id = ? AND blocked_id = ?', [$u['id'], $m[1]]);
+      out(['ok' => true]);
+
+    case $M === 'POST' && $path === 'reports':
+      $u = need_user(); $b = body(); throttle('report|' . $u['id'], 20, 3600);
+      $t = (string) ($b['target_id'] ?? ''); $kind = (string) ($b['kind'] ?? '');
+      if (!in_array($kind, ['rec', 'comment', 'user'], true) || $t === $u['id'] || !in_array($t, mates($u['id']), true)) fail(400, 'bad_report');
+      $ref = clean_id($b['ref_id'] ?? '') ?? ''; $reason = clean_str($b['reason'] ?? '', 500);
+      $id = uuid();
+      q('INSERT INTO reports (id, from_id, target_id, kind, ref_id, reason) VALUES (?, ?, ?, ?, ?, ?)', [$id, $u['id'], $t, $kind, $ref, $reason]);
+      $admin = cfg('admin_email', cfg('mail_from'));
+      if ($admin) @send_mail($admin, 'Signalement Panenka (' . $kind . ')', "Signalement $id\nDe : {$u['id']}\nVisé : $t\nType : $kind $ref\nMotif : $reason\n\nÀ traiter sous 24 h (supprimer le contenu, bannir si besoin).");
+      out(['ok' => true]);
 
     /* ---------- Cercles ---------- */
     case $M === 'POST' && $path === 'circles':

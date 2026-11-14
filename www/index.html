@@ -4,13 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#E9ECF2">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https://sharefs.gaethan-boyer.fr https://panenka.gaethan-boyer.fr; base-uri 'self'; form-action 'self'; object-src 'none'">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Sharefs">
 <title>Sharefs</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Caveat:wght@700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,500&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* polices hébergées sur le site (plus rapide, et aucune requête vers Google) */
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-display:swap;font-weight:200 800;font-stretch:75% 100%;src:url(fonts/bricolage.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Fraunces;font-style:normal;font-display:swap;font-weight:100 900;src:url(fonts/fraunces.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Fraunces;font-style:italic;font-display:swap;font-weight:100 900;src:url(fonts/fraunces-italic.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Caveat;font-style:normal;font-display:swap;font-weight:700;src:url(fonts/caveat-700.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
 :root{
   --bg:#E9ECF2;--surface:#FFFFFF;--surface2:#DDE2EB;--ink:#18213A;--muted:#596482;--line:#C9D0DD;
   --act:#18213A;--act-ink:#FFFFFF;
@@ -1791,35 +1799,24 @@ header.top{gap:8px}
 .sh-bal{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:4px 0 6px}
 .sh-bal span{font-size:28px}.sh-bal b{font-size:44px;font-weight:900;letter-spacing:-.03em}.sh-bal small{color:var(--muted);font-weight:700}
 .sh-h{margin:22px 2px 10px;font-size:16px}
-.sh-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.sh-i{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:16px;background:var(--surface);box-shadow:0 6px 16px -12px rgba(10,15,35,.5)}
-.sh-i.on{box-shadow:0 0 0 2px #F6B93B,0 6px 16px -12px rgba(10,15,35,.5)}
-.sh-i.locked{opacity:.65}
-.sh-i b{font-size:14px}.sh-i small{font-size:11.5px;color:var(--muted);flex:1}
-.sh-i .btn{margin-top:6px;padding:9px;font-size:13px}
-.sh-i .btn:disabled{opacity:.45}
-.sh-lock{margin-top:6px;font-size:12px;font-weight:800;color:var(--muted)}
-.sh-prev{display:grid;place-items:center;height:70px;margin-bottom:4px;border-radius:12px;background:var(--surface2)}
-.sh-i.frame .sh-prev::before,.sh-i.back .sh-prev::before{content:"";width:40px;height:56px;border-radius:7px;background:linear-gradient(160deg,#2A4E73,#0B1626)}
-.sh-i.cover .sh-prev::before{content:"";width:50px;height:60px;border-radius:4px 9px 9px 4px;background:var(--cv,linear-gradient(160deg,#2A3166,#1A1F45));box-shadow:inset 5px 0 0 rgba(0,0,0,.25),inset 0 0 0 2px #D9B25F}
 .sh-how{margin-top:22px;padding:12px 14px;border-radius:14px;background:var(--surface)}
 .sh-how summary{cursor:pointer;font-weight:800}
 .sh-how ul{margin:10px 0;padding-left:18px;font-size:13px;line-height:1.6}
 .sh-br{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px}
 /* cadres de cartes */
-.frame-wood .card.cs-g,.sh-i.frame-wood .sh-prev::before{box-shadow:0 0 0 3px #8E5A2C,0 0 0 5px #D49A56,0 8px 18px -8px rgba(10,15,35,.55)}
-.frame-ice .card.cs-g,.sh-i.frame-ice .sh-prev::before{box-shadow:0 0 0 3px #CDEBFF,0 0 16px rgba(160,215,255,.8),0 8px 18px -8px rgba(10,15,35,.55)}
-.frame-neon .card.cs-g,.sh-i.frame-neon .sh-prev::before{box-shadow:0 0 0 2px #FF4FD8,0 0 14px #FF4FD8,0 0 26px rgba(0,229,255,.6)}
-.frame-gold .card.cs-g,.sh-i.frame-gold .sh-prev::before{box-shadow:0 0 0 3px #FFD46B,0 0 0 5px #B8892E,0 0 18px rgba(255,212,107,.6)}
-.frame-rainbow .card.cs-g,.sh-i.frame-rainbow .sh-prev::before{box-shadow:0 0 0 3px #FF6FB5,0 0 0 5px #7CB7FF,0 0 0 7px #7CE0C3,0 0 18px rgba(255,111,181,.5)}
-.frame-ballon .card.cs-g,.sh-i.frame-ballon .sh-prev::before{box-shadow:0 0 0 3px #FFE7A6,0 0 0 5px #C98A22,0 0 0 7px #FFE7A6,0 0 26px rgba(255,212,107,.9)}
+.frame-wood .card.cs-g,.shop .si.frame-wood .card.cs-g{box-shadow:0 0 0 3px #8E5A2C,0 0 0 5px #D49A56,0 8px 18px -8px rgba(10,15,35,.55)}
+.frame-ice .card.cs-g,.shop .si.frame-ice .card.cs-g{box-shadow:0 0 0 3px #CDEBFF,0 0 16px rgba(160,215,255,.8),0 8px 18px -8px rgba(10,15,35,.55)}
+.frame-neon .card.cs-g,.shop .si.frame-neon .card.cs-g{box-shadow:0 0 0 2px #FF4FD8,0 0 14px #FF4FD8,0 0 26px rgba(0,229,255,.6)}
+.frame-gold .card.cs-g,.shop .si.frame-gold .card.cs-g{box-shadow:0 0 0 3px #FFD46B,0 0 0 5px #B8892E,0 0 18px rgba(255,212,107,.6)}
+.frame-rainbow .card.cs-g,.shop .si.frame-rainbow .card.cs-g{box-shadow:0 0 0 3px #FF6FB5,0 0 0 5px #7CB7FF,0 0 0 7px #7CE0C3,0 0 18px rgba(255,111,181,.5)}
+.frame-ballon .card.cs-g,.shop .si.frame-ballon .card.cs-g{box-shadow:0 0 0 3px #FFE7A6,0 0 0 5px #C98A22,0 0 0 7px #FFE7A6,0 0 26px rgba(255,212,107,.9)}
 /* dos de cartes */
-.back-stripes .cardback,.sh-i.back-stripes .sh-prev::before{background:repeating-linear-gradient(45deg,#2F6FDB 0 8px,#1E4FAE 8px 16px)}
-.back-stars .cardback,.sh-i.back-stars .sh-prev::before{background:radial-gradient(circle at 20% 30%,#fff 0 1.2px,transparent 2px) 0 0/14px 14px,radial-gradient(circle at 70% 70%,#FFD46B 0 1px,transparent 1.8px) 0 0/18px 18px,linear-gradient(160deg,#1B2047,#0B0E24)}
-.back-cosmic .cardback,.sh-i.back-cosmic .sh-prev::before{background:radial-gradient(60% 50% at 30% 30%,rgba(255,111,181,.8),transparent 70%),radial-gradient(60% 60% at 70% 70%,rgba(124,183,255,.8),transparent 70%),linear-gradient(160deg,#2A1240,#0B0E24)}
+.back-stripes .cardback,.shop .si.back-stripes .cardback{background:repeating-linear-gradient(45deg,#2F6FDB 0 8px,#1E4FAE 8px 16px)}
+.back-stars .cardback,.shop .si.back-stars .cardback{background:radial-gradient(circle at 20% 30%,#fff 0 1.2px,transparent 2px) 0 0/14px 14px,radial-gradient(circle at 70% 70%,#FFD46B 0 1px,transparent 1.8px) 0 0/18px 18px,linear-gradient(160deg,#1B2047,#0B0E24)}
+.back-cosmic .cardback,.shop .si.back-cosmic .cardback{background:radial-gradient(60% 50% at 30% 30%,rgba(255,111,181,.8),transparent 70%),radial-gradient(60% 60% at 70% 70%,rgba(124,183,255,.8),transparent 70%),linear-gradient(160deg,#2A1240,#0B0E24)}
 /* couvertures du grimoire */
-.sh-i.cover-red{--cv:linear-gradient(160deg,#9E2A2B,#5A1516)}.sh-i.cover-emerald{--cv:linear-gradient(160deg,#1E7A52,#0F4A32)}
-.sh-i.cover-night{--cv:radial-gradient(circle at 30% 30%,#fff 0 1px,transparent 1.6px) 0 0/10px 10px,linear-gradient(160deg,#1B2047,#05071A)}.sh-i.cover-legend{--cv:linear-gradient(160deg,#FFE7A6,#C98A22)}
+.si.cover-red{--cv:linear-gradient(160deg,#9E2A2B,#5A1516)}.si.cover-emerald{--cv:linear-gradient(160deg,#1E7A52,#0F4A32)}
+.si.cover-night{--cv:radial-gradient(circle at 30% 30%,#fff 0 1px,transparent 1.6px) 0 0/10px 10px,linear-gradient(160deg,#1B2047,#05071A)}.si.cover-legend{--cv:linear-gradient(160deg,#FFE7A6,#C98A22)}
 .cover-red .gbook{background:linear-gradient(160deg,#9E2A2B,#5A1516)}
 .cover-emerald .gbook{background:linear-gradient(160deg,#1E7A52,#0F4A32)}
 .cover-night .gbook{background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.8) 0 1px,transparent 1.6px) 0 0/16px 16px,linear-gradient(160deg,#1B2047,#05071A)}
@@ -1849,13 +1846,90 @@ header.top{gap:8px}
 .trk-b.on .trk-t{font-weight:700}
 .trk-all{width:100%;margin-top:10px;padding:12px}
 .recwhat{margin-bottom:12px}
+
+/* pépite */
+.pep-i{width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;filter:drop-shadow(0 1px 0 rgba(255,255,255,.5))}
+.pepbtn{display:inline-flex;align-items:center;gap:6px}.pepbtn .pep-i{width:20px;height:20px}
+.pz-b .pep-i{width:26px;height:26px}
+.sh-bal{align-items:center}.sh-bal .pep-i{width:36px;height:36px}
+/* recherche : recharger les œuvres proposées */
+.rhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.reload{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:0;border-radius:999px;font:inherit;font-size:13px;font-weight:800;color:var(--ink);background:var(--surface);box-shadow:0 4px 12px -8px rgba(10,15,35,.5);cursor:pointer}
+.reload.spin svg{animation:rspin .6s linear}
+@keyframes rspin{to{transform:rotate(360deg)}}
+/* boutique */
+.sh-nav{display:flex;gap:6px;overflow-x:auto;margin:6px -4px 4px;padding:8px 4px;background:var(--bg);scrollbar-width:none}
+.sh-nav::-webkit-scrollbar{display:none}
+.sh-nav a{flex:none;padding:7px 12px;border-radius:999px;font-size:13px;font-weight:800;color:var(--ink);text-decoration:none;background:var(--surface)}
+.sh-h{scroll-margin-top:56px}
+.sh-d{margin:-4px 0 10px;font-size:13px;color:var(--muted)}
+.sh-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+.si{position:relative;display:flex;flex-direction:column;border-radius:20px;background:var(--surface);overflow:hidden;box-shadow:0 10px 24px -18px rgba(10,15,35,.7);transition:transform .2s cubic-bezier(.3,1.5,.5,1)}
+.si:active{transform:scale(.98)}
+.si-prev{position:relative;display:grid;place-items:center;height:132px;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--ink) 4%,var(--surface2)),var(--surface2))}
+.si.t-rare .si-prev{background:radial-gradient(120% 90% at 50% 0%,#E4ECFF,#C9D6F5)}
+.si.t-epic .si-prev{background:radial-gradient(120% 90% at 50% 0%,#F3E2FF,#D7B9F2)}
+.si.t-prestige .si-prev{background:radial-gradient(120% 90% at 50% 0%,#FFF2CC,#F1CD7A)}
+.si.on{box-shadow:0 0 0 2.5px #F6B93B,0 10px 24px -14px rgba(242,140,27,.7)}
+.si-tag{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:900;letter-spacing:.03em;text-transform:uppercase;color:#4A2606;background:#FFE7A6}
+.si-tag.pr{color:#fff;background:linear-gradient(135deg,#C98A22,#8A5A0E)}
+.si-name{padding:10px 12px 2px;font-size:14.5px;font-weight:800;line-height:1.2}
+.si-foot{display:flex;align-items:center;gap:8px;padding:8px 12px 12px;margin-top:auto}
+.si-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1;padding:9px 10px;border:0;border-radius:999px;font:inherit;font-size:13.5px;font-weight:900;color:var(--ink);background:var(--surface2);cursor:pointer}
+.si-btn.buy{color:#4A2606;background:linear-gradient(135deg,#FFE7A6,#F6B93B);box-shadow:0 6px 14px -8px rgba(242,140,27,.9)}
+.si-btn.buy:disabled{flex:none;color:var(--muted);background:var(--surface2);box-shadow:none;cursor:default}
+.si-btn.buy:disabled .pep-i{filter:grayscale(1);opacity:.6}
+.si-btn.eq{color:#fff;background:var(--act)}
+.si-need{font-size:12px;font-weight:700;color:var(--muted)}
+.si.locked .si-prev>*:not(.si-tag){filter:grayscale(.8) blur(.5px);opacity:.6}
+.sp-card .card{width:66px;transform:rotate(-4deg)}
+.sp-backs{position:relative;width:100px;height:96px}
+.sp-backs .cardback{position:absolute;width:56px;top:4px;left:8px;transform:rotate(-10deg)}
+.sp-backs .cardback+.cardback{left:38px;top:10px;transform:rotate(8deg)}
+.sp-title{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;background:var(--surface);box-shadow:0 6px 14px -10px rgba(10,15,35,.5);max-width:90%}
+.sp-title>span{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}.sp-title b{font-size:13px}
+.sp-title .ptitle{margin:0;white-space:normal;text-align:left}
+.sp-book{position:relative;width:74px;height:94px;transform:perspective(300px) rotateY(-16deg)}
+.sp-pages{position:absolute;inset:4px -5px 2px 6px;border-radius:2px 6px 6px 2px;background:repeating-linear-gradient(90deg,#F2E7CF 0 2px,#DCCDA8 2px 3px)}
+.sp-cov{position:absolute;inset:0;border-radius:3px 8px 8px 3px;background:var(--cv,linear-gradient(160deg,#2A3166,#1A1F45));box-shadow:inset 7px 0 0 rgba(0,0,0,.28),inset 0 0 0 2px #D9B25F,6px 10px 16px -8px rgba(10,15,35,.6)}
+.sp-cov i{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -9px;border-radius:50%;border:2px solid #D9B25F;box-shadow:inset 0 0 0 4px rgba(217,178,95,.25)}
+
+/* accordéons (Collection, Défis) */
+.acc{margin-top:14px}
+.acc:has(>.acc-b>[hidden]:only-child),.acc:has(>.acc-b>#account:empty){display:none}
+.acc-hh{margin:0;font-size:inherit}
+.acc-h{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border-radius:16px;cursor:pointer;font-size:18px;font-weight:800;letter-spacing:-.01em;color:var(--ink);background:var(--surface);box-shadow:0 6px 16px -14px rgba(10,15,35,.6)}
+.acc-h:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.acc-h>span:first-of-type{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.acc-h svg:not(.acc-ch){width:20px;height:20px;flex:none}
+.acc-h .cnt{flex:none}
+.acc-ch{flex:none;transition:transform .25s cubic-bezier(.3,1.3,.5,1);opacity:.7}
+.acc.open>.acc-hh .acc-ch{transform:rotate(180deg)}
+.acc-b{padding-top:10px}
+.acc-b>.level.rank{margin-top:0}
+.acc .wk-h,.acc #account>h2,.acc .mt-zh h2,.acc .fe-zone>h2.rk-title{display:none}
+.acc .chead{margin-top:0}
+.acc-n{margin-left:auto;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:900;color:#fff;background:#E0453A}
+.acc-s{font-size:12.5px;font-weight:700;color:var(--muted)}
+
+/* modération et mentions légales */
+.modb{flex:none;margin-left:auto;width:32px;height:32px;border:0;border-radius:50%;font:inherit;font-size:18px;font-weight:900;line-height:1;color:var(--muted);background:transparent;cursor:pointer}
+.modb:hover,.modb:focus-visible{background:var(--surface2)}
+.cm .modb{width:26px;height:26px;font-size:15px}
+.mod-t{font-size:22px;margin:4px 0 6px}
+.mod-r{margin:12px 0 4px}
+.blk{margin-top:14px;display:grid;gap:8px}.blk>b{font-size:14px}
+.legal{margin:12px 0 0;text-align:center;font-size:12.5px;color:var(--muted)}.legal a{color:inherit;font-weight:700}
+.terms{display:flex;gap:10px;align-items:flex-start;margin:12px 0 0;font-size:13px;line-height:1.4;color:var(--muted);text-align:left}
+.terms input{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:var(--ink)}
+.terms a{color:var(--ink);font-weight:700}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
     <div class="brand" aria-label="Sharefs">Sharefs<span aria-hidden="true"></span></div>
-    <button class="pepbtn" id="pepBtn" data-shop hidden aria-label="Mes pépites et la boutique">✨ <b>0</b></button>
+    <button class="pepbtn" id="pepBtn" data-shop hidden aria-label="Mes pépites et la boutique"><b>0</b></button>
     <button class="iconbtn" id="goSearch" aria-label="Rechercher une œuvre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   </header>
 
@@ -1880,7 +1954,7 @@ header.top{gap:8px}
       </div>
       <div class="row" id="typeChips"></div>
     </div>
-    <div class="rhead"><span id="count"></span></div>
+    <div class="rhead"><span id="count"></span><button class="reload" id="reload" data-reload aria-label="Proposer d’autres œuvres"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>D’autres œuvres</button></div>
     <ul class="res" id="results"></ul>
     <div id="resMore"></div>
   </section>
@@ -1894,10 +1968,11 @@ header.top{gap:8px}
   <section class="view" id="v-coll" aria-labelledby="h-coll">
     <h1 id="h-coll">Collection</h1>
     <div class="who-row" id="whoRow"></div>
-    <div class="level rank" id="rank" style="margin-top:12px"></div>
-    <div class="level rank wk" id="weekly" style="margin-top:12px" hidden></div>
-    <div class="level rank pz" id="pepZone" style="margin-top:12px" hidden></div>
-    <div class="chead"><h2 id="collTitle">Mes cartes</h2><div class="row" id="collView"></div></div>
+    <section class="acc open" data-acck="c-rank"><h2 class="acc-hh"><button class="acc-h" data-acch="c-rank" aria-expanded="true" aria-controls="acc-c-rank"><span>Rang</span><svg class="acc-ch" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2><div class="acc-b" id="acc-c-rank"><div class="level rank" id="rank"></div></div></section>
+    <section class="acc open" data-acck="c-week"><h2 class="acc-hh"><button class="acc-h" data-acch="c-week" aria-expanded="true" aria-controls="acc-c-week"><span>Les œuvres de la semaine</span><svg class="acc-ch" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2><div class="acc-b" id="acc-c-week"><div class="level rank wk" id="weekly" hidden></div></div></section>
+    <section class="acc open" data-acck="c-pep"><h2 class="acc-hh"><button class="acc-h" data-acch="c-pep" aria-expanded="true" aria-controls="acc-c-pep"><span>Pépites et missions</span><svg class="acc-ch" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2><div class="acc-b" id="acc-c-pep"><div class="level rank pz" id="pepZone" hidden></div></div></section>
+    <section class="acc open" data-acck="c-cards"><h2 class="acc-hh"><button class="acc-h" data-acch="c-cards" aria-expanded="true" aria-controls="acc-c-cards"><span id="collTitle">Mes cartes</span><svg class="acc-ch" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2><div class="acc-b" id="acc-c-cards">
+    <div class="chead"><div class="row" id="collView"></div></div>
     <div class="tools">
       <label class="sr" for="collQ">Chercher une carte</label>
       <input class="mini" id="collQ" type="search" autocomplete="off" placeholder="Fouiner dans mon grimoire">
@@ -1905,7 +1980,8 @@ header.top{gap:8px}
     <div id="shelf"></div>
     <div class="gfilter" id="gfilter"></div>
     <button class="cta" data-explore><span><b>T’as déjà vu des trucs ??</b><span>Complète ta collection !</span></span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-    <div id="account"></div>
+    </div></section>
+    <section class="acc open" data-acck="c-account"><h2 class="acc-hh"><button class="acc-h" data-acch="c-account" aria-expanded="true" aria-controls="acc-c-account"><span>Mon compte</span><svg class="acc-ch" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></h2><div class="acc-b" id="acc-c-account"><div id="account"></div></div></section>
   </section>
 </div>
 
@@ -1930,7 +2006,7 @@ header.top{gap:8px}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=49"></script>
 
 </body>
 </html>

@@ -8,6 +8,10 @@ RewriteRule ^ index.php [QSA,L]
   Require all denied
 </FilesMatch>
 
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"

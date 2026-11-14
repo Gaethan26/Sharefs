@@ -1,19 +1,24 @@
 {
   "name": "sharefs",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Sharefs : collection de films, séries, livres et jeux partagée entre amis",
   "scripts": {
     "sync": "npx cap sync",
     "ios": "npx cap sync ios && npx cap open ios",
-    "android": "npx cap sync android && npx cap open android"
+    "android": "npx cap sync android && npx cap open android",
+    "assets": "npx capacitor-assets generate --iconBackgroundColor \"#18213A\" --iconBackgroundColorDark \"#18213A\" --splashBackgroundColor \"#E9ECF2\" --splashBackgroundColorDark \"#11162A\""
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",
     "@capacitor/core": "8.5.2",
-    "@capacitor/ios": "8.5.2"
+    "@capacitor/ios": "8.5.2",
+    "@capacitor/app": "8.1.0",
+    "@capacitor/splash-screen": "8.0.1",
+    "@capacitor/status-bar": "8.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.5.2"
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/assets": "3.0.5"
   }
 }

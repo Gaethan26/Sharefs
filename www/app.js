@@ -41,6 +41,8 @@ const country=c=>{if(!c)return'';try{return REG?REG.of(c):c}catch(e){return c}};
 
 /* ---------- Serveur ---------- */
 let token=lsGet('sharefs-token','');
+// pages légales : toujours sur le site (l'app mobile n'a pas de serveur local)
+const SITE=(window.SHAREFS_CONFIG?.apiBase||location.origin).replace(/\/$/,'');
 async function call(method,path,body){
   let r;
   try{r=await fetch(API+'/'+path,{method,headers:{'Content-Type':'application/json',...(token?{'X-Sharefs-Token':token}:{})},body:body?JSON.stringify(body):undefined})}
@@ -51,7 +53,7 @@ async function call(method,path,body){
   return j;
 }
 function api(path,params){const qs=new URLSearchParams(Object.entries(params||{}).filter(([,v])=>v!==''&&v!=null)).toString();return call('GET',path+(qs?'?'+qs:''))}
-const ERR={bad_email:'Cette adresse e-mail n’est pas valide.',weak_password:'Le mot de passe doit faire au moins 10 caractères.',pwned_password:'Ce mot de passe a déjà fuité sur internet : choisis-en un autre.',email_taken:'Un compte existe déjà avec cet e-mail.',
+const ERR={terms_required:'Accepte les conditions d’utilisation pour créer ton compte.',bad_password:'Mot de passe incorrect.',bad_report:'Signalement impossible.',bad_user:'Utilisateur introuvable.',bad_email:'Cette adresse e-mail n’est pas valide.',weak_password:'Le mot de passe doit faire au moins 10 caractères.',pwned_password:'Ce mot de passe a déjà fuité sur internet : choisis-en un autre.',email_taken:'Un compte existe déjà avec cet e-mail.',
   bad_credentials:'E-mail ou mot de passe incorrect.',too_many_attempts:'Trop d’essais. Réessaie dans un quart d’heure.',bad_code:'Code incorrect ou expiré.',
   unknown_code:'Aucun cercle ne correspond à ce code.',bad_recipients:'Un destinataire ne fait pas partie de tes cercles.',offline:'Pas de connexion au serveur.',server_error:'Erreur du serveur. Réessaie.',
   fetish_locked:'Ton œuvre fétiche de la saison est déjà choisie.',guess_used:'Tu as déjà fait ton essai du jour pour cet ami.',already_found:'Tu as déjà trouvé son œuvre fétiche.',
@@ -210,6 +212,7 @@ const sorted=list=>list;
 function baseList(){const q=norm($('#q').value);return localMode()?localItems().filter(w=>!q||norm(w.ti+' '+(w.c||'')).includes(q)):SR.items}
 function renderResults(){
   const q=norm($('#q').value),list=sorted(filtered(baseList())),ul=$('#results'),who=F.forWho?nameOf(F.forWho):'';
+  const rl=$('#reload');if(rl)rl.hidden=!!q||localMode();
   $('#count').textContent=SR.loading&&!list.length&&!F.mine?'Recherche…':`${list.length} œuvre${list.length>1?'s':''}${F.mine?' de ta collection':(!q?' en tendance':'')}${who?`, encore inconnue${list.length>1?'s':''} de ${who}`:''}`;
   if(F.mine&&!Object.keys(mine.done).length){ul.innerHTML=`<li><div class="empty"><b>Ta collection est vide.</b>Marque des œuvres comme vues, lues ou finies pour les retrouver ici et les recommander.</div></li>`;$('#resMore').innerHTML='';return}
   if(SR.err&&!localMode()){ul.innerHTML=`<li><div class="empty"><b>Recherche indisponible.</b>${esc(SR.err)}</div></li>`;$('#resMore').innerHTML='';return}
@@ -409,17 +412,61 @@ function chalCard(c,s){
     ${c.note?`<p class="note">« ${esc(c.note)} »</p>`:''}
     ${fromMe&&s.st==='live'?`<button class="ch-x" data-delchal="${esc(c.id)}">Annuler le défi</button>`:''}</article>`;
 }
+/* ---------- Modération : signaler un contenu, bloquer quelqu'un ---------- */
+let BLOCKED=[];
+const MOD={kind:'',ref:'',who:'',reason:'',err:'',sent:false};
+const MOD_BTN=(kind,ref,who)=>`<button class="modb" data-mod="${kind}|${esc(ref)}|${esc(who)}" aria-label="Signaler ou bloquer">⋯</button>`;
+function openMod(v){const [kind,ref,who]=v.split('|');Object.assign(MOD,{kind,ref,who,reason:'',err:'',sent:false});
+  lastFocus=document.activeElement;sheetId='__mod';$('#sheet').style.setProperty('--tc','var(--danger)');renderMod();$('#scrim').classList.add('open');$('#sheet').classList.add('open')}
+const MOD_R=['Contenu offensant ou haineux','Harcèlement','Contenu sexuel ou violent','Spam','Autre'];
+function renderMod(){
+  const n=esc(nameOf(MOD.who));
+  $('#sheetIn').innerHTML=`<div class="grab"></div><h3 id="shTitle" class="mod-t">${MOD.sent?'Merci, c’est noté.':MOD.kind==='user'?n:'Signaler ou bloquer'}</h3>
+    ${MOD.sent?`<p class="meta">On examine le signalement sous 24 h et on retire le contenu s’il enfreint les règles.</p><p class="meta">Tu peux aussi bloquer ${n} : tu ne verras plus rien de sa part, et ${n} ne verra plus ton activité.</p>`
+    :`<p class="meta">${MOD.kind==='rec'?`Cette recommandation de ${n}`:MOD.kind==='comment'?`Ce commentaire de ${n}`:`Le compte de ${n}`} pose problème ? Choisis un motif.</p>
+    <div class="wrap mod-r">${MOD_R.map(r=>chip(esc(r),MOD.reason===r,`data-modr="${esc(r)}"`)).join('')}</div>
+    <p class="err" role="alert" style="color:var(--danger);min-height:1.2em">${esc(MOD.err)}</p>
+    <button class="btn pri" data-modsend style="width:100%" ${MOD.reason?'':'disabled'}>Signaler</button>`}
+    <button class="btn danger" data-block="${esc(MOD.who)}" style="width:100%;margin-top:10px">Bloquer ${n}</button>`;
+}
+async function sendReport(){
+  try{await call('POST','reports',{kind:MOD.kind,ref_id:MOD.ref,target_id:MOD.who,reason:MOD.reason});MOD.sent=true}catch(e){MOD.err=msg(e)}
+  renderMod();
+}
+async function blockUser(id){
+  if(!confirm(`Bloquer ${nameOf(id)} ? Tu ne verras plus ses recommandations, commentaires et défis, et ${nameOf(id)} ne verra plus ton activité.`))return;
+  try{await call('POST','blocks',{user_id:id});closeSheet();toast(`${nameOf(id)} est bloqué·e`);await loadAll()}catch(e){toast(msg(e))}
+}
+async function unblockUser(id){try{await call('DELETE','blocks/'+id);toast('Débloqué·e');await loadAll()}catch(e){toast(msg(e))}}
+
+/* ---------- Accordéons : état mémorisé par section ---------- */
+const ACC=lsGet('sharefs-acc',{});
+const ACC_CH='<svg class="acc-ch" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+const accOpen=k=>ACC[k]!==0;
+function acc(k,title,body,extra=''){const o=accOpen(k);
+  return `<section class="acc${o?' open':''}" data-acck="${k}"><h2 class="acc-hh"><button class="acc-h" data-acch="${k}" aria-expanded="${o}" aria-controls="acc-${k}"><span>${title}</span>${extra}${ACC_CH}</button></h2><div class="acc-b" id="acc-${k}"${o?'':' hidden'}>${body}</div></section>`}
+function accApply(root=document){root.querySelectorAll('.acc[data-acck]').forEach(sec=>{const o=accOpen(sec.dataset.acck);sec.classList.toggle('open',o);sec.querySelector('.acc-h').setAttribute('aria-expanded',o);sec.querySelector('.acc-b').hidden=!o})}
+accApply(document.getElementById('v-coll')||document);
+function accToggle(k){
+  const sec=document.querySelector(`.acc[data-acck="${k}"]`);if(!sec)return;
+  const o=!accOpen(k);ACC[k]=o?1:0;lsSet('sharefs-acc',ACC);
+  const b=sec.querySelector('.acc-b');sec.classList.toggle('open',o);sec.querySelector('.acc-h').setAttribute('aria-expanded',o);
+  if(RM){b.hidden=!o;return}
+  if(o){b.hidden=false;const h=b.scrollHeight;b.animate([{height:'0px',opacity:0,overflow:'hidden'},{height:h+'px',opacity:1,overflow:'hidden'}],{duration:260,easing:'cubic-bezier(.3,1,.5,1)'})}
+  else{const h=b.scrollHeight;b.animate([{height:h+'px',opacity:1,overflow:'hidden'},{height:'0px',opacity:0,overflow:'hidden'}],{duration:200,easing:'ease-in'}).onfinish=()=>{if(!accOpen(k))b.hidden=true}}
+}
 function renderChal(){
   const el=$('#chalBody');if(!el)return;
   const mineCh=challenges.filter(c=>c.to_id===uid||c.from_id===uid).map(c=>({c,s:chalState(c)}));
   const live=mineCh.filter(x=>x.s.st==='live'),done=mineCh.filter(x=>x.s.st!=='live'),list=chalTab==='live'?live:done;
-  el.innerHTML=`${matchZoneHTML()}<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
+  const myTurn=MATCHES.filter(m=>m.status==='live'&&m.myTurn).length,feN=(FET?.others||[]).filter(o=>o.has&&!o.found&&!o.guessedToday).length;
+  el.innerHTML=`${acc('d-match','⚔️ Genre tu l’as vu !?',matchZoneHTML(),myTurn?`<span class="acc-n">${myTurn} à toi</span>`:'')}
+    ${acc('d-chal',`${SWORDS}Défis`,`<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
     <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
-    <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>
-    ${fetishHTML()}
-    <h2 class="rk-title">${TROPHY}Classement</h2>
-    ${rankTable(ranking())}
-    <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi, 3 points par œuvre fétiche trouvée. On entre au classement en remportant un défi ou en trouvant une œuvre fétiche.</p>`;
+    <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>`,live.length?`<span class="acc-s">${live.length} en cours</span>`:'')}
+    ${FET?acc('d-fet',`${HEART}Œuvres fétiches`,fetishHTML(),`<span class="acc-s">${esc(capF(FET.label))}</span>${feN?`<span class="acc-n">${feN} à deviner</span>`:''}`):''}
+    ${acc('d-rank',`${TROPHY}Classement`,`${rankTable(ranking())}
+    <p class="rk-legend">1 point par œuvre terminée dans les temps lors d’un défi, 3 points par œuvre fétiche trouvée. On entre au classement en remportant un défi ou en trouvant une œuvre fétiche.</p>`)}`;
   updateChalBadge();
 }
 // Formulaire de défi
@@ -566,7 +613,7 @@ function dayLabel(ts){const d=new Date(ts),t=new Date();t.setHours(0,0,0,0);cons
   return diff<=0?'Aujourd’hui':diff===1?'Hier':diff<7?d.toLocaleDateString('fr-FR',{weekday:'long'}):d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
 function cmtBlock(r){
   const list=comments.filter(c=>c.rec_id===r.id);
-  return `<div class="cmts">${list.map(c=>`<div class="cm">${avatar(c.from_id)}<div class="cb"><b>${esc(nameOf(c.from_id))}</b> ${esc(c.text)}<span class="ct">${ago(Date.parse(c.created_at))}</span></div>${c.from_id===uid?`<button class="cmx" data-delcmt="${esc(c.id)}" aria-label="Supprimer mon commentaire">×</button>`:''}</div>`).join('')}
+  return `<div class="cmts">${list.map(c=>`<div class="cm">${avatar(c.from_id)}<div class="cb"><b>${esc(nameOf(c.from_id))}</b> ${esc(c.text)}<span class="ct">${ago(Date.parse(c.created_at))}</span></div>${c.from_id===uid?`<button class="cmx" data-delcmt="${esc(c.id)}" aria-label="Supprimer mon commentaire">×</button>`:MOD_BTN('comment',c.id,c.from_id)}</div>`).join('')}
     <div class="cmw">${avatar(uid)}<input class="cmi" id="cmi-${esc(r.id)}" data-rec="${esc(r.id)}" maxlength="500" autocomplete="off" placeholder="Ajoute ton grain de sel…" value="${esc(cmDraft[r.id]||'')}"><button class="cms" data-sendcmt="${esc(r.id)}" aria-label="Envoyer">${SEND}</button></div></div>`;
 }
 function renderFeed(){
@@ -613,7 +660,7 @@ function renderFeed(){
       html+=`<button class="evm evw" data-tab="chal"><span class="evm-i">${TROPHY}</span><span class="evm-t"><b>${esc(nameOf(c.to_id))}</b> a relevé le défi de <b>${esc(nameOf(c.from_id))}</b> : +${e.s.n} point${e.s.n>1?'s':''}</span></button>`;continue}
     const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who),rr2=e.r,toMe=(rr2.to_ids||[]).includes(uid),nc=comments.filter(c=>c.rec_id===rr2.id).length,open=openCmts.has(rr2.id);
     html+=`<article class="ev t-${w.t}${me?'':' hasbm'}${toMe?' forme':''}">${me?'':`<span class="bmk">${wantBtn(w.id)}</span>`}
-      <div class="who">${avatar(e.who)}<span>${recLine(rr2)}<br>${ago(e.ts)}${toMe?' <span class="pt">Pour toi</span>':''}</span>${me?`<button class="del" data-delrec="${esc(rr2.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
+      <div class="who">${avatar(e.who)}<span>${recLine(rr2)}<br>${ago(e.ts)}${toMe?' <span class="pt">Pour toi</span>':''}</span>${me?`<button class="del" data-delrec="${esc(rr2.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:MOD_BTN('rec',rr2.id,e.who)}</div>
       ${rr2.work.so?`<button class="work" data-open="${esc(w.id)}" data-song="${esc(rr2.work.sid)}" data-so="${esc(rr2.work.so)}">${cover(w)}<span><span class="ti">♪ ${esc(rr2.work.so)}</span><br><span class="meta">Titre, sur ${esc(w.ti)}${w.c?', '+esc(w.c):''}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>`
       :`<button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>`}
       ${rr2.note?`<p class="note">« ${esc(rr2.note)} »</p>`:''}
@@ -1183,7 +1230,8 @@ function grimClosedHTML(n){
 /* ---------- Carotte : pépites, missions du jour, boutique, prestige ----------
    Les pépites gagnées se calculent à partir de l'activité (rien à tricher côté stockage) ;
    les missions réclamées, les achats et les objets équipés sont rangés dans les données de l'utilisateur. */
-const PEP='✨';
+// pépite : pierre dorée cerclée de brun, lisible sur fond clair comme sur fond doré
+const PEP='<svg class="pep-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10 8.6 4.6h6.9l4.2 5.1-2.1 8.6-6.3 2.6-6.8-4.1z" fill="#F6B93B" stroke="#6B3A05" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 4.6 11 10.2 4.5 10M15.5 4.6 11 10.2l8.7-.5M11 10.2l-.5 10.7" fill="none" stroke="#6B3A05" stroke-width="1.1" stroke-linejoin="round" opacity=".6"/><path d="M9.3 6 10.5 9.3 6.6 9z" fill="#FFF6CF"/></svg>';
 const dayKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isToday=ts=>ts&&dayKey(new Date(ts))===dayKey();
 const GAIN={work:5,rec:10,recDone:15,comment:3,chal:20,fetish:30,match:10,matchWin:25};
@@ -1282,10 +1330,10 @@ function claimMission(i){
 }
 // ---- affichage : compteur en en-tête, panneau dans la collection, boutique plein écran
 let pepLast=null;
-function pepPop(n){if(n<=0)return;const el=document.createElement('div');el.className='pep-pop';el.textContent=`+${n} ${PEP}`;document.body.appendChild(el);setTimeout(()=>el.remove(),1600)}
+function pepPop(n){if(n<=0)return;const el=document.createElement('div');el.className='pep-pop';el.innerHTML=`+${n} ${PEP}`;document.body.appendChild(el);setTimeout(()=>el.remove(),1600)}
 function renderPep(){
   if(!uid)return;const b=balance();
-  const h=$('#pepBtn');if(h){h.hidden=false;h.querySelector('b').textContent=b;
+  const h=$('#pepBtn');if(h){h.hidden=false;if(!h.querySelector('.pep-i'))h.innerHTML=`${PEP}<b></b>`;h.querySelector('b').textContent=b;
     const ready=todayMissions().some((m,i)=>(mine.missions||{})[claimKey(i)]==null&&m.prog()>=m.goal);h.classList.toggle('ready',ready)}
   if(pepLast!=null&&b>pepLast)pepPop(b-pepLast);pepLast=b;
   const z=$('#pepZone');if(z&&collWho===uid){z.hidden=false;z.innerHTML=`<div class="pz-h"><span class="pz-b">${PEP}</span><div style="flex:1"><div class="rt">${b} pépites</div><div class="meta">Gagne des pépites en jouant, dépense-les à la boutique.</div></div><button class="btn pri pz-shop" data-shop>Boutique</button></div>
@@ -1293,15 +1341,30 @@ function renderPep(){
   if($('#fs').dataset.kind==='shop'&&$('#fs').classList.contains('open'))$('#fsBody').innerHTML=shopHTML();
   applySkin();
 }
+// échantillon pour les aperçus : ta plus belle carte avec image
+function shopSample(){const id=Object.keys(mine.done).filter(id=>WK[id]?.img).sort((a,b)=>rateOf(b)-rateOf(a)||mine.done[b]-mine.done[a])[0];return id?WK[id]:{id:'x',t:'f',ti:'Ta carte'}}
+function shopPrev(it,sw){
+  if(it.slot==='title')return `<span class="sp-title">${avatar(uid)}<span><b>${esc(myName||'Toi')}</b><span class="ptitle">${esc(it.name)}</span></span></span>`;
+  if(it.slot==='frame')return `<span class="sp-card">${card(sw,4)}</span>`;
+  if(it.slot==='back')return `<span class="sp-backs"><span class="cardback"></span><span class="cardback"></span></span>`;
+  return `<span class="sp-book"><span class="sp-pages"></span><span class="sp-cov"><i></i></span></span>`;
+}
+const SLOTD={title:'S’affiche à côté de ton nom, partout dans l’app.',frame:'Habille toutes tes cartes.',back:'Le dos de tes cartes au moment de la révélation.',cover:'La couverture de ton grimoire.'};
 function shopHTML(){
-  const b=balance(),n=Object.keys(mine.done).length,br=earnedBreakdown();
-  return `<div class="shop"><div class="sh-bal"><span>${PEP}</span><b>${b}</b><small>pépites</small></div><h3 class="sh-h">Missions du jour</h3>${missionsHTML()}
-    ${Object.entries(SLOTN).map(([slot,label])=>`<h3 class="sh-h">${label}</h3><div class="sh-g">${SHOP.filter(x=>x.slot===slot).map(it=>{
-      const has=owned(it.id),eq=equipped(slot)===it.id,locked=it.rank&&n<it.rank;
-      return `<div class="sh-i ${slot} ${it.id.replace('.','-')}${eq?' on':''}${locked?' locked':''}"><span class="sh-prev" aria-hidden="true">${slot==='title'?`<span class="ptitle">${esc(it.name)}</span>`:''}</span>
-        <b>${esc(it.name)}</b><small>${esc(it.desc)}</small>
-        ${locked?`<span class="sh-lock">🔒 ${it.rank} cartes</span>`:has?`<button class="btn" data-equip="${it.id}">${eq?'Retirer':'Équiper'}</button>`
-          :`<button class="btn pri" data-buy="${it.id}" ${b>=it.price?'':'disabled'}>${it.price?`${it.price} ${PEP}`:'Gratuit'}</button>`}</div>`}).join('')}</div>`).join('')}
+  const b=balance(),n=Object.keys(mine.done).length,br=earnedBreakdown(),sw=shopSample();
+  const tier=p=>p>=400?' t-epic':p>=250?' t-rare':'';
+  return `<div class="shop"><div class="sh-bal">${PEP}<b>${b}</b><small>pépites</small></div>
+    <nav class="sh-nav">${Object.entries(SLOTN).map(([slot,l])=>`<a href="#sh-${slot}">${l}</a>`).join('')}</nav>
+    <h3 class="sh-h">Missions du jour</h3>${missionsHTML()}
+    ${Object.entries(SLOTN).map(([slot,label])=>`<h3 class="sh-h" id="sh-${slot}">${label}</h3><p class="sh-d">${SLOTD[slot]}</p><div class="sh-g">${SHOP.filter(x=>x.slot===slot).map(it=>{
+      const has=owned(it.id),eq=equipped(slot)===it.id,locked=it.rank&&n<it.rank,miss=it.price-b;
+      const foot=locked?`<span class="si-need">🔒 Rang à ${it.rank} cartes</span>`
+        :has?`<button class="si-btn${eq?' eq':''}" data-equip="${it.id}">${eq?'✓ Équipé':'Équiper'}</button>`
+        :miss>0?`<button class="si-btn buy" disabled>${PEP}<b>${it.price}</b></button><span class="si-need">Encore ${miss}</span>`
+        :`<button class="si-btn buy" data-buy="${it.id}">${it.price?`${PEP}<b>${it.price}</b>`:'<b>Gratuit</b>'}</button>`;
+      return `<article class="si sl-${slot} ${it.id.replace('.','-')}${eq?' on':''}${has?' own':''}${locked?' locked':''}${it.rank?' t-prestige':tier(it.price)}">
+        <div class="si-prev" aria-hidden="true">${shopPrev(it,sw)}${eq?'<span class="si-tag">Équipé</span>':it.rank?'<span class="si-tag pr">Prestige</span>':''}</div>
+        <div class="si-name">${esc(it.name)}</div><div class="si-foot">${foot}</div></article>`}).join('')}</div>`).join('')}
     <details class="sh-how"><summary>Comment gagner des pépites ?</summary><ul>
       <li>${GAIN.work} ${PEP} par œuvre ajoutée à ta collection</li><li>${GAIN.rec} ${PEP} par recommandation, ${GAIN.recDone} ${PEP} quand un ami la finit</li>
       <li>${GAIN.comment} ${PEP} par commentaire, ${GAIN.chal} ${PEP} par défi relevé, ${GAIN.fetish} ${PEP} par œuvre fétiche trouvée</li>
@@ -1567,7 +1630,7 @@ function openSheet(id,refocus=true,opts={}){
       .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
   }
 }
-function refreshSheet(){if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
+function refreshSheet(){if(sheetId==='__mod'){renderMod();return}if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
 function closeSheet(){if(!sheetId)return;sheetId=null;SONG=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
@@ -1735,7 +1798,7 @@ function setTab(t){
   window.scrollTo(0,0);
   if(t==='coll')renderColl();
   if(t==='chal')renderChal();
-  if(t==='search'){if(!searchStarted||!$('#q').value.trim()){searchStarted=true;localSeed=Math.random();runSearch()}setTimeout(()=>$('#q').focus(),30)}
+  if(t==='search'){if(!searchStarted){searchStarted=true;localSeed=Math.random();runSearch()}setTimeout(()=>$('#q').focus(),30)}
 }
 
 /* ---------- Événements ---------- */
@@ -1800,6 +1863,13 @@ document.addEventListener('click',e=>{
   if(d.mto!==undefined){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;if(!d.mto)MAN.to.clear();else MAN.to.has(d.mto)?MAN.to.delete(d.mto):MAN.to.add(d.mto);renderManual();return}
   if('msend' in d){sendManual(b);return}
   if(d.open){openSheet(d.open,true,d.song?{song:d.song,so:d.so}:{});return}
+  if(d.acch){accToggle(d.acch);return}
+  if(d.mod){openMod(d.mod);return}
+  if(d.modr){MOD.reason=d.modr;renderMod();return}
+  if('modsend' in d){b.disabled=true;sendReport();return}
+  if(d.block){blockUser(d.block);return}
+  if(d.unblock){unblockUser(d.unblock);return}
+  if('reload' in d){b.classList.remove('spin');void b.offsetWidth;b.classList.add('spin');localSeed=Math.random();runSearch();return}
   if(d.qtrk){const [a,sid]=d.qtrk.split('|');toggleTrack(a,sid);return}
   if(d.trk){toggleTrack(sheetId,d.trk);return}
   if('albfull' in d){if(!isDone(sheetId)){SONG=null;toggleDone(sheetId)}return}
@@ -1864,10 +1934,12 @@ function stepEmail(err='',signup=false){
   showGate(`<h1 id="gateTitle">${signup?'Crée ton compte.':'Partage ce que tu as aimé.'}</h1><p class="sub">${signup?'Un e-mail et un mot de passe d’au moins 10 caractères.':'Connecte-toi avec ton e-mail et ton mot de passe.'}</p>
   <label class="sr" for="gEmail">E-mail</label><input id="gEmail" type="email" inputmode="email" autocomplete="email" placeholder="toi@exemple.fr" value="${esc(pendingEmail)}">
   <label class="sr" for="gPass">Mot de passe</label><input id="gPass" type="password" autocomplete="${signup?'new-password':'current-password'}" placeholder="Mot de passe">
+  ${signup?`<label class="terms"><input type="checkbox" id="gTerms"><span>J’accepte les <a href="${SITE}/terms.html" target="_blank" rel="noopener">conditions d’utilisation</a> (aucun contenu offensant toléré) et la <a href="${SITE}/privacy.html" target="_blank" rel="noopener">politique de confidentialité</a>.</span></label>`:''}
   <p class="err" role="alert">${esc(err)}</p>
   <button class="btn pri" id="${signup?'gSignup':'gLogin'}">${signup?'Créer mon compte':'Me connecter'}</button>
   <p class="or">${signup?'Déjà inscrit ?':'Pas encore de compte ?'}</p><button class="btn" id="${signup?'gToLogin':'gToSignup'}">${signup?'Me connecter':'Créer un compte'}</button>
-  ${signup?'':'<button class="link" id="gForgot">Mot de passe oublié ?</button>'}`);
+  ${signup?'':'<button class="link" id="gForgot">Mot de passe oublié ?</button>'}
+  <p class="legal"><a href="${SITE}/terms.html" target="_blank" rel="noopener">Conditions d’utilisation</a> · <a href="${SITE}/privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`);
 }
 function stepForgot(err=''){
   showGate(`<h1 id="gateTitle">Mot de passe oublié.</h1><p class="sub">On t’envoie un code à 6 chiffres par e-mail.</p>
@@ -1902,7 +1974,8 @@ gate.addEventListener('click',e=>{
   if(b.id==='gCancel')hideGate();
   if(b.id==='gLogin'||b.id==='gSignup')busy(b,async()=>{
     const signup=b.id==='gSignup';em();const password=$('#gPass').value;
-    try{await loggedIn(await call('POST',signup?'auth/signup':'auth/login',{email:pendingEmail,password}))}catch(err){stepEmail(msg(err),signup)}});
+    if(signup&&!$('#gTerms')?.checked)return stepEmail(ERR.terms_required,true);
+    try{await loggedIn(await call('POST',signup?'auth/signup':'auth/login',{email:pendingEmail,password,...(signup?{terms:1}:{})}))}catch(err){stepEmail(msg(err),signup)}});
   if(b.id==='gSendCode')busy(b,async()=>{em();try{await call('POST','auth/forgot',{email:pendingEmail});stepReset()}catch(err){stepForgot(msg(err))}});
   if(b.id==='gReset')busy(b,async()=>{try{await loggedIn(await call('POST','auth/reset',{email:pendingEmail,code:$('#gCode').value.trim(),password:$('#gPass').value}))}catch(err){stepReset(msg(err))}});
   if(b.id==='gSaveName')busy(b,async()=>{const n=$('#gName').value.trim();if(!n)return stepName('Indique un prénom.');
@@ -1928,10 +2001,12 @@ function applyState(st){
   if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
   myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
   CIRCLES=st.circleMembers||{};CATS=st.catalogs||{b:false};setMatches(st.matches);FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
-  comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
+  BLOCKED=st.blocked||[];comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
   renderAll();
 }
-async function loadAll(){try{applyState(await call('GET','state'))}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
+// on ne redessine que si l'état a vraiment changé (le serveur répond 304 sinon)
+let lastState='';
+async function loadAll(force){try{const st=await call('GET','state'),k=JSON.stringify(st);if(!force&&k===lastState&&!saving&&!dirty)return;lastState=k;applyState(st)}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
 let poll=null;
 async function enterApp(loaded=false){
   hideGate();if(!loaded)await loadAll();
@@ -1954,7 +2029,9 @@ function renderAccount(){
       <button class="btn" data-acc="logout">Me déconnecter</button>
       <button class="btn" data-acc="logoutall">Déconnecter tous mes appareils</button>
       <button class="btn danger" data-acc="delete">Supprimer mon compte</button>
-    </div></div><p class="credits">Données des œuvres : TMDB, Google Books, IGDB, BoardGameGeek (Powered by BGG) et Deezer. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
+    </div>${BLOCKED.length?`<div class="blk"><b>Personnes bloquées</b>${BLOCKED.map(u=>`<div class="line"><span>${esc(u.name||'Sans prénom')}</span><button class="btn" data-unblock="${esc(u.id)}">Débloquer</button></div>`).join('')}</div>`:''}
+    ${others().length?`<div class="blk"><b>Signaler ou bloquer un ami</b><div class="wrap">${others().map(f=>`<button class="chip" data-mod="user||${esc(f)}">${esc(nameOf(f))}</button>`).join('')}</div></div>`:''}</div>
+    <p class="legal"><a href="${SITE}/terms.html" target="_blank" rel="noopener">Conditions d’utilisation</a> · <a href="${SITE}/privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="mailto:contact@gaethan-boyer.fr">Contact</a></p><p class="credits">Données des œuvres : TMDB, Google Books, IGDB, BoardGameGeek (Powered by BGG) et Deezer. Ce produit utilise l’API TMDB sans être approuvé ni certifié par TMDB.</p>`;
 }
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button[data-invite],button[data-acc]');if(!b)return;
@@ -1966,7 +2043,8 @@ document.addEventListener('click',async e=>{
   if(a==='logout'){try{await call('POST','auth/logout')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
   if(a==='logoutall'&&confirm('Te déconnecter de tous tes appareils, y compris celui-ci ?')){try{await call('POST','auth/logout-all')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
   if(a==='delete'&&confirm('Supprimer ton compte, ta collection et tes recommandations ? Cette action est définitive.')){
-    try{await call('DELETE','me');token='';lsSet('sharefs-token','');location.reload()}catch(err){toast(msg(err))}}
+    const password=prompt('Pour confirmer, saisis ton mot de passe :');if(!password)return;
+    try{await call('DELETE','me',{password});token='';lsSet('sharefs-token','');location.reload()}catch(err){toast(msg(err))}}
 });
 
 let rzT;addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(collView==='shelf'&&$('#v-coll').classList.contains('on'))renderColl()},200)});
@@ -1987,4 +2065,20 @@ renderAll();
   sh.addEventListener('touchend',()=>{if(y0==null)return;y0=null;
     if(drag&&dy>110){sh.style.transition='transform .22s ease';sh.style.transform='translateY(105%)';setTimeout(()=>{closeSheet();sh.style.transition='';sh.style.transform=''},220)}
     else{sh.style.transition='';sh.style.transform=''}drag=false});
+})();
+
+/* ---------- App mobile (Capacitor) : bouton retour Android, barre d'état ---------- */
+(()=>{const C=window.Capacitor;if(!C?.isNativePlatform?.())return;const P=C.Plugins||{};
+  document.documentElement.classList.add('native');
+  P.App?.addListener?.('backButton',()=>{
+    if($('#insp').classList.contains('open')){closeInspect();return}
+    if($('#fs')?.classList.contains('open')){closeFs();return}
+    if(sheetId){closeSheet();return}
+    if(!$('#v-feed').classList.contains('on')){setTab('feed');return}
+    P.App.exitApp?.();
+  });
+  const dark=matchMedia('(prefers-color-scheme: dark)');
+  const sb=()=>P.StatusBar?.setStyle?.({style:dark.matches?'DARK':'LIGHT'}).catch(()=>{});sb();dark.addEventListener?.('change',sb);
+  // l'app revient au premier plan : on rafraîchit
+  P.App?.addListener?.('resume',()=>{if(uid)loadAll()});
 })();
