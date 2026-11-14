@@ -24,7 +24,7 @@ function db(): PDO {
   $pdo = new PDO('mysql:host=' . cfg('db_host', 'localhost') . ';dbname=' . cfg('db_name') . ';charset=utf8mb4',
     cfg('db_user'), cfg('db_pass'),
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-     PDO::ATTR_TIMEOUT => 5]);
+     PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_TIMEOUT => 5]);
   $pdo->exec("SET time_zone = '+00:00'");
   return $pdo;
 }
@@ -36,6 +36,16 @@ function out($data, int $code = 200, bool $etag = false): void {
   http_response_code($code);
   header('Content-Type: application/json; charset=utf-8');
   $j = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  // état interrogé toutes les 25 s : si rien n'a changé, on répond 304 sans renvoyer les données
+  if ($etag && $code === 200) {
+    $tag = '"' . substr(hash('sha256', $j), 0, 32) . '"';
+    header('ETag: ' . $tag); header('Cache-Control: private, no-cache'); header('Vary: Origin, X-Sharefs-Token, Accept-Encoding');
+    if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $tag) { http_response_code(304); exit; }
+  }
+  // compression des réponses volumineuses (si l'hébergeur ne le fait pas déjà)
+  if (strlen($j) > 1400 && !ini_get('zlib.output_compression') && str_contains((string) ($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''), 'gzip') && function_exists('gzencode')) {
+    header('Content-Encoding: gzip'); header('Vary: Origin, X-Sharefs-Token, Accept-Encoding', false); $j = gzencode($j, 5);
+  }
   header('Content-Length: ' . strlen($j));
   echo $j;
   exit;
@@ -250,8 +260,7 @@ function clean_data(object $d): object {
     'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works,
     'eggs' => clean_map($d->eggs ?? [], true), 'missions' => clean_map($d->missions ?? [], true),
     'shop' => clean_map($d->shop ?? [], true), 'equip' => clean_map($d->equip ?? [], true),
-    'tracks' => clean_map($d->tracks ?? [], true), 'paid' => clean_map($d->paid ?? [], true),
-    'eps' => clean_map($d->eps ?? [], true)];
+    'tracks' => clean_map($d->tracks ?? [], true)];
 }
 
 /* ---------- Œuvres fétiches : saisons et jours à l'heure française ---------- */
