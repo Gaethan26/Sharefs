@@ -77,6 +77,9 @@ function work_tmdb(string $k, string $id): array {
     'saga' => trim((string) preg_replace('/\s*[-–]?\s*(saga|collection)$/iu', '', (string) ($x['belongs_to_collection']['name'] ?? ''))),
     'studios' => array_slice(array_column($x['production_companies'] ?? [], 'name'), 0, 3),
     'neps' => $k === 'tv' ? (int) ($x['number_of_episodes'] ?? 0) : 0,
+    // saisons (hors épisodes spéciaux) : numéro, nombre d'épisodes, nom — pour suivre sa progression
+    'seas' => $k === 'tv' ? array_values(array_map(fn($z) => [(int) $z['season_number'], (int) ($z['episode_count'] ?? 0), (string) ($z['name'] ?? '')],
+      array_filter($x['seasons'] ?? [], fn($z) => (int) ($z['season_number'] ?? 0) > 0 && (int) ($z['episode_count'] ?? 0) > 0))) : [],
     'img' => !empty($x['poster_path']) ? 'https://image.tmdb.org/t/p/w500' . $x['poster_path'] : ($w['img'] ?? ''),
     'imgs' => array_values(array_unique(array_merge(
       array_map(fn($i) => 'https://image.tmdb.org/t/p/w780' . $i['file_path'], array_slice($x['images']['backdrops'] ?? [], 0, 10)),
@@ -480,7 +483,7 @@ function catalog_search(string $type, string $q, int $page, int $lim, bool $song
   return $r;
 }
 function catalog_work(string $id): array {
-  if (($c = cache_get("w6|$id")) !== null) return $c;
+  if (($c = cache_get("w7|$id")) !== null) return $c;
   if (preg_match('/^tmdb-(movie|tv)-(\d+)$/', $id, $m)) $r = work_tmdb($m[1], $m[2]);
   elseif (preg_match('/^gb-([\w-]+)$/', $id, $m)) $r = work_book($m[1]);
   elseif (preg_match('/^ol-(OL\d+W)$/', $id, $m)) $r = work_ol($m[1]);
@@ -489,6 +492,6 @@ function catalog_work(string $id): array {
   elseif (preg_match('/^dz-(\d+)$/', $id, $m)) $r = work_dz($m[1]);
   elseif (preg_match('/^igdb-(\d+)$/', $id, $m)) $r = work_game($m[1]);
   else fail(400, 'bad_id');
-  cache_set("w6|$id", $r, 7 * 86400);
+  cache_set("w7|$id", $r, 7 * 86400);
   return $r;
 }

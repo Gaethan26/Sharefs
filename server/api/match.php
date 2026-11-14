@@ -39,7 +39,17 @@ function match_state(array $m): array {
 function match_new_state(): array {
   return ['phase' => 'rps', 'rps' => ['a' => null, 'b' => null], 'rpsLog' => [], 'tb' => null, 'turn' => 0,
     'picker' => null, 'target' => null, 'picks' => [], 'chosen' => null, 'quiz' => null,
-    'score' => ['a' => 0, 'b' => 0], 'turns' => [], 'winner' => null, 'forfeit' => null];
+    'score' => ['a' => 0, 'b' => 0], 'turns' => [], 'winner' => null, 'forfeit' => null, 'stake' => 0];
+}
+// bilan de toutes les parties terminées d'un joueur : jouées, gagnées, pépites gagnées ou perdues en mises
+function match_stats(string $uid): array {
+  $o = ['played' => 0, 'won' => 0, 'bets' => 0];
+  foreach (q("SELECT * FROM matches WHERE status = 'done' AND (a_id = ? OR b_id = ?)", [$uid, $uid])->fetchAll() as $m) {
+    $st = match_state($m); $me = match_side($m, $uid); $stake = (int) ($st['stake'] ?? 0);
+    $o['played']++;
+    if ($st['winner'] === $me) { $o['won']++; $o['bets'] += $stake; } elseif ($st['winner']) $o['bets'] -= $stake;
+  }
+  return $o;
 }
 
 /* Modification d'une partie sous verrou : deux joueurs qui jouent en même temps ne s'écrasent pas */
@@ -78,7 +88,7 @@ function match_view(array $m, string $uid): array {
   $me = match_side($m, $uid); $op = op_side($me);
   $v = ['id' => $m['id'], 'version' => (int) $m['version'], 'status' => $m['status'], 'me' => $me, 'a' => $m['a_id'], 'b' => $m['b_id'],
     'phase' => $st['phase'], 'turn' => $st['turn'], 'picker' => $st['picker'], 'target' => $st['target'], 'score' => $st['score'],
-    'tb' => $st['tb'], 'winner' => $st['winner'], 'forfeit' => $st['forfeit'], 'rpsLog' => $st['rpsLog'],
+    'tb' => $st['tb'], 'winner' => $st['winner'], 'forfeit' => $st['forfeit'], 'rpsLog' => $st['rpsLog'], 'stake' => (int) ($st['stake'] ?? 0),
     'rps' => ['me' => $st['rps'][$me] ?? null, 'opDone' => ($st['rps'][$op] ?? null) !== null],
     'picks' => $st['picks'], 'chosen' => $st['chosen'], 'turns' => $st['turns'], 'myTurn' => my_turn($st, $me),
     'updated' => iso($m['updated_at'])];
@@ -101,7 +111,7 @@ function match_list(string $uid): array {
     $st = match_state($m); $me = match_side($m, $uid); $op = op_side($me);
     return ['id' => $m['id'], 'op' => $m[$op . '_id'], 'me' => $me, 'phase' => $st['phase'], 'myTurn' => my_turn($st, $me),
       'score' => ['me' => $st['score'][$me], 'op' => $st['score'][$op]], 'winner' => $st['winner'], 'status' => $m['status'],
-      'version' => (int) $m['version'], 'updated' => iso($m['updated_at'])];
+      'version' => (int) $m['version'], 'updated' => iso($m['updated_at']), 'stake' => (int) ($st['stake'] ?? 0)];
   }, $rows);
 }
 

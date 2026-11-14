@@ -184,7 +184,7 @@ try {
         if (!in_array($row['user_id'], $hid, true)) $circleMembers[$row['code']][] = $row['user_id'];
       out(['me' => user_out($u), 'members' => $members, 'circles' => $circles, 'circleMembers' => $circleMembers, 'recs' => array_map('rec_out', $recs),
         'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids),
-        'catalogs' => ['b' => (bool) cfg('bgg_token')], 'matches' => match_list($me), 'blocked' => $blocked], 200, true);
+        'catalogs' => ['b' => (bool) cfg('bgg_token')], 'matches' => match_list($me), 'mstats' => match_stats($me), 'blocked' => $blocked], 200, true);
 
     /* ---------- Modération : bloquer, débloquer, signaler ---------- */
     case $M === 'POST' && $path === 'blocks':
@@ -275,13 +275,14 @@ try {
     case $M === 'POST' && $path === 'matches':
       $u = need_user();
       $to = (string) (body()['to'] ?? '');
+      $stake = max(0, min(250, (int) (body()['stake'] ?? 0)));
       if ($to === $u['id'] || !in_array($to, mates($u['id']), true)) fail(400, 'bad_recipient');
       throttle('match|' . $u['id'], 30, 3600);
       // une seule partie en cours par paire de joueurs : on la reprend
       $live = q("SELECT id FROM matches WHERE status = 'live' AND ((a_id = ? AND b_id = ?) OR (a_id = ? AND b_id = ?)) LIMIT 1", [$u['id'], $to, $to, $u['id']])->fetchColumn();
       if ($live) out(['match' => match_view(match_row($live), $u['id'])]);
       $id = uuid();
-      q('INSERT INTO matches (id, a_id, b_id, state) VALUES (?, ?, ?, ?)', [$id, $u['id'], $to, enc(match_new_state())]);
+      q('INSERT INTO matches (id, a_id, b_id, state) VALUES (?, ?, ?, ?)', [$id, $u['id'], $to, enc(['stake' => $stake] + match_new_state())]);
       out(['match' => match_view(match_row($id), $u['id'])]);
 
     case $M === 'GET' && preg_match('#^match/([0-9a-f-]{36})$#', $path, $mm):

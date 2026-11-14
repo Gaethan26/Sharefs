@@ -260,7 +260,8 @@ function clean_data(object $d): object {
     'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works,
     'eggs' => clean_map($d->eggs ?? [], true), 'missions' => clean_map($d->missions ?? [], true),
     'shop' => clean_map($d->shop ?? [], true), 'equip' => clean_map($d->equip ?? [], true),
-    'tracks' => clean_map($d->tracks ?? [], true)];
+    'tracks' => clean_map($d->tracks ?? [], true), 'paid' => clean_map($d->paid ?? [], true),
+    'eps' => clean_map($d->eps ?? [], true)];
 }
 
 /* ---------- Œuvres fétiches : saisons et jours à l'heure française ---------- */
