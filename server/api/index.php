@@ -186,6 +186,12 @@ try {
         'comments' => $comments, 'challenges' => $chals, 'fetish' => fetish_state($me, $ids),
         'catalogs' => ['b' => (bool) cfg('bgg_token')], 'matches' => match_list($me), 'mstats' => match_stats($me), 'blocked' => $blocked], 200, true);
 
+    /* ---------- Erreurs remontées par l'app (diagnostic) ---------- */
+    case $M === 'POST' && $path === 'log':
+      $u = need_user(); throttle('log|' . $u['id'], 30, 3600); $b = body();
+      error_log('[sharefs] client ' . substr($u['id'], 0, 8) . ' : ' . clean_str($b['m'] ?? '', 400) . ' | ' . clean_str($b['ua'] ?? '', 120));
+      out(['ok' => true]);
+
     /* ---------- Modération : bloquer, débloquer, signaler ---------- */
     case $M === 'POST' && $path === 'blocks':
       $u = need_user(); $b = body(); $t = (string) ($b['user_id'] ?? '');

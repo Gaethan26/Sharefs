@@ -89,8 +89,14 @@ const nameOf=id=>id===uid?(myName||'Toi'):(names[id]||'Un ami');
 const AVC=['#E0453A','#E3A900','#2F6FDB','#1C9662','#C2399D','#8A5A2B','#7A4BC8','#F28C1B','#0FA3A3','#D6336C'];
 function accColor(id){const c=avColor(id);if(c)return c;let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))|0;return AVC[Math.abs(h)%AVC.length]}
 function avColor(id){const k=Object.keys(dataOf(id).equip||{}).find(k=>k.startsWith('dot.'));const it=k&&SHOP.find(x=>x.id===k);return it&&it.c||''}
-function avatar(id){const n=nameOf(id),c=avColor(id);return `<span class="av${c?' avc':''}"${c?` style="--avc:${c}"`:''} aria-hidden="true">${esc((n[0]||'?').toUpperCase())}</span>`}
+function avEmoji(id){const k=Object.keys(dataOf(id).equip||{}).find(k=>k.startsWith('avatar.'));const it=k&&SHOP.find(x=>x.id===k);return it?it.e:''}
+function avatar(id){const n=nameOf(id),c=avColor(id),e=avEmoji(id);return `<span class="av${c?' avc':''}${e?' ave':''}"${c?` style="--avc:${c}"`:''} aria-hidden="true">${e||esc((n[0]||'?').toUpperCase())}</span>`}
 const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
+
+// ne réécrit le HTML d'un bloc que s'il a réellement changé (évite les images qui clignotent et les animations rejouées)
+function guardHTML(el){if(!el||el.__g)return;el.__g=1;const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');el.__last=null;
+  Object.defineProperty(el,'innerHTML',{configurable:true,get(){return d.get.call(this)},set(v){v=String(v);if(v===this.__last)return;this.__last=v;d.set.call(this,v)}})}
+function setH(el,h){if(!el)return false;if(el.__h===h&&el.isConnected)return false;el.__h=h;el.innerHTML=h;return true}
 
 /* ---------- Œuvres et cartes ---------- */
 const short=t=>String(t||'').length>24?String(t).slice(0,22)+'…':String(t||'');
@@ -394,12 +400,12 @@ function pkSearch(){wsRun(PK.q,pkLocal(),pkResults)}
 async function pkPick(id){
   const w=WK[id];if(!w)return;
   if(PK.mode==='set'){
-    if(!confirm(`Ton œuvre fétiche de ${FET.label} sera « ${w.ti} ».\nImpossible de la changer ensuite. On valide ?`))return;
+    if(!await ask(`Ton œuvre fétiche de ${FET.label} sera « ${w.ti} ».\nImpossible de la changer ensuite. On valide ?`,{ok:'Valider'}))return;
     try{await call('POST','fetish',{work:snap(w)});closeSheet();toast('Œuvre fétiche verrouillée 🔒');loadAll()}catch(e){PK.err=msg(e);renderPicker()}
     return;
   }
   const who=nameOf(PK.target);
-  if(!confirm(`Tenter « ${w.ti} » pour ${who} ?\nC’est ton seul essai aujourd’hui.`))return;
+  if(!await ask(`Tenter « ${w.ti} » pour ${who} ?\nC’est ton seul essai aujourd’hui.`,{ok:'Tenter'}))return;
   try{const r=await call('POST','fetish/guess',{target_id:PK.target,work:snap(w)});closeSheet();
     if(r.correct){fetishReveal(r.work?reg(r.work):w,who)}else toast(`Raté ! Nouvel essai demain pour ${who}.`);
     loadAll();
@@ -470,10 +476,28 @@ async function sendReport(){
   renderMod();
 }
 async function blockUser(id){
-  if(!confirm(`Bloquer ${nameOf(id)} ? Tu ne verras plus ses recommandations, commentaires et défis, et ${nameOf(id)} ne verra plus ton activité.`))return;
+  if(!await ask(`Bloquer ${nameOf(id)} ? Tu ne verras plus ses recommandations, commentaires et défis, et ${nameOf(id)} ne verra plus ton activité.`,{ok:'Bloquer',danger:true}))return;
   try{await call('POST','blocks',{user_id:id});closeSheet();toast(`${nameOf(id)} est bloqué·e`);await loadAll()}catch(e){toast(msg(e))}
 }
 async function unblockUser(id){try{await call('DELETE','blocks/'+id);toast('Débloqué·e');await loadAll()}catch(e){toast(msg(e))}}
+
+/* ---------- Boîte de dialogue intégrée : les confirm()/prompt() du navigateur peuvent être bloqués (case « empêcher d'autres boîtes de dialogue », apps intégrées) ---------- */
+function ask(text,{ok='Confirmer',danger=false,input=null}={}){
+  return new Promise(res=>{
+    const d=document.createElement('div');d.className='dlg';d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');
+    d.innerHTML=`<div class="dlg-in"><p>${esc(text).replace(/\n/g,'<br>')}</p>${input?`<input class="mini dlg-f" type="${input}" autocomplete="current-password">`:''}<div class="dlg-a"><button class="btn" data-dlg="0">Annuler</button><button class="btn ${danger?'danger':'pri'}" data-dlg="1">${esc(ok)}</button></div></div>`;
+    const end=v=>{d.remove();document.removeEventListener('keydown',kd,true);res(v)};
+    const kd=e=>{if(e.key==='Escape'){e.stopPropagation();end(input?null:false)}if(e.key==='Enter'&&input){e.preventDefault();end(d.querySelector('.dlg-f').value||null)}};
+    d.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('[data-dlg]');if(b)end(b.dataset.dlg==='1'?(input?(d.querySelector('.dlg-f').value||null):true):(input?null:false));else if(e.target===d)end(input?null:false)});
+    document.addEventListener('keydown',kd,true);document.body.appendChild(d);
+    setTimeout(()=>(d.querySelector('.dlg-f')||d.querySelector('[data-dlg="1"]')).focus(),30);
+  });
+}
+// erreurs inattendues : signalées à l'écran et au serveur (journal) pour pouvoir les corriger
+let errSent=0;
+function reportErr(m){m=String(m||'').slice(0,400);if(!m||/ResizeObserver|Script error/.test(m))return;if(errSent<5&&uid){errSent++;call('POST','log',{m,ua:navigator.userAgent.slice(0,120)}).catch(()=>{})}}
+addEventListener('error',e=>reportErr((e.message||'')+' @'+(e.filename||'').split('/').pop()+':'+(e.lineno||'')));
+addEventListener('unhandledrejection',e=>{const m=e.reason?.stack||e.reason?.message||String(e.reason||'');if(!/^(offline|http_|unauthorized|too_many)/.test(e.reason?.code||''))reportErr(m)});
 
 /* ---------- Accordéons : état mémorisé par section ---------- */
 const ACC=lsGet('sharefs-acc',{});
@@ -569,7 +593,7 @@ function chalProgressToast(id){
   if(c){const s=chalState(c);if(s.st==='live')setTimeout(()=>toast(`Défi de ${nameOf(c.from_id)} : ${s.n}/${s.total}`),2900)}
 }
 async function delChal(id){
-  if(!confirm('Annuler ce défi ?'))return;
+  if(!await ask('Annuler ce défi ?',{ok:'Annuler le défi',danger:true}))return;
   try{await call('DELETE','challenges/'+id);challenges=challenges.filter(c=>c.id!==id);renderAll()}catch(e){toast(msg(e))}
 }
 // Commentaires
@@ -603,7 +627,15 @@ function specialsOf(who){
   return out.sort((a,b)=>a.ts-b.ts);
 }
 const specialCard=sp=>sp.k==='egg'?eggCard(sp.id):card(sp.w,0,'fet');
-const specialAttr=sp=>sp.k==='egg'?`data-egg="${sp.id}"`:`data-open="${esc(sp.id)}"`;
+const specialAttr=sp=>sp.k==='egg'?`data-egg="${sp.id}"`:`data-spshow="${esc(sp.id)}"`;
+function showSpecial(id){
+  const sp=specialsOf(collWho||uid).find(x=>x.id===id);if(!sp)return;
+  const el=$('#reveal');el.style.setProperty('--rc','#FF6FB5');el.style.setProperty('--rf','linear-gradient(135deg,#FFD1EC,#FF6FB5 45%,#C2399D)');revealId=null;
+  el.innerHTML=`<div class="rbg"></div><div class="stage"><div class="flip">${specialCard(sp)}<div class="cardback"></div></div><div class="burst"></div>
+    <div class="cap">Carte spéciale<span class="rname">${esc(sp.ti)}</span>${esc(sp.sub||'')}</div><div class="tap">Touche pour fermer</div></div>`;
+  el.classList.add('open');el.focus();confetti();
+  clearTimeout(revealT);revealT=setTimeout(()=>closeReveal(),5000);
+}
 function easterEgg(k='boule'){
   if(uid&&EGGS[k]){mine.eggs=mine.eggs||{};if(!mine.eggs[k]){mine.eggs[k]=Date.now();save();setTimeout(()=>{renderColl();renderSide()},300)}}
   const e=EGGS[k],el=$('#reveal');el.style.setProperty('--rc',e.ultimate?'#FFE08A':'var(--r5)');el.style.setProperty('--rf','linear-gradient(135deg,#FFF1C4,#FFD46B 40%,#F28C1B)');revealId=null;
@@ -1240,7 +1272,7 @@ function matchClick(d,b){
   if('mtchoose' in d){if(MTSEL.choose){b.disabled=true;b.textContent='On prépare les questions…';b.classList.add('loading');mtAct('choose',{id:MTSEL.choose}).then(ok=>{if(ok)MTSEL.choose=null;else{b.disabled=false;b.textContent='C’est parti !'}})}return true}
   if('mtnext' in d){b.disabled=true;mtAct('qnext',{});return true}
   if(d.mtans!==undefined&&!b.disabled){mtAnswer(+d.mtans);return true}
-  if('mtff' in d){if(confirm('Abandonner ce match ? Ton adversaire gagnera.'))mtAct('forfeit',{});return true}
+  if('mtff' in d){ask('Abandonner ce match ? Ton adversaire gagnera.',{ok:'Abandonner',danger:true}).then(ok=>{if(ok)mtAct('forfeit',{})});return true}
   return false;
 }
 document.addEventListener('input',e=>{if(e.target.id==='mtq'){MTSEL.q=e.target.value;wsRun(MTSEL.q,pickPool(mtOpId(MT)),mtResults)}});
@@ -1291,7 +1323,7 @@ function grimClosedHTML(n){
    Les pépites gagnées se calculent à partir de l'activité (rien à tricher côté stockage) ;
    les missions réclamées, les achats et les objets équipés sont rangés dans les données de l'utilisateur. */
 // pépite : pierre dorée cerclée de brun, lisible sur fond clair comme sur fond doré
-const PEP='<svg class="pep-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10 8.6 4.6h6.9l4.2 5.1-2.1 8.6-6.3 2.6-6.8-4.1z" fill="#F6B93B" stroke="#6B3A05" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 4.6 11 10.2 4.5 10M15.5 4.6 11 10.2l8.7-.5M11 10.2l-.5 10.7" fill="none" stroke="#6B3A05" stroke-width="1.1" stroke-linejoin="round" opacity=".6"/><path d="M9.3 6 10.5 9.3 6.6 9z" fill="#FFF6CF"/></svg>';
+const PEP='<svg class="pep-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10 8.6 4.6h6.9l4.2 5.1-2.1 8.6-6.3 2.6-6.8-4.1z" fill="#FFD23F" stroke="#3D1F00" stroke-width="1.9" stroke-linejoin="round"/><path d="M11 10.2 4.5 10M11 10.2l8.7-.5M11 10.2l-.5 10.7" fill="none" stroke="#3D1F00" stroke-width="1.1" opacity=".55"/><path d="M8.6 4.6 11 10.2l4.5-5.6z" fill="#FFF3B0"/><path d="M11 10.2l8.7-.5-2.1 8.6-7.1 2.6z" fill="#E89A00" opacity=".55"/></svg>';
 const dayKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const isToday=ts=>ts&&dayKey(new Date(ts))===dayKey();
 const GAIN={work:5,rec:10,recDone:15,comment:3,chal:20,fetish:30,match:10,matchWin:25};
@@ -1316,20 +1348,23 @@ function earnedBreakdown(){
 // Boutique : prix volontairement élevés (une carotte sur la durée). Les cadres sont classés par rareté, donc par éclat.
 const T_D='Titre affiché à côté de ton nom';
 const SHOP=[
-  {id:'title.curieux',slot:'title',name:'Curieux',price:300},
-  {id:'title.cine',slot:'title',name:'Cinéphile',price:500},
-  {id:'title.biblio',slot:'title',name:'Rat de bibliothèque',price:500},
-  {id:'title.gamer',slot:'title',name:'Manette d’or',price:500},
-  {id:'title.melo',slot:'title',name:'Mélomane',price:500},
-  {id:'title.binge',slot:'title',name:'Roi du binge',price:650},
-  {id:'title.plateau',slot:'title',name:'Maître du plateau',price:650},
-  {id:'title.critique',slot:'title',name:'Critique impitoyable',price:900},
-  {id:'title.oracle',slot:'title',name:'Oracle des recos',price:1200},
-  {id:'title.frappe',slot:'title',name:'C’est d’la frappe',price:1600},
-  {id:'title.fou',slot:'title',name:'Collectionneur fou',price:2200},
-  {id:'title.legende',slot:'title',name:'Légende du cercle',price:3000},
-  {id:'title.panenka',slot:'title',name:'Maître de la Panenka',price:0,rank:200},
-  {id:'title.goat',slot:'title',name:'GOAT',price:0,rank:500},
+  {id:'title.curieux',slot:'title',name:'Curieux',ic:'🔍',price:300},
+  {id:'title.cine',slot:'title',name:'Cinéphile',ic:'🎬',price:500},
+  {id:'title.biblio',slot:'title',name:'Rat de bibliothèque',ic:'📚',price:500},
+  {id:'title.gamer',slot:'title',name:'Manette d’or',ic:'🎮',price:500},
+  {id:'title.melo',slot:'title',name:'Mélomane',ic:'🎧',price:500},
+  {id:'title.binge',slot:'title',name:'Roi du binge',ic:'📺',price:650},
+  {id:'title.plateau',slot:'title',name:'Maître du plateau',ic:'🎲',price:650},
+  {id:'title.critique',slot:'title',name:'Critique impitoyable',ic:'✒️',price:900},
+  {id:'title.oracle',slot:'title',name:'Oracle des recos',ic:'🔮',price:1200},
+  {id:'title.frappe',slot:'title',name:'C’est d’la frappe',ic:'🔥',price:1600},
+  {id:'title.fou',slot:'title',name:'Collectionneur fou',ic:'🃏',price:2200},
+  {id:'title.legende',slot:'title',name:'Légende du cercle',ic:'👑',price:3000},
+  {id:'title.panenka',slot:'title',name:'Maître de la Panenka',ic:'⚽',price:0,rank:200},
+  {id:'title.goat',slot:'title',name:'GOAT',ic:'🐐',price:0,rank:500},
+  ...[['ball','Ballon','⚽',400],['boot','Crampons','👟',450],['glove','Gardien','🧤',500],['net','Lucarne','🥅',600],['whistle','Arbitre','📣',600],['cup','Coupe','🏆',1200],
+     ['clap','Clap','🎬',400],['pop','Pop-corn','🍿',400],['tape','Cassette','📼',500],['pad','Manette','🎮',500],['vinyl','Vinyle','💿',500],['books','Pile de livres','📚',400],['dice','Dés','🎲',400],['mask','Théâtre','🎭',700],['alien','Science-fiction','👽',800],['dragon','Fantasy','🐉',1000]]
+    .map(([k,n,e,price])=>({id:'avatar.'+k,slot:'avatar',name:n,e,price})),
   {id:'frame.slate',slot:'frame',tier:1,name:'Ardoise',price:400},
   {id:'frame.wood',slot:'frame',tier:1,name:'Bois',price:500},
   {id:'frame.mint',slot:'frame',tier:2,name:'Menthe',price:700},
@@ -1360,8 +1395,8 @@ const SHOP=[
   {id:'dot.night',slot:'dot',name:'Minuit',price:250,c:'#18213A'},
   {id:'dot.rainbow',slot:'dot',name:'Arc-en-ciel',price:900,c:'conic-gradient(#E0453A,#E3A900,#1C9662,#2F6FDB,#C2399D,#E0453A)'},
 ];
-const SLOTN={title:'Titres',frame:'Cadres de cartes',back:'Dos de cartes',cover:'Couvertures de grimoire',dot:'Pastilles'};
-const SLOTI={title:'🏷️',frame:'🖼️',back:'🃏',cover:'📖',dot:'🎨'};
+const SLOTN={title:'Titres',avatar:'Avatars',dot:'Pastilles',frame:'Cadres de cartes',back:'Dos de cartes',cover:'Couvertures de grimoire'};
+const SLOTI={title:'🏷️',avatar:'😎',frame:'🖼️',back:'🃏',cover:'📖',dot:'🎨'};
 const owned=id=>!!(mine.shop||{})[id];
 // prix payé au moment de l'achat (les anciens achats gardent l'ancien tarif)
 const OLDP={'title.cine':120,'title.biblio':120,'title.gamer':120,'title.melo':120,'title.critique':200,'title.frappe':300,'frame.wood':150,'frame.ice':220,'frame.neon':280,'frame.gold':400,'frame.rainbow':600,'back.stripes':100,'back.stars':160,'back.cosmic':260,'cover.red':200,'cover.emerald':200,'cover.night':350};
@@ -1369,7 +1404,9 @@ const spent=()=>Object.keys(mine.shop||{}).reduce((a,id)=>a+((mine.paid||{})[id]
 const balance=()=>earnedBreakdown().total-spent();
 const equipped=(slot,d=mine)=>{const k=Object.keys(d.equip||{}).find(k=>k.startsWith(slot+'.'));return k||''};
 function titleOf(id){const k=equipped('title',dataOf(id));const it=SHOP.find(x=>x.id===k);return it?it.name:''}
-const titleTag=id=>{const t=titleOf(id);return t?`<span class="ptitle">${esc(t)}</span>`:''};
+// titre dessiné : chaque titre a son badge (icône, couleurs, typo)
+const titleBadge=it=>`<span class="ptitle pt-${it.id.split('.')[1]}"><i aria-hidden="true">${it.ic||''}</i>${esc(it.name)}</span>`;
+const titleTag=id=>{const k=equipped('title',dataOf(id));const it=SHOP.find(x=>x.id===k);return it?titleBadge(it):''};
 function applySkin(){
   const b=document.body;[...b.classList].filter(c=>/^(frame|back|cover)-/.test(c)).forEach(c=>b.classList.remove(c));
   for(const s of ['frame','back','cover']){const k=equipped(s);if(k)b.classList.add(k.replace('.','-'))}
@@ -1430,13 +1467,14 @@ function renderPep(){
 // échantillon pour les aperçus : ta plus belle carte avec image
 function shopSample(){const id=Object.keys(mine.done).filter(id=>WK[id]?.img).sort((a,b)=>rateOf(b)-rateOf(a)||mine.done[b]-mine.done[a])[0];return id?WK[id]:{id:'x',t:'f',ti:'Ta carte'}}
 function shopPrev(it,sw){
-  if(it.slot==='title')return `<span class="sp-title"><span class="sp-dot" style="--avc:${accColor(uid)}">${esc((myName||'?')[0].toUpperCase())}</span><b>${esc(myName||'Toi')}</b><span class="ptitle">${esc(it.name)}</span></span>`;
+  if(it.slot==='title')return `<span class="sp-title"><span class="sp-dot" style="--avc:${accColor(uid)}">${avEmoji(uid)||esc((myName||'?')[0].toUpperCase())}</span><b>${esc(myName||'Toi')}</b>${titleBadge(it)}</span>`;
+  if(it.slot==='avatar')return `<span class="sp-dots"><span class="sp-dot big ave" style="--avc:${accColor(uid)}">${it.e}</span></span>`;
   if(it.slot==='frame')return `<span class="sp-card">${card(sw,it.tier||4)}</span>`;
   if(it.slot==='back')return `<span class="sp-backs"><span class="cardback"></span><span class="cardback"></span></span>`;
   if(it.slot==='dot')return `<span class="sp-dots"><span class="sp-dot big" style="--avc:${it.c}">${esc((myName||'?')[0].toUpperCase())}</span></span>`;
   return `<span class="sp-book"><span class="sp-pages"></span><span class="sp-cov"><i></i></span></span>`;
 }
-const SLOTD={title:'S’affiche à côté de ton nom, partout dans l’app.',frame:'Habille toutes tes cartes. Plus le cadre est rare, plus il brille.',back:'Le dos de tes cartes au moment de la révélation.',cover:'La couverture de ton grimoire.',dot:'La couleur de ta pastille, vue par tout ton cercle.'};
+const SLOTD={avatar:'Ton avatar, à la place de ton initiale, vu par tout ton cercle.',title:'S’affiche à côté de ton nom, partout dans l’app.',frame:'Habille toutes tes cartes. Plus le cadre est rare, plus il brille.',back:'Le dos de tes cartes au moment de la révélation.',cover:'La couverture de ton grimoire.',dot:'La couleur de ta pastille, vue par tout ton cercle.'};
 function shopHTML(){
   const b=balance(),n=Object.keys(mine.done).length,br=earnedBreakdown(),sw=shopSample();
   const itemHTML=it=>{const slot=it.slot,has=owned(it.id),eq=equipped(slot)===it.id,locked=it.rank&&n<it.rank,miss=it.price-b;
@@ -1450,12 +1488,11 @@ function shopHTML(){
   const section=(slot,label)=>{const its=SHOP.filter(x=>x.slot===slot);
     const body=slot==='frame'?RN.map(t=>{const ft=its.filter(x=>x.tier===t);return ft.length?`<div class="sh-tier r${t}">${GEM(t,16)}<b>${RAR[t].n}</b><span>${RAR[t].s}</span></div><div class="sh-g">${ft.map(itemHTML).join('')}</div>`:''}).join('')
       :`<div class="sh-g">${its.map(itemHTML).join('')}</div>`;
-    return `<section class="sh-sec sec-${slot}" id="sh-${slot}"><h3 class="sh-h"><span class="sh-hi">${SLOTI[slot]}</span>${label}<span class="sh-hn">${its.filter(x=>owned(x.id)).length}/${its.length}</span></h3><p class="sh-d">${SLOTD[slot]}</p>${body}</section>`};
+    return `<div id="sh-${slot}">${acc('sh-'+slot,`<span class="sh-hi">${SLOTI[slot]}</span>${label}`,`<p class="sh-d">${SLOTD[slot]}</p>${body}`,`<span class="acc-s">${its.filter(x=>owned(x.id)).length}/${its.length}</span>`)}</div>`};
   return `<div class="shop">
-    <div class="sh-hero"><span class="sh-spark s1" aria-hidden="true">✦</span><span class="sh-spark s2" aria-hidden="true">✧</span>
-      <div class="sh-bal">${PEP}<b>${b}</b><small>pépites</small></div><p class="sh-tag">Gagne des pépites en partageant, dépense-les ici.</p></div>
-    <nav class="sh-nav">${Object.entries(SLOTN).map(([slot,l])=>`<a href="#sh-${slot}">${l}</a>`).join('')}</nav>
-    <section class="sh-sec sec-ms"><h3 class="sh-h"><span class="sh-hi">🎯</span>Missions du jour</h3>${missionsHTML()}</section>
+    <div class="sh-hero"><span class="sh-spark s1" aria-hidden="true">✦</span><span class="sh-spark s2" aria-hidden="true">✧</span><div class="sh-bal">${PEP}<b>${b}</b><small>pépites</small></div><p class="sh-tag">Gagne des pépites en partageant, dépense-les ici.</p></div>
+    <nav class="sh-nav">${Object.entries(SLOTN).map(([slot,l])=>`<button class="chip" data-shgo="${slot}">${l}</button>`).join('')}</nav>
+    ${acc('sh-ms','<span class="sh-hi">🎯</span>Missions du jour',missionsHTML())}
     ${Object.entries(SLOTN).map(([slot,label])=>section(slot,label)).join('')}
     <details class="sh-how"><summary>Comment gagner des pépites ?</summary><ul>
       <li>${GAIN.work} ${PEP} par œuvre ajoutée à ta collection</li><li>${GAIN.rec} ${PEP} par recommandation, ${GAIN.recDone} ${PEP} quand un ami la finit</li>
@@ -1734,7 +1771,7 @@ function openSheet(id,refocus=true,opts={}){
   }
 }
 function refreshSheet(){if(sheetId==='__stake'){renderStake();return}if(sheetId==='__mod'){renderMod();return}if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
-function closeSheet(){if(!sheetId)return;sheetId=null;SONG=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
+function closeSheet(){if(!sheetId)return;sheetId=null;SONG=null;$('#sheetIn').__last=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
 const MAN={title:'',t:'',note:'',to:new Set(),err:''};
@@ -1870,9 +1907,9 @@ function setRate(id,n){
   if(!was){pickOpen=false;closeSheet();renderAll();reveal(id);chalProgressToast(id);checkWins()}
   else{toast(`Carte ${RAR[n].n.toLowerCase()}`);renderAll()}
 }
-function toggleDone(id){
+async function toggleDone(id){
   if(!isDone(id)){pendingDone=id;tglPop=id;pickOpen=true;pickDeal=true;refreshSheet();setTimeout(()=>$('#sheet .pick')?.scrollIntoView({behavior:'smooth',block:'center'}),60);setTimeout(()=>$('#sheet [data-rate]')?.focus(),30);return}
-  if(!confirm('Retirer cette carte de ta collection ?'))return;
+  if(!await ask('Retirer cette carte de ta collection ?',{ok:'Retirer',danger:true}))return;
   delete mine.done[id];delete mine.rate[id];keepWork(id);save();toast('Carte retirée');renderAll();
 }
 function toggleWant(id){const add=!mine.want[id];if(add)mine.want[id]=Date.now();else delete mine.want[id];keepWork(id);save();toast(add?'Gardé pour plus tard':'Retiré de ta liste');renderAll()}
@@ -1884,7 +1921,7 @@ async function share(id,btn){
   catch(e){toast(msg(e));btn.disabled=false}
 }
 async function delRec(id){
-  if(!confirm('Supprimer cette recommandation ?'))return;
+  if(!await ask('Supprimer cette recommandation ?',{ok:'Supprimer',danger:true}))return;
   try{await call('DELETE','recs/'+id);recs=recs.filter(r=>r.id!==id);renderAll()}catch(e){toast(msg(e))}
 }
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600)}
@@ -1967,6 +2004,8 @@ document.addEventListener('click',e=>{
   if('msend' in d){sendManual(b);return}
   if(d.open){openSheet(d.open,true,d.song?{song:d.song,so:d.so}:{});return}
   if(d.acch){accToggle(d.acch);return}
+  if(d.shgo){const k='sh-'+d.shgo;if(!accOpen(k)){ACC[k]=1;lsSet('sharefs-acc',ACC);$('#fsBody').innerHTML=shopHTML()}document.getElementById('sh-'+d.shgo)?.scrollIntoView({behavior:'smooth',block:'start'});return}
+  if(d.spshow){showSpecial(d.spshow);return}
   if(d.stk!==undefined){STK.v=+d.stk;renderStake();return}
   if('stkgo' in d){b.disabled=true;startMatch(STK.to,STK.v,STK.src);return}
   if(d.mod){openMod(d.mod);return}
@@ -2124,6 +2163,7 @@ async function enterApp(loaded=false){
   setTimeout(()=>{if(uid)migrateSingles()},5000);
   clearInterval(poll);poll=setInterval(()=>{if(document.visibilityState==='visible'&&uid)loadAll()},25000);
   startMatchLoops();
+  ['#feed','#feedMode','#playbar','#feedCircles','#results','#resMore','#typeChips','#chalBody','#whoRow','#rank','#collView','#gfilter','#shelf','#weekly','#pepZone','#account','#sideL','#sideR','#sheetIn'].forEach(q=>guardHTML($(q)));
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&uid)loadAll()});
 
@@ -2152,9 +2192,9 @@ document.addEventListener('click',async e=>{
   if(a==='name')stepName();
   if(a==='join')stepCircle();
   if(a==='logout'){try{await call('POST','auth/logout')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
-  if(a==='logoutall'&&confirm('Te déconnecter de tous tes appareils, y compris celui-ci ?')){try{await call('POST','auth/logout-all')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
-  if(a==='delete'&&confirm('Supprimer ton compte, ta collection et tes recommandations ? Cette action est définitive.')){
-    const password=prompt('Pour confirmer, saisis ton mot de passe :');if(!password)return;
+  if(a==='logoutall'&&await ask('Te déconnecter de tous tes appareils, y compris celui-ci ?',{ok:'Déconnecter'})){try{await call('POST','auth/logout-all')}catch(err){}token='';lsSet('sharefs-token','');location.reload()}
+  if(a==='delete'&&await ask('Supprimer ton compte, ta collection et tes recommandations ? Cette action est définitive.',{ok:'Continuer',danger:true})){
+    const password=await ask('Pour confirmer, saisis ton mot de passe :',{ok:'Supprimer mon compte',danger:true,input:'password'});if(!password)return;
     try{await call('DELETE','me',{password});token='';lsSet('sharefs-token','');location.reload()}catch(err){toast(msg(err))}}
 });
 
