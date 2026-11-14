@@ -74,6 +74,9 @@ function work_tmdb(string $k, string $id): array {
     'cast' => array_slice(array_column($x['credits']['cast'] ?? [], 'name'), 0, 4),
     'roles' => array_slice($roles, 0, 10), 'chars' => array_slice(array_column($roles, 1), 0, 12), 'eps' => array_slice($eps, 0, 12),
     'tag' => trim((string) ($x['tagline'] ?? '')),
+    'saga' => trim((string) preg_replace('/\s*[-–]?\s*(saga|collection)$/iu', '', (string) ($x['belongs_to_collection']['name'] ?? ''))),
+    'studios' => array_slice(array_column($x['production_companies'] ?? [], 'name'), 0, 3),
+    'neps' => $k === 'tv' ? (int) ($x['number_of_episodes'] ?? 0) : 0,
     'img' => !empty($x['poster_path']) ? 'https://image.tmdb.org/t/p/w500' . $x['poster_path'] : ($w['img'] ?? ''),
     'imgs' => array_values(array_unique(array_merge(
       array_map(fn($i) => 'https://image.tmdb.org/t/p/w780' . $i['file_path'], array_slice($x['images']['backdrops'] ?? [], 0, 10)),
@@ -161,6 +164,11 @@ function search_books(string $q, int $page, int $lim): array {
 }
 
 /* IGDB */
+const IGDB_FR = ['Action' => 'Action', 'Fantasy' => 'Fantastique', 'Science fiction' => 'Science-fiction', 'Horror' => 'Horreur', 'Thriller' => 'Thriller', 'Survival' => 'Survie',
+  'Historical' => 'Historique', 'Stealth' => 'Infiltration', 'Comedy' => 'Comédie', 'Business' => 'Gestion', 'Drama' => 'Drame', 'Non-fiction' => 'Documentaire', 'Sandbox' => 'Bac à sable',
+  'Educational' => 'Éducatif', 'Kids' => 'Enfants', 'Open world' => 'Monde ouvert', 'Warfare' => 'Guerre', 'Party' => 'Jeu d’ambiance', 'Mystery' => 'Mystère', 'Romance' => 'Romance',
+  'Single player' => 'Solo', 'Multiplayer' => 'Multijoueur', 'Co-operative' => 'Coopération', 'Split screen' => 'Écran partagé', 'Massively Multiplayer Online (MMO)' => 'MMO', 'Battle Royale' => 'Battle royale',
+  'First person' => 'Vue à la première personne', 'Third person' => 'Vue à la troisième personne', 'Bird view / Isometric' => 'Vue isométrique', 'Side view' => 'Vue de côté', 'Virtual Reality' => 'Réalité virtuelle'];
 const GF = 'name,first_release_date,cover.image_id,artworks.image_id,screenshots.image_id,genres.name,involved_companies.company.name,involved_companies.developer,total_rating_count';
 function igdb_img(string $id, string $size): string { return "https://images.igdb.com/igdb/image/upload/$size/$id.jpg"; }
 function twitch_token(): string {
@@ -205,7 +213,7 @@ function search_games(string $q, int $page, int $lim): array {
   return ['items' => array_map('from_game', array_slice($d, 0, $lim)), 'more' => count($d) > $lim];
 }
 function work_game(string $id): array {
-  $d = igdb('fields ' . GF . ',summary,storyline,platforms.abbreviation; where id = ' . (int) $id . ';');
+  $d = igdb('fields ' . GF . ',summary,storyline,platforms.abbreviation,franchises.name,collection.name,themes.name,game_modes.name,player_perspectives.name; where id = ' . (int) $id . ';');
   $chars = [];
   try { $chars = array_values(array_filter(array_map(fn($c) => clean_char($c['name'] ?? ''), igdb('fields name; where games = (' . (int) $id . '); limit 15;', 'characters')))); } catch (Throwable $e) {}
   if (!$d) fail(404, 'not_found');
@@ -213,7 +221,10 @@ function work_game(string $id): array {
   $imgs = array_map(fn($i) => igdb_img($i['image_id'], 't_screenshot_big'), array_slice(array_merge($x['artworks'] ?? [], $x['screenshots'] ?? []), 0, 12));
   $w = from_game($x);
   if (!empty($x['cover']['image_id'])) $w['img'] = igdb_img($x['cover']['image_id'], 't_cover_big_2x');
-  return clean(array_merge($w, ['syn' => mb_substr($x['summary'] ?? '', 0, 800), 'story' => mb_substr($x['storyline'] ?? '', 0, 800), 'chars' => array_slice($chars, 0, 12), 'imgs' => $imgs, 'plat' => array_slice(array_values(array_filter(array_column($x['platforms'] ?? [], 'abbreviation'))), 0, 6)]));
+  return clean(array_merge($w, ['syn' => mb_substr($x['summary'] ?? '', 0, 800), 'story' => mb_substr($x['storyline'] ?? '', 0, 800), 'chars' => array_slice($chars, 0, 12),
+    'saga' => $x['franchises'][0]['name'] ?? ($x['collection']['name'] ?? ''),
+    'themes' => array_values(array_filter(array_map(fn($t) => IGDB_FR[$t['name'] ?? ''] ?? '', $x['themes'] ?? []))),
+    'modes' => array_values(array_filter(array_map(fn($t) => IGDB_FR[$t['name'] ?? ''] ?? '', array_merge($x['game_modes'] ?? [], $x['player_perspectives'] ?? [])))), 'imgs' => $imgs, 'plat' => array_slice(array_values(array_filter(array_column($x['platforms'] ?? [], 'abbreviation'))), 0, 6)]));
 }
 
 /* ---------- Jeux de société : BoardGameGeek (XML API2, jeton d'application requis) ---------- */
@@ -275,10 +286,12 @@ function work_bgg(string $id): array {
 }
 
 /* ---------- Musique : Deezer (sans clé, pochettes fiables) ---------- */
-function dz(string $path, array $p = []): array {
-  $j = json_decode(http_raw('https://api.deezer.com/' . $path . ($p ? '?' . http_build_query($p) : ''), ['Accept: application/json']), true);
+function dz(string $path, array $p = [], bool $soft = false): array {
+  try { $raw = http_raw('https://api.deezer.com/' . $path . ($p ? '?' . http_build_query($p) : ''), ['Accept: application/json']); }
+  catch (Throwable $e) { if ($soft) return []; throw $e; }
+  $j = json_decode($raw, true);
   if (!is_array($j)) return [];
-  if (isset($j['error'])) fail(502, 'provider_dz');
+  if (isset($j['error'])) { if ($soft) return []; fail(502, 'provider_dz'); }
   return $j;
 }
 function from_dz(array $x): array {
@@ -287,10 +300,67 @@ function from_dz(array $x): array {
     'c' => $x['artist']['name'] ?? '', 'img' => $x['cover_xl'] ?? ($x['cover_big'] ?? ($x['cover_medium'] ?? '')),
     'g' => array_values(array_filter($genres)), 'd' => isset($x['nb_tracks']) ? (int) $x['nb_tracks'] : null]);
 }
-function search_dz(string $q, int $page, int $lim): array {
-  $d = $q === '' ? dz('chart/0/albums', ['limit' => $lim, 'index' => ($page - 1) * $lim]) : dz('search/album', ['q' => $q, 'limit' => $lim, 'index' => ($page - 1) * $lim]);
-  $items = array_values(array_filter(array_map('from_dz', $d['data'] ?? []), fn($w) => !empty($w['ti']) && $w['id'] !== 'dz-'));
-  return ['items' => $items, 'more' => isset($d['next']) || ($q === '' && count($items) === $lim && $page < 5)];
+const DZ_NOT_ALBUM = ['single'];
+function dz_is_album(array $x): bool { return !in_array($x['record_type'] ?? 'album', DZ_NOT_ALBUM, true); }
+// titre « nu » : sans (feat. …), [Remastered], - Radio Edit…
+function dz_bare(string $t): string {
+  $t = preg_replace('/\s*[\(\[][^\)\]]*[\)\]]/u', '', $t); $t = preg_replace('/\s+-\s+.*$/u', '', $t);
+  return mb_strtolower(trim($t));
+}
+function search_dz(string $q, int $page, int $lim, bool $songs = false): array {
+  if ($q === '') {
+    $d = dz('chart/0/albums', ['limit' => $lim, 'index' => ($page - 1) * $lim]);
+    $items = array_values(array_filter(array_map('from_dz', array_filter($d['data'] ?? [], 'dz_is_album')), fn($w) => !empty($w['ti']) && $w['id'] !== 'dz-'));
+    return ['items' => $items, 'more' => count($items) > 0 && $page < 5];
+  }
+  $d = dz('search/album', ['q' => $q, 'limit' => $lim * 2, 'index' => ($page - 1) * $lim * 2]);
+  $albums = array_values(array_filter(array_map('from_dz', array_filter($d['data'] ?? [], 'dz_is_album')), fn($w) => !empty($w['ti']) && $w['id'] !== 'dz-'));
+  $more = isset($d['next']);
+  if (!$songs) return ['items' => array_slice($albums, 0, $lim), 'more' => $more];
+  $sl = dz_songs($q, $page, $lim);
+  // moitié albums, moitié chansons ; l'une comble l'autre si elle manque
+  $na = max((int) ceil($lim / 2), $lim - count($sl['items']));
+  $items = array_merge(array_slice($albums, 0, $na), array_slice($sl['items'], 0, $lim - min($na, count($albums))));
+  return ['items' => $items, 'more' => $more || $sl['more']];
+}
+// chansons : on garde une entrée par chanson, rattachée de préférence à un vrai album plutôt qu'au single
+function dz_songs(string $q, int $page, int $lim): array {
+  $d = dz('search/track', ['q' => $q, 'limit' => 40, 'index' => ($page - 1) * 40], true);
+  $best = [];
+  foreach ($d['data'] ?? [] as $x) {
+    if (empty($x['album']['id']) || empty($x['title'])) continue;
+    $k = mb_strtolower(($x['artist']['name'] ?? '') . '|' . dz_bare($x['title']));
+    $isSingle = dz_bare($x['album']['title'] ?? '') === dz_bare($x['title']);
+    if (!isset($best[$k]) || ($best[$k]['single'] && !$isSingle)) $best[$k] = ['x' => $x, 'single' => $isSingle];
+  }
+  $out = []; $fixes = 0;
+  foreach ($best as $b) {
+    $x = $b['x'];
+    // seulement trouvée sur un single : on cherche l'album qui la contient (2 tentatives max)
+    if ($b['single'] && $fixes < 2) { $fixes++; $p = dz_parent_track($x); if ($p) $x = $p; elseif (!empty($x['album']['id'])) continue; }
+    $out[] = clean(['id' => 'dzt-' . $x['id'], 't' => 'm', 'ti' => $x['title'], 'c' => $x['artist']['name'] ?? '',
+      'img' => $x['album']['cover_xl'] ?? ($x['album']['cover_big'] ?? ($x['album']['cover_medium'] ?? '')),
+      'alb' => 'dz-' . $x['album']['id'], 'at' => $x['album']['title'] ?? '', 'sid' => (string) $x['id']]);
+    if (count($out) >= $lim) break;
+  }
+  return ['items' => $out, 'more' => isset($d['next'])];
+}
+// la même chanson sur un album (pas un single) du même artiste
+function dz_parent_track(array $x): ?array {
+  $art = $x['artist']['name'] ?? ''; $bare = dz_bare($x['title'] ?? '');
+  if ($art === '' || $bare === '') return null;
+  $key = 'dzp|' . ($x['id'] ?? '');
+  if (($c = cache_get($key)) !== null) return $c ?: null;
+  $r = dz('search/track', ['q' => 'artist:"' . $art . '" track:"' . $bare . '"', 'limit' => 25], true)['data'] ?? [];
+  $found = null;
+  foreach ($r as $y) {
+    if (mb_strtolower($y['artist']['name'] ?? '') !== mb_strtolower($art) || dz_bare($y['title'] ?? '') !== $bare) continue;
+    if (dz_bare($y['album']['title'] ?? '') === $bare || ($y['album']['id'] ?? 0) == ($x['album']['id'] ?? -1)) continue;
+    $al = dz('album/' . (int) $y['album']['id'], [], true);
+    if (!empty($al['id']) && dz_is_album($al) && (int) ($al['nb_tracks'] ?? 0) >= 4) { $found = $y; break; }
+  }
+  cache_set($key, $found ?: [], 30 * 86400);
+  return $found;
 }
 function work_dz(string $id): array {
   $x = dz('album/' . (int) $id);
@@ -298,7 +368,15 @@ function work_dz(string $id): array {
   $w = from_dz($x);
   $tracks = array_slice(array_map(fn($t) => $t['title'] ?? '', $x['tracks']['data'] ?? []), 0, 6);
   $allTracks = array_values(array_filter(array_map(fn($t) => $t['title'] ?? '', $x['tracks']['data'] ?? [])));
-  return clean(array_merge($w, ['tracks' => array_slice($allTracks, 0, 20), 'imgs' => array_values(array_filter([$w['img'] ?? ''])), 'syn' => $tracks ? 'Titres : ' . implode(', ', $tracks) . (count($x['tracks']['data'] ?? []) > 6 ? '…' : '') : '',
+  $tdur = array_values(array_filter(array_map(fn($t) => [$t['title'] ?? '', (int) ($t['duration'] ?? 0)], $x['tracks']['data'] ?? []), fn($t) => $t[0] !== '' && $t[1] > 0));
+  $tl = array_values(array_filter(array_map(fn($t) => [(string) ($t['id'] ?? ''), $t['title'] ?? '', (int) ($t['duration'] ?? 0)], $x['tracks']['data'] ?? []), fn($t) => $t[0] !== '' && $t[1] !== ''));
+  $rt = $x['record_type'] ?? 'album'; $parent = '';
+  // un single ou un EP : on cherche l'album qui contient son premier titre (pour remplacer les anciennes cartes)
+  if (in_array($rt, ['single', 'ep'], true) && $tl) {
+    $par = dz_parent_track(['id' => $tl[0][0], 'title' => $tl[0][1], 'artist' => $x['artist'] ?? [], 'album' => ['id' => $x['id'], 'title' => $x['title'] ?? '']]);
+    if ($par && !empty($par['album']['id'])) $parent = 'dz-' . $par['album']['id'];
+  }
+  return clean(array_merge($w, ['tracks' => array_slice($allTracks, 0, 20), 'tdur' => array_slice($tdur, 0, 20), 'tl' => array_slice($tl, 0, 80), 'rt' => $rt, 'parent' => $parent, 'imgs' => array_values(array_filter([$w['img'] ?? ''])), 'syn' => $tracks ? 'Titres : ' . implode(', ', $tracks) . (count($x['tracks']['data'] ?? []) > 6 ? '…' : '') : '',
     'plat' => array_values(array_filter([$x['label'] ?? '']))]));
 }
 
@@ -331,13 +409,45 @@ function work_mb(string $id): array {
 }
 
 /* ---------- Découverte sans fin (swipe et 5 par 5) : on parcourt les catalogues page après page ---------- */
-const DISCOVER_BOOKS = ['roman', 'fantasy', 'science fiction', 'policier', 'thriller', 'classique', 'bande dessinée', 'manga', 'biographie', 'jeunesse', 'romance', 'horreur', 'histoire', 'essai', 'aventure', 'poésie'];
-const DISCOVER_MUSIC = ['pop', 'rock', 'rap', 'hip hop', 'jazz', 'electro', 'soul', 'funk', 'reggae', 'metal', 'chanson française', 'r&b', 'indie', 'disco', 'blues', 'classique', 'latino', 'afro', 'k-pop', 'country'];
+// Genres Deezer : classements d'albums par genre, puis albums des artistes phares du genre
+const DZ_GENRES = [0, 132, 116, 152, 113, 165, 85, 106, 129, 169, 144, 466, 464, 197, 2, 98];
+// Sujets Open Library : les œuvres y sont classées par nombre d'éditions (donc par notoriété)
+const OL_SUBJECTS = ['fantasy', 'science_fiction', 'mystery_and_detective_stories', 'thrillers', 'romance', 'horror', 'historical_fiction', 'classic_literature',
+  'young_adult_fiction', 'french_literature', 'comic_books_strips_etc', 'manga', 'biography', 'adventure_stories', 'dystopias', 'humor'];
+function from_ol_doc(array $x): ?array {
+  $key = (string) ($x['key'] ?? ''); if (!preg_match('#/works/(OL\d+W)$#', $key, $m)) return null;
+  $cover = $x['cover_i'] ?? ($x['cover_id'] ?? null); if (!$cover) return null;
+  $authors = $x['author_name'] ?? array_map(fn($a) => $a['name'] ?? '', $x['authors'] ?? []);
+  return clean(['id' => 'ol-' . $m[1], 't' => 'l', 'ti' => $x['title'] ?? '', 'y' => (int) ($x['first_publish_year'] ?? 0) ?: null,
+    'c' => implode(', ', array_slice(array_filter($authors), 0, 2)), 'img' => "https://covers.openlibrary.org/b/id/$cover-L.jpg"]);
+}
+function discover_books(int $page, int $lim): array {
+  $n = count(OL_SUBJECTS); $round = intdiv($page - 1, $n + 1); $slot = ($page - 1) % ($n + 1);
+  if ($slot === $n) { // une page sur 17 : tendances du moment
+    $period = ['weekly', 'monthly', 'yearly', 'forever'][$round % 4];
+    $d = http_json("https://openlibrary.org/trending/$period.json?" . http_build_query(['limit' => $lim, 'page' => intdiv($round, 4) + 1]));
+  } else {
+    $d = http_json('https://openlibrary.org/subjects/' . OL_SUBJECTS[$slot] . '.json?' . http_build_query(['limit' => $lim, 'offset' => $round * $lim]));
+  }
+  return ['items' => array_values(array_filter(array_map('from_ol_doc', $d['works'] ?? []))), 'more' => true];
+}
+function discover_music(int $page, int $lim): array {
+  $n = count(DZ_GENRES); $g = DZ_GENRES[($page - 1) % $n]; $round = intdiv($page - 1, $n);
+  if ($round < 4) { // classements du genre (jusqu'à 4 pages)
+    $items = array_filter(dz("chart/$g/albums", ['limit' => $lim, 'index' => $round * $lim])['data'] ?? [], 'dz_is_album');
+  } else { // puis les albums d'artistes phares du genre
+    $arts = dz("chart/$g/artists", ['limit' => 100])['data'] ?? [];
+    $a = $arts[($round - 4) % max(1, count($arts))] ?? null; $items = [];
+    if ($a) foreach ((dz('artist/' . (int) $a['id'] . '/albums', ['limit' => 25])['data'] ?? []) as $al)
+      if (($al['record_type'] ?? 'album') === 'album') $items[] = $al + ['artist' => ['name' => $a['name'] ?? '']];
+    $items = array_slice($items, 0, $lim);
+  }
+  return ['items' => array_values(array_filter(array_map('from_dz', $items), fn($w) => !empty($w['ti']) && !empty($w['img']) && $w['id'] !== 'dz-')), 'more' => true];
+}
 function catalog_discover(string $type, int $page, int $lim): array {
   $page = max(1, $page);
-  $key = "d1|$type|$page|$lim";
+  $key = "d3|$type|$page|$lim";
   if (($c = cache_get($key)) !== null) return $c;
-  $rot = function (array $topics) use ($page) { $n = count($topics); return [$topics[($page - 1) % $n], intdiv($page - 1, $n) + 1]; };
   $r = match ($type) {
     'f', 's' => (function () use ($type, $page, $lim) {
       $k = $type === 'f' ? 'movie' : 'tv';
@@ -350,8 +460,8 @@ function catalog_discover(string $type, int $page, int $lim): array {
       $d = igdb('fields ' . GF . "; where total_rating_count > 15 & cover != null; sort total_rating_count desc; limit $n; offset $off;");
       return ['items' => array_map('from_game', array_slice($d, 0, $lim)), 'more' => count($d) > $lim];
     })(),
-    'l' => (function () use ($rot, $lim) { [$topic, $p] = $rot(DISCOVER_BOOKS); $x = search_books($topic, $p, $lim); $x['more'] = true; return $x; })(),
-    'm' => (function () use ($rot, $lim) { [$topic, $p] = $rot(DISCOVER_MUSIC); $x = search_dz($topic, $p, $lim); $x['more'] = true; return $x; })(),
+    'l' => discover_books($page, $lim),
+    'm' => discover_music($page, $lim),
     'b' => search_bgg('', $page, $lim),
     default => fail(400, 'bad_type'),
   };
@@ -359,18 +469,18 @@ function catalog_discover(string $type, int $page, int $lim): array {
   return $r;
 }
 
-function catalog_search(string $type, string $q, int $page, int $lim): array {
-  $key = "s3|$type|$q|$page|$lim";
+function catalog_search(string $type, string $q, int $page, int $lim, bool $songs = false): array {
+  $key = "s4|$type|$q|$page|$lim|" . (int) $songs;
   if (($c = cache_get($key)) !== null) return $c;
   $r = match ($type) {
     'f' => search_tmdb('movie', $q, $page, $lim), 's' => search_tmdb('tv', $q, $page, $lim),
     'l' => search_books($q, $page, $lim), 'j' => search_games($q, $page, $lim),
-    'b' => search_bgg($q, $page, $lim), 'm' => search_dz($q, $page, $lim), default => fail(400, 'bad_type') };
+    'b' => search_bgg($q, $page, $lim), 'm' => search_dz($q, $page, $lim, $songs), default => fail(400, 'bad_type') };
   cache_set($key, $r, 3600);
   return $r;
 }
 function catalog_work(string $id): array {
-  if (($c = cache_get("w4|$id")) !== null) return $c;
+  if (($c = cache_get("w6|$id")) !== null) return $c;
   if (preg_match('/^tmdb-(movie|tv)-(\d+)$/', $id, $m)) $r = work_tmdb($m[1], $m[2]);
   elseif (preg_match('/^gb-([\w-]+)$/', $id, $m)) $r = work_book($m[1]);
   elseif (preg_match('/^ol-(OL\d+W)$/', $id, $m)) $r = work_ol($m[1]);
@@ -379,6 +489,6 @@ function catalog_work(string $id): array {
   elseif (preg_match('/^dz-(\d+)$/', $id, $m)) $r = work_dz($m[1]);
   elseif (preg_match('/^igdb-(\d+)$/', $id, $m)) $r = work_game($m[1]);
   else fail(400, 'bad_id');
-  cache_set("w4|$id", $r, 7 * 86400);
+  cache_set("w6|$id", $r, 7 * 86400);
   return $r;
 }

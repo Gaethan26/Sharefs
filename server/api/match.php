@@ -332,6 +332,52 @@ function story_questions(array $w, array $others): array {
     $o = qz_opts($w['mech'][array_rand($w['mech'])], array_diff(QZ_MECH, $w['mech']));
     return $o ? ['q' => "Quelle mécanique fait partie de $ti ?"] + $o : null;
   };
+  // qui incarne tel personnage ?
+  if (count($roles) >= 4) $gen[] = function () use ($roles, $ti) {
+    [$actor, $char] = $roles[array_rand(array_slice($roles, 0, 6))];
+    $o = qz_opts($actor, array_column(array_filter($roles, fn($r) => $r[0] !== $actor), 0));
+    return $o ? ['q' => "Dans $ti, qui incarne $char ?"] + $o : null;
+  };
+  // saga ou série de jeux
+  if (!empty($w['saga'])) $gen[] = function () use ($w, $others, $ti, $t) {
+    $fake = array_merge(array_filter(array_map(fn($o) => $o['saga'] ?? '', $others)), $t === 'j'
+      ? ['The Legend of Zelda', 'Final Fantasy', 'Assassin’s Creed', 'Call of Duty', 'Resident Evil', 'Grand Theft Auto', 'Pokémon', 'Mario', 'Metal Gear', 'Halo']
+      : ['Star Wars', 'Harry Potter', 'Le Seigneur des anneaux', 'James Bond', 'Indiana Jones', 'Mission impossible', 'Fast & Furious', 'Jurassic Park', 'Retour vers le futur', 'Toy Story']);
+    $o = qz_opts($w['saga'], $fake); return $o ? ['q' => "De quelle saga fait partie $ti ?"] + $o : null;
+  };
+  // studio de production (films, séries)
+  if (!empty($w['studios']) && in_array($t, ['f', 's'], true)) $gen[] = function () use ($w, $others, $ti) {
+    $fake = array_merge(...array_map(fn($o) => $o['studios'] ?? [], $others ?: [[]]));
+    $fake = array_merge($fake, ['Warner Bros.', 'Universal Pictures', 'Pathé', 'Gaumont', 'Pixar', 'Netflix', 'HBO', 'Paramount', 'Legendary', 'Studiocanal', 'A24', 'Canal+']);
+    $o = qz_opts($w['studios'][0], array_diff($fake, $w['studios'])); return $o ? ['q' => "Quelle société a produit $ti ?"] + $o : null;
+  };
+  // nombre d'épisodes d'une série
+  if (!empty($w['neps']) && $w['neps'] >= 4) $gen[] = function () use ($w, $ti) {
+    return ['q' => "Combien d’épisodes compte $ti au total ?"] + qz_bucket((int) $w['neps'], [13, 30, 60], ['Moins de 13', '13 à 29', '30 à 59', '60 ou plus']);
+  };
+  // univers et modes de jeu (jeux vidéo)
+  if (!empty($w['themes'])) $gen[] = function () use ($w, $ti) {
+    $all = ['Action', 'Fantastique', 'Science-fiction', 'Horreur', 'Thriller', 'Survie', 'Historique', 'Infiltration', 'Comédie', 'Monde ouvert', 'Guerre', 'Mystère', 'Bac à sable', 'Gestion'];
+    $o = qz_opts($w['themes'][array_rand($w['themes'])], array_diff($all, $w['themes'])); return $o ? ['q' => "Quel univers correspond à $ti ?"] + $o : null;
+  };
+  if (!empty($w['modes'])) $gen[] = function () use ($w, $ti) {
+    $all = ['Solo', 'Multijoueur', 'Coopération', 'Écran partagé', 'MMO', 'Battle royale', 'Vue à la première personne', 'Vue à la troisième personne', 'Vue isométrique', 'Vue de côté', 'Réalité virtuelle'];
+    $o = qz_opts($w['modes'][array_rand($w['modes'])], array_diff($all, $w['modes'])); return $o ? ['q' => "Lequel de ces modes ou vues propose $ti ?"] + $o : null;
+  };
+  // le titre le plus long d'un album
+  if (count($w['tdur'] ?? []) >= 4) $gen[] = function () use ($w, $ti) {
+    $tr = $w['tdur']; shuffle($tr); $tr = array_slice($tr, 0, 4);
+    usort($tr, fn($a, $b) => $b[1] <=> $a[1]); if ($tr[0][1] === $tr[1][1]) return null;
+    $long = $tr[0][0]; $opts = array_column($tr, 0); shuffle($opts);
+    return ['q' => "Sur l’album $ti, lequel de ces titres est le plus long ?", 'opts' => $opts, 'ans' => array_search($long, $opts, true)];
+  };
+  // l'intrus parmi les titres d'un album
+  if (count($w['tracks'] ?? []) >= 4 && $oTracks) $gen[] = function () use ($w, $oTracks, $ti) {
+    $fake = array_values(array_diff($oTracks, $w['tracks'])); if (!$fake) return null;
+    $intrus = $fake[array_rand($fake)]; $real = $w['tracks']; shuffle($real);
+    $opts = array_merge([$intrus], array_slice($real, 0, 3)); shuffle($opts);
+    return ['q' => "Intrus : lequel de ces titres n’est PAS sur l’album $ti ?", 'opts' => $opts, 'ans' => array_search($intrus, $opts, true)];
+  };
   $namePool = array_merge($oNames, $oChars, QZ_CHARS[$t] ?? [], QZ_PLACES);
   foreach (array_filter([$w['syn'] ?? '', $w['story'] ?? '']) as $txt) $gen[] = fn() => qz_cloze($txt, $w, $namePool);
   if (!empty($w['syn'])) $gen[] = fn() => qz_cloze($w['syn'], $w, $namePool); // un second résumé à trous possible
@@ -341,8 +387,17 @@ function story_questions(array $w, array $others): array {
     $o = qz_opts($w['tag'], $fakes); return $o ? ['q' => "Quelle est l’accroche de $ti ?"] + $o : null;
   };
   shuffle($gen);
-  $out = []; $seen = [];
-  foreach ($gen as $g) { $r = $g(); if ($r && !isset($seen[$r['q']])) { $seen[$r['q']] = 1; $out[] = $r; } }
+  $out = []; $seen = []; $kinds = [];
+  foreach ($gen as $g) {
+    $r = $g();
+    if (!$r || isset($seen[$r['q']])) continue;
+    $good = (string) $r['opts'][$r['ans']];
+    // une bonne réponse déjà lisible dans la question (ex. « Harry Potter » dans le titre) ne vaut rien, sauf pour les vrais/faux
+    if (count($r['opts']) > 2 && mb_strlen($good) > 3 && mb_stripos($r['q'], $good) !== false) continue;
+    // pas plus de 2 questions du même genre (ex. deux résumés à trous)
+    $kind = mb_substr($r['q'], 0, 14); if (($kinds[$kind] ?? 0) >= 2) continue;
+    $kinds[$kind] = ($kinds[$kind] ?? 0) + 1; $seen[$r['q']] = 1; $out[] = $r;
+  }
   return $out;
 }
 

@@ -335,7 +335,7 @@ try {
     case $M === 'GET' && $path === 'search':
       $u = need_user(); throttle('cat|' . $u['id'], 900, 600);
       $r = catalog_search((string) ($_GET['type'] ?? 'f'), mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100),
-        max(1, min(50, (int) ($_GET['page'] ?? 1))), max(1, min(40, (int) ($_GET['limit'] ?? 20))));
+        max(1, min(50, (int) ($_GET['page'] ?? 1))), max(1, min(40, (int) ($_GET['limit'] ?? 20))), ($_GET['songs'] ?? '') === '1');
       header('Cache-Control: private, max-age=600');
       out($r);
 

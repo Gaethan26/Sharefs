@@ -200,6 +200,8 @@ function clean_work($w): ?array {
   if (!empty($w['g']) && is_array($w['g'])) $o['g'] = array_slice(array_values(array_filter(array_map(fn($g) => clean_str($g, 40), $w['g']))), 0, 3);
   if (isset($w['d']) && is_numeric($w['d'])) $o['d'] = (int) $w['d'];
   if (!empty($w['p'])) $o['p'] = clean_str($w['p'], 3);
+  // recommandation d'une chanson : son titre et son identifiant, la carte reste celle de l'album
+  if ($t === 'm' && !empty($w['so']) && !empty($w['sid']) && ctype_digit((string) $w['sid'])) { $o['so'] = clean_str($w['so'], 200); $o['sid'] = (string) $w['sid']; }
   return $o;
 }
 function clean_map($m, bool $timestamps): object {
@@ -222,7 +224,9 @@ function clean_data(object $d): object {
   }
   return (object) ['done' => clean_map($d->done ?? [], true), 'want' => clean_map($d->want ?? [], true),
     'rate' => clean_map($d->rate ?? [], false), 'works' => (object) $works,
-    'eggs' => clean_map($d->eggs ?? [], true)];
+    'eggs' => clean_map($d->eggs ?? [], true), 'missions' => clean_map($d->missions ?? [], true),
+    'shop' => clean_map($d->shop ?? [], true), 'equip' => clean_map($d->equip ?? [], true),
+    'tracks' => clean_map($d->tracks ?? [], true)];
 }
 
 /* ---------- Œuvres fétiches : saisons et jours à l'heure française ---------- */

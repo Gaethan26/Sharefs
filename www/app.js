@@ -21,7 +21,8 @@ const TVAR={f:'film',s:'serie',j:'jeu',b:'soc',l:'livre',m:'mus'};
 const TINK=t=>t==='f'?'#18213A':'#fff';
 const RAR=[null,{n:'Commune',s:'Une bouse frérot'},{n:'Peu commune',s:'Pas ouf'},{n:'Rare',s:'Mouuais..'},{n:'Épique',s:'Belle frappe\u00a0!'},{n:'Légendaire',s:'Messi prime'}];
 const RN=[1,2,3,4,5];
-const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Zidane']];
+const RANKS=[[0,'Page blanche'],[1,'C’est le petit Robert'],[10,'Mike Horn d’intérieur'],[25,'Pilier de vidéoclub'],[50,'Encyclopédie sur pattes'],[100,'Zidane'],[150,'Ballon d’Or'],[200,'Panenka'],[300,'Légende vivante'],[500,'GOAT']];
+const stars=n=>n>=600?' '+'★'.repeat(Math.min(10,Math.floor((n-500)/100))):'';
 const ICON={
   f:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 10h18v10H3z"/><path d="M2.6 5.3 19.8 2.6l.6 3.9L3.2 9.2z"/></svg>',
   s:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 2.5 12 6.5l4-4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
@@ -64,9 +65,10 @@ let mine={done:{},want:{},works:{},rate:{},eggs:{}};
 let recs=[];
 let names={};
 const WK={};
-function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate','eggs'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
+function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate','eggs','missions','shop','equip','tracks'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
 function reg(w){
   if(!w||!w.id)return w;
+  if(w.so||w.sid&&!w.alb){w={...w};delete w.so;delete w.sid}
   const o=WK[w.id];if(!o){WK[w.id]={...w};return WK[w.id]}
   for(const [k,v] of Object.entries(w))if(v!==''&&v!=null&&!(Array.isArray(v)&&!v.length))o[k]=v;
   return o;
@@ -109,7 +111,52 @@ const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke=
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
 const rarityTag=r=>`<span class="rtag r${r}">${GEM(r,12)}${RAR[r].n}</span>`;
-const metaLine=w=>[T[w.t]?.n,w.y,w.c].filter(Boolean).map(esc).join(', ');
+const metaLine=w=>w.alb?['Titre',w.at&&'sur '+w.at,w.c].filter(Boolean).map(esc).join(', '):[T[w.t]?.n,w.y,w.c].filter(Boolean).map(esc).join(', ');
+/* ---------- Musique : seuls les albums donnent une carte, les titres font avancer l'album ---------- */
+const trkKey=(alb,sid)=>alb+':'+sid;
+const trkOn=(alb,sid,who=uid)=>isDone(alb,who)||!!dataOf(who).tracks?.[trkKey(alb,sid)];
+const trkCount=(w,who=uid)=>(w.tl||[]).filter(([sid])=>trkOn(w.id,sid,who)).length;
+const trkPart=(id,who=uid)=>Object.keys(dataOf(who).tracks||{}).filter(k=>k.startsWith(id+':')).length;
+const fmtDur=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+let SONG=null,recSong=true;
+const songTgl=(alb,sid)=>{const on=trkOn(alb,sid),dis=isDone(alb);
+  return `<button class="tgl tgs${on?' on':''}" role="switch" aria-checked="${on}" aria-label="Titre écouté" data-qtrk="${esc(alb)}|${esc(sid)}"${dis?' disabled title="Album déjà écouté en entier"':''}><span class="tgs-trk" aria-hidden="true"><span class="tgs-ok">✓</span><span class="tgs-knob">🎵</span></span><span class="tgs-l">Titre écouté</span></button>`};
+function tracksHTML(w){
+  const tl=w.tl||[];if(w.t!=='m'||!tl.length)return '';
+  const done=isDone(w.id),n=trkCount(w),N=tl.length,pct=done?100:Math.round(n/N*100);
+  return `<div class="trk${done?' full':''}">
+    <div class="trk-h"><b>${done?'Album écouté en entier':`${n} / ${N} titres écoutés`}</b><span class="trk-bar" aria-hidden="true"><i style="width:${pct}%"></i></span></div>
+    ${done?'':'<p class="trk-tip">Coche les titres écoutés : la carte de l’album se débloque quand ils y sont tous.</p>'}
+    <ol class="trk-l" id="trkL">${tl.map(([sid,ti,du],i)=>{const on=trkOn(w.id,sid);
+      return `<li${SONG&&SONG.alb===w.id&&SONG.sid===sid?' class="hl"':''}><button class="trk-b${on?' on':''}" data-trk="${esc(sid)}" aria-pressed="${on}"${done?' disabled':''}><span class="trk-n">${i+1}</span><span class="trk-t">${esc(ti)}</span><span class="trk-d">${du?fmtDur(du):''}</span><span class="trk-c" aria-hidden="true">✓</span></button></li>`}).join('')}</ol>
+    ${done?'':`<button class="btn trk-all" data-albfull>🎧 J’ai écouté l’album en entier</button>`}</div>`;
+}
+async function toggleTrack(alb,sid){
+  if(isDone(alb))return;
+  const k=trkKey(alb,sid);if(mine.tracks[k])delete mine.tracks[k];else mine.tracks[k]=Date.now();
+  let w=WK[alb];keepWork(alb);save();
+  if(w&&!w.tl){try{const x=await api('work',{id:alb});w=reg({...x,id:alb,full:true})}catch(_){}}
+  if(mine.tracks[k]&&w&&(w.tl||[]).length&&trkCount(w)===w.tl.length){
+    toast('Album complet ! Choisis ta carte');
+    if(sheetId===alb)toggleDone(alb);else{closeSheet();setTimeout(()=>openSheet(alb,true,{pick:true}),200)}return}
+  if(mine.tracks[k]&&w?.tl)toast(`${trkCount(w)} / ${w.tl.length} titres de ${short(w.ti)}`);
+  renderAll();
+}
+// anciennes cartes musique : un single ou un EP devient l'album qui le contient
+async function migrateSingles(){
+  const chk=new Set(lsGet('sharefs-mchk',[]));let n=0,changed=0;
+  for(const [id,w] of Object.entries(mine.works)){
+    if(w.t!=='m'||!/^dz-\d+$/.test(id)||chk.has(id))continue;if(n++>=8)break;
+    try{const x=await api('work',{id});reg({...x,id,full:true});chk.add(id);
+      if(x.parent&&x.parent!==id){const P=await api('work',{id:x.parent});reg({...P,id:x.parent,full:true});
+        if(mine.done[id]!=null){if(mine.done[x.parent]==null){mine.done[x.parent]=mine.done[id];mine.rate[x.parent]=mine.rate[id]||1}else mine.rate[x.parent]=Math.max(mine.rate[x.parent]||1,mine.rate[id]||1)}
+        if(mine.want[id]!=null&&mine.want[x.parent]==null&&mine.done[x.parent]==null)mine.want[x.parent]=mine.want[id];
+        delete mine.done[id];delete mine.rate[id];delete mine.want[id];delete mine.works[id];keepWork(x.parent);changed++}
+    }catch(_){}
+  }
+  lsSet('sharefs-mchk',[...chk].slice(-3000));
+  if(changed){save();renderAll();toast(changed>1?`${changed} singles remplacés par leur album`:'Un single remplacé par son album')}
+}
 const isDone=(id,who=uid)=>!!dataOf(who).done?.[id];
 const isWant=id=>!!mine.want?.[id];
 const rateOf=(id,who=uid)=>isDone(id,who)?(dataOf(who).rate?.[id]||1):0;
@@ -147,7 +194,7 @@ async function runSearch(more=false){
   const ts=more?[...SR.moreT]:typesSel(),lim=typesSel().length>1?10:20;
   // sans recherche : on part d'une page tirée au hasard parmi les plus populaires, et on mélange
   if(!more&&!q)ts.forEach(t=>SR.pages[t]=Math.floor(Math.random()*4));
-  const res=await Promise.all(ts.map(t=>{const p=(SR.pages[t]||0)+1;return api('search',{type:t,q,page:p,limit:lim}).then(r=>({t,p,r})).catch(err=>({t,err}))}));
+  const res=await Promise.all(ts.map(t=>{const p=(SR.pages[t]||0)+1;return api('search',{type:t,q,page:p,limit:lim,songs:t==='m'&&q?1:''}).then(r=>({t,p,r})).catch(err=>({t,err}))}));
   if(seq!==SR.seq)return;
   const lists=[];let errs=0;
   res.forEach(x=>{if(x.err){errs++;SR.moreT.delete(x.t);return}SR.pages[x.t]=x.p;x.r.more?SR.moreT.add(x.t):SR.moreT.delete(x.t);lists.push((x.r.items||[]).map(reg))});
@@ -169,7 +216,7 @@ function renderResults(){
   if(!list.length&&!SR.loading){ul.innerHTML=`<li><div class="empty"><b>Aucune œuvre ne correspond.</b>Retire un filtre, essaie un autre titre ou ajoute-la toi-même.<br><button class="btn pri" data-manual="">Envoyer « ${esc($('#q').value.trim()||'une œuvre')} » à la main</button>${activeCount()?' <button class="btn" data-act="reset">Effacer les filtres</button>':''}</div></li>`;$('#resMore').innerHTML='';return}
   ul.innerHTML=list.map(w=>{
     const n=new Set(recsAbout(w.id).map(r=>r.from_id)).size,b=[];
-    if(isDone(w.id))b.push(rarityTag(rateOf(w.id)));
+    if(isDone(w.id))b.push(rarityTag(rateOf(w.id)));else if(w.t==='m'&&trkPart(w.id))b.push(`<span class="bdg">🎧 ${trkPart(w.id)} titre${trkPart(w.id)>1?'s':''} écouté${trkPart(w.id)>1?'s':''}</span>`);
     if(isWant(w.id))b.push(`<span class="bdg bm" title="Dans ta liste">${BM(true)}</span>`);
     if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec bm">${BM(true)}${esc(who)}</span>`);
     if(n)b.push(`<span class="bdg rec">Conseillé par ${n} ami${n>1?'s':''}</span>`);
@@ -186,7 +233,7 @@ function onQuery(){
   if(q.length<2){acApi=[];acLoading=false;renderAC()}
   else{acLoading=true;renderAC();acT=setTimeout(async()=>{
     const s=++acSeq,ts=typesSel();
-    const res=await Promise.all(ts.map(t=>api('search',{type:t,q,limit:ts.length>1?3:6}).catch(()=>({items:[]}))));
+    const res=await Promise.all(ts.map(t=>api('search',{type:t,q,limit:ts.length>1?(t==='m'?4:3):6,songs:t==='m'?1:''}).catch(()=>({items:[]}))));
     if(s!==acSeq)return;acApi=rr(res.map(r=>(r.items||[]).map(reg))).slice(0,8);acLoading=false;renderAC();
   },220)}
   srT=setTimeout(()=>runSearch(),450);
@@ -348,7 +395,7 @@ function ranking(){
 }
 function rankTable(rk,limit=99){
   if(!rk.length)return `<div class="rk-empty">${TROPHY}<p>Personne n’est encore classé. Remporte un défi ou trouve une œuvre fétiche pour entrer dans la course.</p></div>`;
-  return `<div class="rk"><div class="rk-h"><span>Nom</span><span>1V1</span><span class="rk-c">Collection</span></div>${rk.slice(0,limit).map((x,i)=>`<div class="rk-r${x.id===uid?' me':''}"><span class="rk-n"><i>${i+1}</i>${avatar(x.id)}<b>${esc(nameOf(x.id))}</b></span><span class="rk-p">${x.pts}<small> pt${x.pts>1?'s':''}</small></span><span class="rk-c">${x.coll}</span></div>`).join('')}</div>`;
+  return `<div class="rk"><div class="rk-h"><span>Nom</span><span>1V1</span><span class="rk-c">Collection</span></div>${rk.slice(0,limit).map((x,i)=>`<div class="rk-r${x.id===uid?' me':''}"><span class="rk-n"><i>${i+1}</i>${avatar(x.id)}<b>${esc(nameOf(x.id))}</b>${titleTag(x.id)}</span><span class="rk-p">${x.pts}<small> pt${x.pts>1?'s':''}</small></span><span class="rk-c">${x.coll}</span></div>`).join('')}</div>`;
 }
 const liveForMe=()=>challenges.filter(c=>c.to_id===uid&&chalState(c).st==='live').length;
 function chalCard(c,s){
@@ -567,9 +614,10 @@ function renderFeed(){
     const w=e.w,me=e.who===uid,r=rateOf(w.id,e.who),rr2=e.r,toMe=(rr2.to_ids||[]).includes(uid),nc=comments.filter(c=>c.rec_id===rr2.id).length,open=openCmts.has(rr2.id);
     html+=`<article class="ev t-${w.t}${me?'':' hasbm'}${toMe?' forme':''}">${me?'':`<span class="bmk">${wantBtn(w.id)}</span>`}
       <div class="who">${avatar(e.who)}<span>${recLine(rr2)}<br>${ago(e.ts)}${toMe?' <span class="pt">Pour toi</span>':''}</span>${me?`<button class="del" data-delrec="${esc(rr2.id)}" aria-label="Supprimer cette recommandation">Supprimer</button>`:''}</div>
-      <button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>
+      ${rr2.work.so?`<button class="work" data-open="${esc(w.id)}" data-song="${esc(rr2.work.sid)}" data-so="${esc(rr2.work.so)}">${cover(w)}<span><span class="ti">♪ ${esc(rr2.work.so)}</span><br><span class="meta">Titre, sur ${esc(w.ti)}${w.c?', '+esc(w.c):''}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>`
+      :`<button class="work" data-open="${esc(w.id)}">${cover(w)}<span><span class="ti">${esc(w.ti)}</span><br><span class="meta">${metaLine(w)}</span>${r?`<span class="badges">${rarityTag(r)}</span>`:''}</span></button>`}
       ${rr2.note?`<p class="note">« ${esc(rr2.note)} »</p>`:''}
-      <div class="evf">${me?'':doneTgl(w.id,'data-quickdone')}<button class="cmtb${open?' on':''}" data-cmt="${esc(rr2.id)}" aria-expanded="${open}">${CHAT}${nc?`<span>${nc}</span>`:'<span class="cml">Commenter</span>'}</button></div>
+      <div class="evf">${me?'':rr2.work.so?songTgl(w.id,rr2.work.sid):doneTgl(w.id,'data-quickdone')}<button class="cmtb${open?' on':''}" data-cmt="${esc(rr2.id)}" aria-expanded="${open}">${CHAT}${nc?`<span>${nc}</span>`:'<span class="cml">Commenter</span>'}</button></div>
       ${open?cmtBlock(rr2):''}</article>`;
   }
   el.innerHTML=html+`<div class="ledge end" aria-hidden="true"><span class="deco plant" style="left:16px"><i></i><i></i><i></i><i></i></span><span class="deco stack" style="right:14px"><i></i><i></i><i></i></span></div>`;
@@ -615,14 +663,16 @@ function renderColl(){
   const ids=[uid,...others()].filter(Boolean);
   if(!collWho||!ids.includes(collWho))collWho=uid;
   const isMe=collWho===uid;if(!isMe&&collList==='want')collList='done';
-  $('#whoRow').innerHTML=ids.length>1?ids.map(id=>`<button class="chip" aria-pressed="${id===collWho}" data-who="${id}">${avatar(id)}${esc(id===uid?'Moi':nameOf(id))}</button>`).join(''):'';
+  $('#whoRow').innerHTML=ids.length>1?ids.map(id=>`<button class="chip" aria-pressed="${id===collWho}" data-who="${id}">${avatar(id)}${esc(id===uid?'Moi':nameOf(id))}${id===uid?'':titleTag(id)}</button>`).join(''):'';
   const d=dataOf(collWho);
   const done=Object.keys(d.done).filter(id=>WK[id]);
   const n=done.length,cur=[...RANKS].reverse().find(l=>n>=l[0]),next=RANKS.find(l=>n<l[0]),prev=cur[0];
   const rc=[0,0,0,0,0,0];done.forEach(id=>rc[rateOf(id,collWho)]++);
-  $('#rank').innerHTML=`<div class="medal">${n}</div><div style="flex:1;min-width:0"><div class="rt">${esc(cur[1])}</div>
-    <div class="meta">${n} carte${n>1?'s':''} dans ${isMe?'ta':'sa'} collection${next?`, rang «\u00a0${next[1]}\u00a0» à\u00a0${next[0]}`:''}</div>
-    <div class="bar"><i style="width:${next?((n-prev)/(next[0]-prev))*100:100}%"></i></div>
+  const nx=next||[Math.floor(n/100)*100+100,'une étoile de plus'],prest=n>=100,reward=next?SHOP.find(x=>x.rank===next[0]):null;
+  $('#rank').classList.toggle('prestige',prest);
+  $('#rank').innerHTML=`<div class="medal">${n}</div><div style="flex:1;min-width:0"><div class="rt">${esc(cur[1])}${stars(n)}${prest?' <span class="prest">Prestige</span>':''}</div>
+    <div class="meta">${n} carte${n>1?'s':''} dans ${isMe?'ta':'sa'} collection, ${next?`rang «\u00a0${next[1]}\u00a0» à\u00a0${next[0]}`:`${nx[1]} à\u00a0${nx[0]}`}${isMe?` · +50 ${PEP}`:''}${reward&&isMe?` · débloque « ${esc(reward.name)} »`:''}</div>
+    <div class="bar"><i style="width:${Math.min(100,((n-(next?prev:nx[0]-100))/(nx[0]-(next?prev:nx[0]-100)))*100)}%"></i></div>
     <div class="rarities">${RN.map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
   $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
@@ -788,6 +838,7 @@ function swipeAct(kind){
   if(kind==='yes'){
     const c=topCard();if(c){c.style.transition='transform .45s cubic-bezier(.3,1.3,.5,1)';c.style.transform='';c.style.setProperty('--yes',1);c.style.setProperty('--no',0);c.style.setProperty('--later',0);c.classList.add('seen')}
     PLAY.rating=true;syncInfo();return}
+  countSwipe();
   if(kind==='no'){skipWork(w.id);flyOut(-innerWidth*.9,60,-28);setTimeout(advance,RM?0:180);return}
   if(kind==='later'){if(!mine.want[w.id]){mine.want[w.id]=Date.now();mine.works[w.id]=snap(w);save()}skipWork(w.id);
     flyOut(0,-innerHeight*.8,0);toast('Gardé pour plus tard 🔖');setTimeout(advance,RM?0:180)}
@@ -825,6 +876,7 @@ function unlockFive(){
   const ids=Object.keys(PLAY.checks).filter(id=>PLAY.rates[id]);if(!ids.length)return;
   ids.forEach(id=>{const w=WK[id];mine.works[id]=snap(w);mine.rate[id]=PLAY.rates[id];if(!mine.done[id])mine.done[id]=Date.now();delete mine.want[id]});
   save();renderAll();PLAY.five.forEach(w=>{if(!PLAY.checks[w.id])skipWork(w.id)});
+  countSwipe(PLAY.five.length);
   revealStay=true;revealQ=ids.slice(1);reveal(ids[0]);nextFive();
 }
 function setPlayType(t){
@@ -940,8 +992,8 @@ function mtWait(text){return `<div class="mt-wait"><div class="mt-dots" aria-hid
 function mtHead(v){
   const op=mtOpId(v),s=mtSc(v),n=esc(nameOf(op)),live=v.phase!=='done';
   const step=!live?'Fin du match':v.phase==='tiebreak'?`Manche décisive · ${v.tb?.[v.me]||0}–${v.tb?.[mtOpS(v)]||0} (premier à 2)`:v.turn?`Tour ${v.turn} sur 2`:'Qui commence ?';
-  return `<div class="mt-score"><div class="mt-p${live&&v.myTurn?' act':''}">${avatar(uid)}<b>Toi</b><span class="mt-s">${s.me}</span></div><span class="mt-vs">VS</span>
-    <div class="mt-p${live&&!v.myTurn?' act':''}">${avatar(op)}<b>${n}</b><span class="mt-s">${s.op}</span></div></div><div class="mt-step">${step}</div>`;
+  return `<div class="mt-score"><div class="mt-p${live&&v.myTurn?' act':''}">${avatar(uid)}<b>Toi</b>${titleTag(uid)}<span class="mt-s">${s.me}</span></div><span class="mt-vs">VS</span>
+    <div class="mt-p${live&&!v.myTurn?' act':''}">${avatar(op)}<b>${n}</b>${titleTag(op)}<span class="mt-s">${s.op}</span></div></div><div class="mt-step">${step}</div>`;
 }
 function renderMatch(prev){
   const v=MT,body=$('#fsBody');if(!v||!body||$('#fs').dataset.kind!=='match')return;
@@ -1128,35 +1180,228 @@ const GRIM_SVG=`<svg class="gsvg" viewBox="0 0 140 104" width="112" height="83" 
 function grimClosedHTML(n){
   return `<button class="gclosed" data-grim aria-label="Ouvrir mon grimoire (${n} carte${n>1?'s':''})">${GRIM_SVG}<span class="gcl-t">Mon grimoire</span><span class="gcl-go" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>`;
 }
-const G={type:'f',page:0,auto:false};
+/* ---------- Carotte : pépites, missions du jour, boutique, prestige ----------
+   Les pépites gagnées se calculent à partir de l'activité (rien à tricher côté stockage) ;
+   les missions réclamées, les achats et les objets équipés sont rangés dans les données de l'utilisateur. */
+const PEP='✨';
+const dayKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const isToday=ts=>ts&&dayKey(new Date(ts))===dayKey();
+const GAIN={work:5,rec:10,recDone:15,comment:3,chal:20,fetish:30,match:10,matchWin:25};
+function earnedBreakdown(){
+  if(!uid)return {total:0,rows:[]};
+  const works=Object.keys(mine.done).length;
+  const myRecs=recs.filter(r=>r.from_id===uid);
+  let recDone=0;
+  for(const r of myRecs){const to=(r.to_ids&&r.to_ids.length?r.to_ids:others()),since=Date.parse(r.created_at)-120000,id=r.work?.id;
+    for(const f of to){const t=r.work?.sid?(dataOf(f).tracks?.[trkKey(id,r.work.sid)]||dataOf(f).done?.[id]):dataOf(f).done?.[id];if(t&&t>=since)recDone++}}
+  const coms=comments.filter(c=>c.from_id===uid).length;
+  const chal=challenges.filter(c=>c.to_id===uid&&chalState(c).st==='won').length;
+  const fet=(FET?.counts||{})[uid]||0;
+  const mDone=MATCHES.filter(m=>m.status!=='live'),mWin=mDone.filter(m=>m.winner===m.me).length;
+  const rankIx=RANKS.filter(l=>works>=l[0]).length-1;
+  const missions=Object.values(mine.missions||{}).reduce((a,b)=>a+(+b||0),0);
+  const rows=[['Œuvres dans ta collection',works*GAIN.work],['Recommandations envoyées',myRecs.length*GAIN.rec],['Recos finies par tes amis',recDone*GAIN.recDone],
+    ['Commentaires',coms*GAIN.comment],['Défis relevés',chal*GAIN.chal],['Œuvres fétiches trouvées',fet*GAIN.fetish],['Matchs joués',mDone.length*GAIN.match],['Matchs gagnés',mWin*GAIN.matchWin],
+    ['Rangs atteints',Math.max(0,rankIx)*50],['Missions du jour',missions]];
+  return {total:rows.reduce((a,r)=>a+r[1],0),rows};
+}
+const SHOP=[
+  {id:'title.cine',slot:'title',name:'Cinéphile',price:120,desc:'Titre affiché à côté de ton nom'},
+  {id:'title.biblio',slot:'title',name:'Rat de bibliothèque',price:120,desc:'Titre affiché à côté de ton nom'},
+  {id:'title.gamer',slot:'title',name:'Manette d’or',price:120,desc:'Titre affiché à côté de ton nom'},
+  {id:'title.melo',slot:'title',name:'Mélomane',price:120,desc:'Titre affiché à côté de ton nom'},
+  {id:'title.critique',slot:'title',name:'Critique impitoyable',price:200,desc:'Titre affiché à côté de ton nom'},
+  {id:'title.frappe',slot:'title',name:'C’est d’la frappe',price:300,desc:'Titre affiché à côté de ton nom'},
+  {id:'frame.wood',slot:'frame',name:'Cadre bois',price:150,desc:'Toutes tes cartes prennent ce cadre'},
+  {id:'frame.ice',slot:'frame',name:'Cadre givre',price:220,desc:'Toutes tes cartes prennent ce cadre'},
+  {id:'frame.neon',slot:'frame',name:'Cadre néon',price:280,desc:'Toutes tes cartes prennent ce cadre'},
+  {id:'frame.gold',slot:'frame',name:'Cadre or',price:400,desc:'Toutes tes cartes prennent ce cadre'},
+  {id:'frame.rainbow',slot:'frame',name:'Cadre arc-en-ciel',price:600,desc:'Toutes tes cartes prennent ce cadre'},
+  {id:'back.stripes',slot:'back',name:'Dos rayé',price:100,desc:'Le dos de tes cartes à la révélation'},
+  {id:'back.stars',slot:'back',name:'Dos étoilé',price:160,desc:'Le dos de tes cartes à la révélation'},
+  {id:'back.cosmic',slot:'back',name:'Dos cosmique',price:260,desc:'Le dos de tes cartes à la révélation'},
+  {id:'cover.red',slot:'cover',name:'Grimoire cuir rouge',price:200,desc:'Couverture de ton grimoire'},
+  {id:'cover.emerald',slot:'cover',name:'Grimoire émeraude',price:200,desc:'Couverture de ton grimoire'},
+  {id:'cover.night',slot:'cover',name:'Grimoire nuit étoilée',price:350,desc:'Couverture de ton grimoire'},
+  // récompenses de prestige : gratuites, réservées aux rangs au-delà de Zidane
+  {id:'frame.ballon',slot:'frame',name:'Cadre Ballon d’Or',price:0,rank:150,desc:'Réservé au rang Ballon d’Or'},
+  {id:'title.panenka',slot:'title',name:'Maître de la Panenka',price:0,rank:200,desc:'Réservé au rang Panenka'},
+  {id:'cover.legend',slot:'cover',name:'Grimoire Légende',price:0,rank:300,desc:'Réservé au rang Légende vivante'},
+  {id:'title.goat',slot:'title',name:'GOAT',price:0,rank:500,desc:'Réservé au rang GOAT'},
+];
+const SLOTN={title:'Titres',frame:'Cadres de cartes',back:'Dos de cartes',cover:'Couvertures de grimoire'};
+const owned=id=>!!(mine.shop||{})[id];
+const spent=()=>Object.keys(mine.shop||{}).reduce((a,id)=>a+(SHOP.find(x=>x.id===id)?.price||0),0);
+const balance=()=>earnedBreakdown().total-spent();
+const equipped=(slot,d=mine)=>{const k=Object.keys(d.equip||{}).find(k=>k.startsWith(slot+'.'));return k||''};
+function titleOf(id){const k=equipped('title',dataOf(id));const it=SHOP.find(x=>x.id===k);return it?it.name:''}
+const titleTag=id=>{const t=titleOf(id);return t?`<span class="ptitle">${esc(t)}</span>`:''};
+function applySkin(){
+  const b=document.body;[...b.classList].filter(c=>/^(frame|back|cover)-/.test(c)).forEach(c=>b.classList.remove(c));
+  for(const s of ['frame','back','cover']){const k=equipped(s);if(k)b.classList.add(k.replace('.','-'))}
+}
+// ---- missions du jour : 3 tirées chaque jour, plus un coffre quand les 3 sont réclamées
+const swipesToday=()=>lsGet('sharefs-sw-'+dayKey(),0);
+function countSwipe(n=1){lsSet('sharefs-sw-'+dayKey(),swipesToday()+n)}
+const MISSIONS=[
+  {id:'add3',txt:'Ajoute 3 œuvres à ta collection',goal:3,pep:25,prog:()=>Object.values(mine.done).filter(isToday).length},
+  {id:'rec1',txt:'Recommande une œuvre à un ami',goal:1,pep:30,prog:()=>recs.filter(r=>r.from_id===uid&&isToday(Date.parse(r.created_at))).length},
+  {id:'com2',txt:'Commente 2 publications',goal:2,pep:15,prog:()=>comments.filter(c=>c.from_id===uid&&isToday(Date.parse(c.created_at))).length},
+  {id:'swipe15',txt:'Trie 15 œuvres dans « Vu ou pas vu ? »',goal:15,pep:20,prog:swipesToday},
+  {id:'want2',txt:'Garde 2 œuvres pour plus tard',goal:2,pep:10,prog:()=>Object.values(mine.want).filter(isToday).length},
+  {id:'leg1',txt:'Décerne une carte légendaire',goal:1,pep:15,prog:()=>Object.entries(mine.done).filter(([id,t])=>isToday(t)&&mine.rate[id]===5).length},
+  {id:'type2',txt:'Ajoute 2 types d’œuvres différents',goal:2,pep:20,prog:()=>new Set(Object.entries(mine.done).filter(([,t])=>isToday(t)).map(([id])=>WK[id]?.t)).size},
+  {id:'match1',txt:'Termine un match « Genre tu l’as vu !? »',goal:1,pep:30,prog:()=>MATCHES.filter(m=>m.status!=='live'&&isToday(Date.parse(m.updated))).length},
+  {id:'fet1',txt:'Tente de deviner une œuvre fétiche',goal:1,pep:15,prog:()=>(FET?.others||[]).filter(o=>o.guessedToday).length},
+];
+function todayMissions(){
+  let h=0;for(const c of dayKey()+uid)h=(h*31+c.charCodeAt(0))|0;
+  const pool=[...MISSIONS],out=[];
+  for(let i=0;i<3;i++){h=(h*1103515245+12345)|0;out.push(pool.splice(Math.abs(h)%pool.length,1)[0])}
+  return out;
+}
+const claimKey=i=>`${dayKey()}:${i}`;
+const CHEST=30;
+function missionsHTML(){
+  const ms=todayMissions(),done=ms.filter((m,i)=>(mine.missions||{})[claimKey(i)]!=null).length;
+  const chestClaimed=(mine.missions||{})[claimKey('c')]!=null;
+  return `<div class="ms">${ms.map((m,i)=>{const p=Math.min(m.goal,m.prog()),ok=p>=m.goal,claimed=(mine.missions||{})[claimKey(i)]!=null;
+      return `<div class="ms-r${claimed?' got':ok?' ready':''}"><span class="ms-t"><b>${esc(m.txt)}</b><span class="ms-bar"><i style="width:${p/m.goal*100}%"></i></span><small>${p}/${m.goal}</small></span>
+        ${claimed?`<span class="ms-ok">✓</span>`:`<button class="ms-c" data-claim="${i}" ${ok?'':'disabled'}>+${m.pep} ${PEP}</button>`}</div>`}).join('')}
+    <div class="ms-r chest${chestClaimed?' got':done===3?' ready':''}"><span class="ms-t"><b>🎁 Coffre du jour</b><small>Réclame les 3 missions pour l’ouvrir</small></span>
+      ${chestClaimed?'<span class="ms-ok">✓</span>':`<button class="ms-c" data-claim="c" ${done===3?'':'disabled'}>+${CHEST} ${PEP}</button>`}</div></div>`;
+}
+function claimMission(i){
+  mine.missions=mine.missions||{};const k=claimKey(i);if(mine.missions[k]!=null)return;
+  let pep=CHEST;
+  if(i!=='c'){const m=todayMissions()[+i];if(!m||m.prog()<m.goal)return;pep=m.pep}
+  mine.missions[k]=pep;
+  // on ne garde que les 30 derniers jours de missions
+  const lim=Date.now()-30*DAY;for(const kk of Object.keys(mine.missions)){const d=Date.parse(kk.slice(0,10));if(d&&d<lim)delete mine.missions[kk]}
+  save();pepPop(pep);renderPep();
+}
+// ---- affichage : compteur en en-tête, panneau dans la collection, boutique plein écran
+let pepLast=null;
+function pepPop(n){if(n<=0)return;const el=document.createElement('div');el.className='pep-pop';el.textContent=`+${n} ${PEP}`;document.body.appendChild(el);setTimeout(()=>el.remove(),1600)}
+function renderPep(){
+  if(!uid)return;const b=balance();
+  const h=$('#pepBtn');if(h){h.hidden=false;h.querySelector('b').textContent=b;
+    const ready=todayMissions().some((m,i)=>(mine.missions||{})[claimKey(i)]==null&&m.prog()>=m.goal);h.classList.toggle('ready',ready)}
+  if(pepLast!=null&&b>pepLast)pepPop(b-pepLast);pepLast=b;
+  const z=$('#pepZone');if(z&&collWho===uid){z.hidden=false;z.innerHTML=`<div class="pz-h"><span class="pz-b">${PEP}</span><div style="flex:1"><div class="rt">${b} pépites</div><div class="meta">Gagne des pépites en jouant, dépense-les à la boutique.</div></div><button class="btn pri pz-shop" data-shop>Boutique</button></div>
+    <div class="ms-h">Missions du jour</div>${missionsHTML()}`}else if(z)z.hidden=true;
+  if($('#fs').dataset.kind==='shop'&&$('#fs').classList.contains('open'))$('#fsBody').innerHTML=shopHTML();
+  applySkin();
+}
+function shopHTML(){
+  const b=balance(),n=Object.keys(mine.done).length,br=earnedBreakdown();
+  return `<div class="shop"><div class="sh-bal"><span>${PEP}</span><b>${b}</b><small>pépites</small></div><h3 class="sh-h">Missions du jour</h3>${missionsHTML()}
+    ${Object.entries(SLOTN).map(([slot,label])=>`<h3 class="sh-h">${label}</h3><div class="sh-g">${SHOP.filter(x=>x.slot===slot).map(it=>{
+      const has=owned(it.id),eq=equipped(slot)===it.id,locked=it.rank&&n<it.rank;
+      return `<div class="sh-i ${slot} ${it.id.replace('.','-')}${eq?' on':''}${locked?' locked':''}"><span class="sh-prev" aria-hidden="true">${slot==='title'?`<span class="ptitle">${esc(it.name)}</span>`:''}</span>
+        <b>${esc(it.name)}</b><small>${esc(it.desc)}</small>
+        ${locked?`<span class="sh-lock">🔒 ${it.rank} cartes</span>`:has?`<button class="btn" data-equip="${it.id}">${eq?'Retirer':'Équiper'}</button>`
+          :`<button class="btn pri" data-buy="${it.id}" ${b>=it.price?'':'disabled'}>${it.price?`${it.price} ${PEP}`:'Gratuit'}</button>`}</div>`}).join('')}</div>`).join('')}
+    <details class="sh-how"><summary>Comment gagner des pépites ?</summary><ul>
+      <li>${GAIN.work} ${PEP} par œuvre ajoutée à ta collection</li><li>${GAIN.rec} ${PEP} par recommandation, ${GAIN.recDone} ${PEP} quand un ami la finit</li>
+      <li>${GAIN.comment} ${PEP} par commentaire, ${GAIN.chal} ${PEP} par défi relevé, ${GAIN.fetish} ${PEP} par œuvre fétiche trouvée</li>
+      <li>${GAIN.match} ${PEP} par match joué, +${GAIN.matchWin} ${PEP} en cas de victoire</li><li>50 ${PEP} à chaque nouveau rang, et les missions du jour</li></ul>
+      <div class="sh-br">${br.rows.filter(r=>r[1]).map(r=>`<span>${esc(r[0])}</span><b>+${r[1]}</b>`).join('')}<span>Dépensées</span><b>-${spent()}</b></div></details></div>`;
+}
+function buyItem(id){
+  const it=SHOP.find(x=>x.id===id);if(!it||owned(id))return;
+  if(it.rank&&Object.keys(mine.done).length<it.rank)return;
+  if(balance()<it.price){toast('Pas assez de pépites');return}
+  mine.shop=mine.shop||{};mine.shop[id]=Date.now();equipItem(id,true);toast(`${it.name} débloqué !`);confetti();
+}
+function equipItem(id,force){
+  const it=SHOP.find(x=>x.id===id);if(!it||!owned(id))return;
+  mine.equip=mine.equip||{};const cur=equipped(it.slot);
+  if(cur)delete mine.equip[cur];
+  if(force||cur!==id)mine.equip[id]=1;
+  save();renderPep();renderAll();
+}
+
+/* ---------- Grimoire : un vrai livre continu (sommaire, puis une section par type), marque-pages, filtres et curseur ---------- */
+const G={page:0,rar:0,sort:'rar',book:[]};
 const GTAB={f:'Films',s:'Séries',j:'Vidéo',b:'Société',l:'Livres',m:'Musique'};
 const gPer=()=>innerWidth>=700?8:9;
-const gList=()=>COLL.items.filter(x=>x.w.t===G.type);
-const gPages=()=>Math.max(1,Math.ceil(gList().length/gPer()));
+const gPages=()=>G.book.length||1;
+function gBuild(){
+  let items=COLL.items.filter(x=>!G.rar||x.r===G.rar);
+  items=[...items].sort(G.sort==='rar'?(a,b)=>b.r-a.r||b.ts-a.ts:(a,b)=>b.ts-a.ts);
+  const pp=gPer(),book=[{k:'toc'}];
+  for(const t of TYPE_ORDER){const list=items.filter(x=>x.w.t===t),n=Math.max(1,Math.ceil(list.length/pp));
+    for(let i=0;i<n;i++)book.push({k:'t',t,i,n,list:list.slice(i*pp,i*pp+pp),total:list.length})}
+  G.book=book;G.page=Math.min(G.page,book.length-1);
+}
+const gStart=t=>G.book.findIndex(p=>p.k==='t'&&p.t===t);
+const gTypeAt=p=>G.book[p]?.t||'';
 const G_CORNER='<svg viewBox="0 0 44 44" width="40" height="40" aria-hidden="true"><path d="M3 41V3h38" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 41V8h33" fill="none" stroke="currentColor" stroke-width=".8" opacity=".55"/><path d="M8 8l16 0A16 16 0 0 1 8 24z" fill="currentColor" opacity=".18"/><path d="M8 8L22.8 13.9M8 8L19.3 19.3M8 8L13.9 22.8" stroke="currentColor" stroke-width="1"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/></svg>';
 const G_FLEURON='<svg viewBox="0 0 160 14" width="160" height="14" aria-hidden="true"><path d="M4 7h52M104 7h52" stroke="currentColor" stroke-width="1"/><path d="M4 10h40M116 10h40" stroke="currentColor" stroke-width=".6" opacity=".6"/><circle cx="64" cy="7" r="2" fill="currentColor"/><circle cx="96" cy="7" r="2" fill="currentColor"/><path d="M70 7a10 10 0 0 1 20 0z" fill="currentColor" opacity=".25"/><path d="M80 7V-1M80 7l-6-6M80 7l6-6M80 7l-9-2M80 7l9-2" stroke="currentColor" stroke-width="1"/><path d="M68 7h24" stroke="currentColor" stroke-width="1.4"/></svg>';
+const gCorners=()=>['tl','tr','bl','br'].map(c=>`<span class="gp-corner ${c}">${G_CORNER}</span>`).join('');
+function gTocHTML(){
+  const all=COLL.items,who=collWho||uid,leg=all.filter(x=>x.r===5).length;
+  const rows=TYPE_ORDER.map(t=>{const its=all.filter(x=>x.w.t===t),rc=[0,0,0,0,0,0];its.forEach(x=>rc[x.r||0]++);const n=its.length;
+    return `<button class="gtoc-r" data-ggo="${gStart(t)}" style="--tc:var(--${TVAR[t]})"><span class="gh-ic">${ICON[t]}</span><span class="gtoc-n"><b>${T[t].p}</b>
+      <span class="gtoc-bar">${n?RN.map(r=>rc[r]?`<i class="r${r}" style="flex:${rc[r]}"></i>`:'').join(''):'<i class="none"></i>'}</span></span>
+      <span class="gtoc-c">${n}</span><span class="gtoc-p">p. ${gStart(t)+1}</span></button>`}).join('');
+  return `${gCorners()}<div class="gp-run"><span>Grimoire</span><span>Sommaire</span></div>
+    <div class="gtoc-h"><span class="gtoc-k">Le grimoire de</span><span class="gtoc-w">${esc(who===uid?(myName||'moi'):nameOf(who))}</span>
+      <span class="gtoc-s">${all.length} carte${all.length>1?'s':''}${leg?` · ${leg} légendaire${leg>1?'s':''}`:''}</span></div>
+    <div class="gorn">${G_FLEURON}</div><div class="gtoc">${rows}</div>
+    <p class="gtoc-hint">Touche une section pour y aller, ou tourne les pages.</p>`;
+}
 function gPageHTML(p=G.page){
-  const list=gList(),pp=gPer(),slice=list.slice(p*pp,p*pp+pp),n=gPages(),t=G.type;
-  return `${['tl','tr','bl','br'].map(c=>`<span class="gp-corner ${c}">${G_CORNER}</span>`).join('')}
-    <span class="gp-water" aria-hidden="true">${ICON[t]}</span>
-    <div class="gp-run"><span>Grimoire</span><span>N° ${String(p+1).padStart(2,'0')}</span></div>
-    <div class="ghead"><span class="gh-ic">${ICON[t]}</span><span class="gh-t">${T[t].p}</span><small>${list.length} carte${list.length>1?'s':''}</small></div>
+  const pg=G.book[p];if(!pg)return '';
+  if(pg.k==='toc')return gTocHTML();
+  const {t,i,n,list,total}=pg,pp=gPer();
+  return `${gCorners()}<span class="gp-water" aria-hidden="true">${ICON[t]}</span>
+    <div class="gp-run"><span>${T[t].p}</span><span>N° ${String(p+1).padStart(2,'0')}</span></div>
+    <div class="ghead"><span class="gh-ic" style="--tc:var(--${TVAR[t]});--tci:${TINK(t)}">${ICON[t]}</span><span class="gh-t">${T[t].p}</span><small>${n>1?`page ${i+1} / ${n} · `:''}${total} carte${total>1?'s':''}</small></div>
     <div class="gorn">${G_FLEURON}</div>
-    ${list.length?`<div class="gcards">${slice.map(({w,r})=>`<button class="gslotf" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}"><span class="pc tl"></span><span class="pc tr"></span><span class="pc bl"></span><span class="pc br"></span>${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"><span>?</span></span>'.repeat(Math.max(0,pp-slice.length))}</div>`
-      :`<div class="gempty"><div class="cardback"></div><p>Aucune carte ici… pour l’instant.</p></div>`}
-    <div class="gfoot"><button data-gturn="-1" aria-label="Page précédente" ${p<=0?'disabled':''}>‹</button><span class="gnum">${p+1}<small> / ${n}</small></span><button data-gturn="1" aria-label="Page suivante" ${p>=n-1?'disabled':''}>›</button></div>`;
+    ${total?`<div class="gcards">${list.map(({w,r},k)=>`<button class="gslotf" style="--k:${k}" data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}"><span class="pc tl"></span><span class="pc tr"></span><span class="pc bl"></span><span class="pc br"></span>${card(w,r)}<div class="gt">${esc(w.ti)}</div></button>`).join('')}${'<span class="gslot" aria-hidden="true"><span>?</span></span>'.repeat(Math.max(0,pp-list.length))}</div>`
+      :`<div class="gempty"><div class="cardback"></div><p>${G.rar?'Aucune carte de cette rareté ici.':'Aucune carte ici… pour l’instant.'}</p>${G.rar?'':'<button class="btn gfill" data-play="swipe">Remplir avec « Vu ou pas vu ? »</button>'}</div>`}`;
 }
 function grimHTML(){
+  gBuild();
   const cnt=t=>COLL.items.filter(x=>x.w.t===t).length;
-  if(G.auto&&!cnt(G.type)){const t=TYPE_ORDER.find(cnt);if(t)G.type=t}G.auto=false;
-  G.page=Math.min(G.page,gPages()-1);
-  return `<div class="grim"><div class="gtabs" role="tablist">${TYPE_ORDER.map(t=>`<button class="gtab t-${t}" role="tab" aria-selected="${G.type===t}" aria-pressed="${G.type===t}" data-gtab="${t}" aria-label="${T[t].p}, ${cnt(t)} carte${cnt(t)>1?'s':''}"><span class="gt-ic">${ICON[t]}</span><span class="gt-l">${GTAB[t]}</span><b>${cnt(t)}</b></button>`).join('')}</div>
-    <div class="gbook" id="gbook" style="--tc:var(--${TVAR[G.type]});--tci:${TINK(G.type)};--edges:${Math.min(8,gPages()-1-G.page)}"><span class="gclasp" aria-hidden="true"></span><span class="gedge" aria-hidden="true"></span>
+  return `<div class="grim">
+    <div class="gbar"><div class="grar">${[0,...RN].map(r=>`<button class="${r?'r'+r:'gf-all'}" aria-pressed="${G.rar===r}" data-grar="${r}" aria-label="${r?RAR[r].n:'Toutes les raretés'}">${r?GEM(r,14):'Toutes'}</button>`).join('')}</div>
+      <button class="gsort" data-gsort aria-label="Changer le tri">${G.sort==='rar'?'★ Rareté':'🕒 Récentes'}</button></div>
+    <div class="gbook" id="gbook"><span class="gclasp" aria-hidden="true"></span><span class="gedge" aria-hidden="true"></span>
+      <div class="gribs" role="tablist" aria-label="Sections">${`<button class="grib toc" data-ggo="0" aria-label="Sommaire">☰</button>`+TYPE_ORDER.map(t=>`<button class="grib" style="--tc:var(--${TVAR[t]});--tci:${TINK(t)}" data-ggo="${gStart(t)}" aria-label="${T[t].p}, ${cnt(t)} cartes" title="${T[t].p}">${ICON[t]}</button>`).join('')}</div>
       <div class="gpage" id="gpage">${gPageHTML()}</div></div>
-    <p class="ghint">Fais glisser la page, ou touche ses bords, pour la tourner.</p></div>`;
+    <div class="gscrub"><button data-gturn="-1" aria-label="Page précédente">‹</button>
+      <input type="range" id="gRange" min="0" max="${gPages()-1}" value="${G.page}" aria-label="Aller à la page">
+      <button data-gturn="1" aria-label="Page suivante">›</button></div>
+    <p class="ghint" id="gInfo"></p></div>`;
 }
+// met à jour le cadre du livre (couleur de section, marque-page actif, curseur) sans redessiner la page
+function gChrome(){
+  const b=$('#gbook');if(!b)return;const t=gTypeAt(G.page);
+  b.style.setProperty('--tc',t?`var(--${TVAR[t]})`:'#B08A3E');b.style.setProperty('--tci',t?TINK(t):'#fff');
+  b.style.setProperty('--edges',Math.min(8,gPages()-1-G.page));
+  document.querySelectorAll('#gbook .grib').forEach(r=>r.classList.toggle('on',(+r.dataset.ggo===0&&G.page===0)||(t&&+r.dataset.ggo===gStart(t))));
+  const rg=$('#gRange');if(rg){rg.max=gPages()-1;rg.value=G.page;rg.style.setProperty('--pct',`${gPages()>1?G.page/(gPages()-1)*100:0}%`)}
+  const pg=G.book[G.page],inf=$('#gInfo');if(inf)inf.textContent=`Page ${G.page+1} / ${gPages()} · ${pg?.k==='toc'?'Sommaire':T[pg?.t]?.p||''}`;
+  document.querySelectorAll('#fsBody [data-gturn]').forEach(x=>x.disabled=+x.dataset.gturn<0?G.page<=0:G.page>=gPages()-1);
+}
+// aller directement à une page : petite animation de feuilletage
+function gGoto(p){
+  p=Math.max(0,Math.min(gPages()-1,p));if(p===G.page)return;
+  const dir=p>G.page?1:-1;
+  if(Math.abs(p-G.page)===1){turnPage(dir);return}
+  const pg=$('#gpage');G.page=p;
+  if(!pg||RM){if(pg)pg.innerHTML=gPageHTML();gChrome();return}
+  pg.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-dir*24}px)`,opacity:0}],{duration:140,easing:'ease-in'}).onfinish=()=>{
+    pg.innerHTML=gPageHTML();gChrome();pg.animate([{transform:`translateX(${dir*24}px)`,opacity:0},{transform:'none',opacity:1}],{duration:200,easing:'ease-out'})};
+}
+function gRefresh(){const keepT=gTypeAt(G.page);gBuild();if(keepT){const s=gStart(keepT);if(s>=0)G.page=s}
+  $('#fsBody').innerHTML=grimHTML();bindGrim();gChrome()}
+document.addEventListener('input',e=>{if(e.target.id==='gRange'){const p=+e.target.value;e.target.style.setProperty('--pct',`${gPages()>1?p/(gPages()-1)*100:0}%`);clearTimeout(gRangeT);gRangeT=setTimeout(()=>gGoto(p),90)}});
+let gRangeT=null;
 // Tourner les pages : la page suit le doigt, puis se pose ou revient
-function gChrome(){const b=$('#gbook');if(b)b.style.setProperty('--edges',Math.min(8,gPages()-1-G.page))}
 function startTurn(dir){
   const book=$('#gbook'),pg=$('#gpage');if(!book||!pg)return null;
   const np=G.page+dir;if(np<0||np>=gPages())return null;
@@ -1182,12 +1427,13 @@ let fsSrc=null,fsKind='';
 const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,r.top)}px ${Math.max(0,innerWidth-r.right)}px ${Math.max(0,innerHeight-r.bottom)}px ${Math.max(0,r.left)}px round 14px)`};
 function openFs(kind,src){
   const fs=$('#fs'),body=$('#fsBody');fsSrc=src;fsKind=kind;
-  $('#fsTitle').textContent={grim:'Mon grimoire',shelf:'Mon étagère',swipe:'Vu ou pas vu ?',five:'5 par 5',match:'Genre tu l’as vu !?'}[kind];
+  $('#fsTitle').textContent={grim:'Mon grimoire',shelf:'Mon étagère',swipe:'Vu ou pas vu ?',five:'5 par 5',match:'Genre tu l’as vu !?',shop:'Pépites et boutique'}[kind];
   fs.dataset.kind=kind;
-  if(kind==='grim'){G.page=0;G.auto=true;body.innerHTML=grimHTML()}
+  if(kind==='grim'){G.page=0;body.innerHTML=grimHTML()}
   else if(kind==='swipe'){body.innerHTML=swipeHTML();PLAY.rating=false;renderSwipe()}
   else if(kind==='five'){PLAY.five=[];body.innerHTML=fiveHTML();nextFive()}
   else if(kind==='match'){body.innerHTML=mtWait('Chargement du match…')}
+  else if(kind==='shop'){body.innerHTML=shopHTML()}
   else body.innerHTML=shelfHTML(COLL.items,Math.min(innerWidth,900)-80,false);
   fs.classList.add('open');fs.dataset.kind=kind;document.body.style.overflow='hidden';
   if(!RM&&src){fs.animate([{clipPath:clipOf(src)},{clipPath:'inset(0 0 0 0 round 0)'}],{duration:480,easing:'cubic-bezier(.3,.8,.2,1)'})}
@@ -1195,7 +1441,7 @@ function openFs(kind,src){
     const book=$('#gbook');if(book){const cv=document.createElement('div');cv.className='gcover';cv.innerHTML='<span class="gbk-t">Grimoire</span><span class="gbk-o"></span>';book.appendChild(cv);
       cv.animate([{transform:'rotateY(0)'},{transform:'rotateY(0)',offset:.35},{transform:'rotateY(-165deg)'}],{duration:1100,easing:'cubic-bezier(.5,0,.2,1)',fill:'forwards'}).onfinish=()=>cv.remove()}
   }
-  if(kind==='grim')bindGrim();
+  if(kind==='grim'){bindGrim();gChrome()}
   setTimeout(()=>$('#fs .fs-x')?.focus({preventScroll:true}),120);
 }
 function closeFs(){
@@ -1206,7 +1452,7 @@ function closeFs(){
 }
 function bindGrim(){
   const b=$('#gbook');if(!b)return;let st=null;
-  b.addEventListener('pointerdown',e=>{if(e.button>0||e.target.closest('.gfoot button'))return;st={x:e.clientX,y:e.clientY,t:null,w:b.clientWidth,pid:e.pointerId,onCard:!!e.target.closest('.gslotf')}});
+  b.addEventListener('pointerdown',e=>{if(e.button>0||e.target.closest('.gribs'))return;st={x:e.clientX,y:e.clientY,t:null,w:b.clientWidth,pid:e.pointerId,onCard:!!e.target.closest('.gslotf')}});
   b.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
     if(!st.t){if(Math.abs(dx)<12||Math.abs(dx)<Math.abs(dy)*1.2)return;st.t=startTurn(dx<0?1:-1);if(!st.t){st=null;return}try{b.setPointerCapture(st.pid)}catch(err){}}
     setTurn(st.t,Math.min(1,Math.max(0,(st.t.dir>0?-dx:dx)/(st.w*.85))))});
@@ -1275,7 +1521,9 @@ $('#box').addEventListener('click',e=>{
 /* ---------- Fiche ---------- */
 let pickDeal=false,sheetId=null,lastFocus=null,recOpen=false,recTo=new Set(),recNote='',pickOpen=false,detailsLoading=null;
 function openSheet(id,refocus=true,opts={}){
-  const w=WK[id];if(!w)return;
+  let w=WK[id];if(!w)return;
+  if(w.alb){const s=w;w=WK[s.alb]||reg({id:s.alb,t:'m',ti:s.at||s.ti,c:s.c,img:s.img});return openSheet(s.alb,refocus,{...opts,song:s.sid,so:s.ti})}
+  if(sheetId!==id||opts.song){SONG=opts.song?{alb:id,sid:String(opts.song),ti:opts.so||''}:null;recSong=true}
   if(String(id).startsWith('man-'))w.full=true;
   if(sheetId!==id){recOpen=false;recTo=new Set();recNote='';pickOpen=!!opts.pick;pickDeal=!!opts.pick;
     if(F.forWho&&others().includes(F.forWho)&&$('#v-search').classList.contains('on')&&!opts.pick){recTo=new Set([F.forWho]);recOpen=true}}
@@ -1287,16 +1535,18 @@ function openSheet(id,refocus=true,opts={}){
   const deal=pickDeal&&!done;pickDeal=false;
   const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${RN.map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pgem">${GEM(n,22)}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
-    <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span><h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
+    <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span>${SONG&&SONG.ti?`<div class="sh-song">♪ ${esc(SONG.ti)}</div>`:''}<h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-    ${w.syn?`<p class="syn">${esc(w.syn)}</p>`:(!w.full?'<p class="meta">Chargement de la fiche…</p>':'')}
+    ${w.syn&&!(w.t==='m'&&(w.tl||[]).length)?`<p class="syn">${esc(w.syn)}</p>`:(!w.full?'<p class="meta">Chargement de la fiche…</p>':'')}
     ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="gal"></button>`).join('')}</div>`:''}
     <div class="sh-acts2">
-      ${doneTgl(id,'data-done')}
+      ${SONG&&w.t==='m'&&!done?songTgl(id,SONG.sid):doneTgl(id,'data-done')}
       <div class="sa-row"><button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button><div class="icogrp">${wantBtn(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
     </div>
     ${pick}
+    ${tracksHTML(w)}
     <div id="recForm" class="recf" ${recOpen?'':'hidden'}>
+      ${SONG&&SONG.ti?`<div class="rh">Recommander</div><div class="wrap recwhat">${chip('♪ '+esc(short(SONG.ti)),recSong,'data-recwhat="1"')}${chip('L’album entier',!recSong,'data-recwhat="0"')}</div>`:''}
       <div class="rh">Recommander à</div>
       ${friends.length?`<div class="rto">
         <button class="pickw" aria-pressed="${!recTo.size}" data-to=""><span class="av all" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.6"/><path d="M3 19c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M15 14.6c2.6-.4 4.8.9 5.6 3.9"/></svg></span><span class="pn">Tout le cercle</span></button>
@@ -1309,7 +1559,8 @@ function openSheet(id,refocus=true,opts={}){
       ${about.map(x=>`<div class="line">${avatar(x.from_id)}<span><b>${esc(nameOf(x.from_id))}</b>${x.note?' : « '+esc(x.note)+' »':' le recommande'}</span></div>`).join('')}
       ${fins.map(k=>`<div class="line">${avatar(k)}<span>${esc(nameOf(k))} : ${gem(rateOf(id,k))} <span class="rname r${rateOf(id,k)}">${RAR[rateOf(id,k)].n}</span></span></div>`).join('')}</div>`:''}`;
   $('#scrim').classList.add('open');$('#sheet').classList.add('open');
-  if(refocus)setTimeout(()=>$('#sheet').querySelector(pickOpen&&!done?'[data-rate]':'button[data-done]')?.focus(),50);
+  if(refocus)setTimeout(()=>$('#sheet').querySelector(pickOpen&&!done?'[data-rate]':'button[data-done],button[data-qtrk]')?.focus(),50);
+  if(refocus&&SONG)setTimeout(()=>{const h=$('#trkL .hl'),l=$('#trkL');if(h&&l)l.scrollTop=h.offsetTop-l.offsetTop-l.clientHeight/2+h.offsetHeight/2},80);
   if(!w.full&&detailsLoading!==id){detailsLoading=id;
     api('work',{id}).then(x=>{reg({...x,id,full:true});if(mine.works[id]){mine.works[id]=snap(WK[id]);save()}})
       .catch(()=>{WK[id].full=true})
@@ -1317,7 +1568,7 @@ function openSheet(id,refocus=true,opts={}){
   }
 }
 function refreshSheet(){if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
-function closeSheet(){if(!sheetId)return;sheetId=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
+function closeSheet(){if(!sheetId)return;sheetId=null;SONG=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
 const MAN={title:'',t:'',note:'',to:new Set(),err:''};
@@ -1444,7 +1695,7 @@ function closeReveal(){
 }
 
 /* ---------- Actions ---------- */
-function keepWork(id){const w=WK[id];if(!w)return;if(isDone(id)||isWant(id))mine.works[id]=snap(w);else delete mine.works[id]}
+function keepWork(id){const w=WK[id];if(!w)return;if(isDone(id)||isWant(id)||trkPart(id))mine.works[id]=snap(w);else delete mine.works[id]}
 function setRate(id,n){
   const was=isDone(id);
   mine.rate[id]=n;
@@ -1461,7 +1712,8 @@ function toggleDone(id){
 function toggleWant(id){if(mine.want[id])delete mine.want[id];else mine.want[id]=Date.now();keepWork(id);save();renderAll()}
 async function share(id,btn){
   const w=WK[id];if(!w)return;btn.disabled=true;
-  try{const rec=await call('POST','recs',{to_ids:[...recTo],work:snap(w),note:recNote.trim().slice(0,280)});
+  const song=SONG&&SONG.alb===id&&recSong&&SONG.ti?{so:SONG.ti,sid:SONG.sid}:{};
+  try{const rec=await call('POST','recs',{to_ids:[...recTo],work:{...snap(w),...song},note:recNote.trim().slice(0,280)});
     recs.unshift(rec);toast(recTo.size?'Recommandation envoyée':'Recommandation publiée');recOpen=false;closeSheet();renderAll()}
   catch(e){toast(msg(e));btn.disabled=false}
 }
@@ -1473,7 +1725,7 @@ let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on
 
 function renderAll(){
   if(uid)members[uid]={name:myName,data:mine};
-  renderFeed();renderSearch();renderColl();renderChal();renderSide();
+  renderFeed();renderSearch();renderColl();renderChal();renderSide();renderPep();
   if(sheetId&&$('#sheet').classList.contains('open'))refreshSheet();
 }
 let searchStarted=false;
@@ -1518,9 +1770,15 @@ document.addEventListener('click',e=>{
   if('fsshelf' in d){if(e.target.closest('.sp'))return;openFs('shelf',b.closest('.case')||b);return}
   if('fsclose' in d){closeFs();return}
   if(d.gturn){turnPage(+d.gturn);return}
-  if(d.gtab){G.type=d.gtab;G.page=0;$('#fsBody').innerHTML=grimHTML();bindGrim();return}
+  if(d.ggo!==undefined){gGoto(+d.ggo);return}
+  if(d.grar!==undefined){G.rar=+d.grar;gRefresh();return}
+  if('gsort' in d){G.sort=G.sort==='rar'?'date':'rar';gRefresh();return}
   if(matchClick(d,b))return;
   if(d.play){openPlay(d.play,b);return}
+  if('shop' in d){openFs('shop',b);return}
+  if(d.claim!==undefined){claimMission(d.claim);return}
+  if(d.buy){buyItem(d.buy);return}
+  if(d.equip){equipItem(d.equip);return}
   if(d.ptype!==undefined){setPlayType(d.ptype);return}
   if(d.swipe){swipeAct(d.swipe);return}
   if(d.swrate){swipeRate(+d.swrate);return}
@@ -1541,7 +1799,11 @@ document.addEventListener('click',e=>{
   if(d.mtype){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;MAN.t=d.mtype;MAN.err='';renderManual();return}
   if(d.mto!==undefined){MAN.title=$('#mTitle').value;MAN.note=$('#mNote').value;if(!d.mto)MAN.to.clear();else MAN.to.has(d.mto)?MAN.to.delete(d.mto):MAN.to.add(d.mto);renderManual();return}
   if('msend' in d){sendManual(b);return}
-  if(d.open){openSheet(d.open);return}
+  if(d.open){openSheet(d.open,true,d.song?{song:d.song,so:d.so}:{});return}
+  if(d.qtrk){const [a,sid]=d.qtrk.split('|');toggleTrack(a,sid);return}
+  if(d.trk){toggleTrack(sheetId,d.trk);return}
+  if('albfull' in d){if(!isDone(sheetId)){SONG=null;toggleDone(sheetId)}return}
+  if(d.recwhat!==undefined){recSong=d.recwhat==='1';refreshSheet();return}
   if(d.quickdone){if(isDone(d.quickdone))toggleDone(d.quickdone);else{pendingDone=tglPop=d.quickdone;b.classList.add('on','pop');setTimeout(()=>openSheet(d.quickdone,true,{pick:true}),260)}return}
   if(d.done){toggleDone(d.done);return}
   if(d.rate){const id=sheetId,n=+d.rate;if(isDone(id)||RM){setRate(id,n);return}
@@ -1673,6 +1935,7 @@ async function loadAll(){try{applyState(await call('GET','state'))}catch(e){if(e
 let poll=null;
 async function enterApp(loaded=false){
   hideGate();if(!loaded)await loadAll();
+  setTimeout(()=>{if(uid)migrateSingles()},5000);
   clearInterval(poll);poll=setInterval(()=>{if(document.visibilityState==='visible'&&uid)loadAll()},25000);
   startMatchLoops();
 }
