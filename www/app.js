@@ -78,17 +78,17 @@ function reg(w){
 const snap=w=>Object.fromEntries(Object.entries({id:w.id,t:w.t,ti:w.ti,y:w.y,c:w.c,img:w.img,g:(w.g||[]).slice(0,3),d:w.d,p:w.p}).filter(([,v])=>v!=null&&v!==''&&!(Array.isArray(v)&&!v.length)));
 
 let saving=false,dirty=false;
+let localVer=0;
 async function save(){
-  if(!uid)return;dirty=true;if(saving)return;saving=true;
+  if(!uid)return;localVer++;dirty=true;if(saving)return;saving=true;
   while(dirty){dirty=false;try{await call('PUT','me',{data:mine})}catch(e){toast(msg(e));break}}
   saving=false;
 }
 const others=()=>Object.keys(members).filter(k=>k!==uid);
 const nameOf=id=>id===uid?(myName||'Toi'):(names[id]||'Un ami');
 const AVC=['#E0453A','#E3A900','#2F6FDB','#1C9662','#C2399D','#8A5A2B','#7A4BC8','#F28C1B','#0FA3A3','#D6336C'];
-function avColor(id){const k=Object.keys(dataOf(id).equip||{}).find(k=>k.startsWith('dot.'));const it=k&&typeof SHOP!=='undefined'&&SHOP.find(x=>x.id===k);if(it&&it.c)return it.c;
-  let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))|0;return AVC[Math.abs(h)%AVC.length]}
-function avatar(id){const n=nameOf(id),c=avColor(id);return `<span class="av" style="--avc:${c}" aria-hidden="true">${esc((n[0]||'?').toUpperCase())}</span>`}
+function avColor(id){const k=Object.keys(dataOf(id).equip||{}).find(k=>k.startsWith('dot.'));const it=k&&SHOP.find(x=>x.id===k);return it&&it.c||''}
+function avatar(id){const n=nameOf(id),c=avColor(id);return `<span class="av${c?' avc':''}"${c?` style="--avc:${c}"`:''} aria-hidden="true">${esc((n[0]||'?').toUpperCase())}</span>`}
 const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
 
 /* ---------- Œuvres et cartes ---------- */
@@ -164,7 +164,7 @@ function setEps(id,n,k){
   const se=w.seas||[],all=se.length&&se.every(([m,c])=>epsOf(id,m)>=c);
   if(all){toast('Série terminée ! Choisis ta carte');toggleDone(id);return}
   if(v>=(se.find(z=>z[0]===n)||[])[1]){const nx=se.find(([m,c])=>m>n&&epsOf(id,m)<c);if(nx)SEXP[id]=nx[0];toast(`Saison ${n} terminée 🎉`)}
-  refreshSheet();renderSearch();renderWant();
+  refreshSheet();renderSearch();
 }
 
 async function toggleTrack(alb,sid){
@@ -757,7 +757,7 @@ function renderColl(){
     <div class="bar"><i style="width:${Math.min(100,((n-(next?prev:nx[0]-100))/(nx[0]-(next?prev:nx[0]-100)))*100)}%"></i></div>
     <div class="rarities">${RN.map(r=>`<span class="rar" title="${RAR[r].n}">${gem(r)}<b>${rc[r]}</b></span>`).join('')}</div></div>`;
   const per={f:0,s:0,l:0,j:0};done.forEach(id=>per[WK[id].t]!=null&&per[WK[id].t]++);
-  $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"');
+  $('#collView').innerHTML=chip('Cartes',collView==='book','data-cview="book"')+chip('Étagère',collView==='shelf','data-cview="shelf"')+(isMe?chip(`${BM(collList==='want')} ${Object.keys(mine.want).length}`,collList==='want','data-cwant aria-label="Ma liste pour plus tard"'):'');
   $('#collTitle').textContent=collList==='want'?'Mes signets':collView==='shelf'?'L’étagère':'Mes cartes';
   $('#collQ').placeholder=collView==='shelf'&&collList!=='want'?'T’as pas vu ma cassette !?':'Fouiner dans mon grimoire';
   $('#gfilter').innerHTML=collList==='want'?'':`<button aria-pressed="${!collRar}" data-crar="0" class="gf-all">Toutes</button>`+RN.map(r=>`<button aria-pressed="${collRar===r}" data-crar="${r}" class="r${r}">${GEM(r,12)}${RAR[r].n}</button>`).join('');
@@ -1443,7 +1443,7 @@ function renderPep(){
 // échantillon pour les aperçus : ta plus belle carte avec image
 function shopSample(){const id=Object.keys(mine.done).filter(id=>WK[id]?.img).sort((a,b)=>rateOf(b)-rateOf(a)||mine.done[b]-mine.done[a])[0];return id?WK[id]:{id:'x',t:'f',ti:'Ta carte'}}
 function shopPrev(it,sw){
-  if(it.slot==='title')return `<span class="sp-title"><span class="sp-dot" style="--avc:${avColor(uid)}">${esc((myName||'?')[0].toUpperCase())}</span><b>${esc(myName||'Toi')}</b><span class="ptitle">${esc(it.name)}</span></span>`;
+  if(it.slot==='title')return `<span class="sp-title"><span class="sp-dot" style="--avc:${avColor(uid)||'var(--ink)'}">${esc((myName||'?')[0].toUpperCase())}</span><b>${esc(myName||'Toi')}</b><span class="ptitle">${esc(it.name)}</span></span>`;
   if(it.slot==='frame')return `<span class="sp-card">${card(sw,it.tier||4)}</span>`;
   if(it.slot==='back')return `<span class="sp-backs"><span class="cardback"></span><span class="cardback"></span></span>`;
   if(it.slot==='dot')return `<span class="sp-dots"><span class="sp-dot big" style="--avc:${it.c}">${esc((myName||'?')[0].toUpperCase())}</span></span>`;
@@ -1463,12 +1463,12 @@ function shopHTML(){
   const section=(slot,label)=>{const its=SHOP.filter(x=>x.slot===slot);
     const body=slot==='frame'?RN.map(t=>{const ft=its.filter(x=>x.tier===t);return ft.length?`<div class="sh-tier r${t}">${GEM(t,16)}<b>${RAR[t].n}</b><span>${RAR[t].s}</span></div><div class="sh-g">${ft.map(itemHTML).join('')}</div>`:''}).join('')
       :`<div class="sh-g">${its.map(itemHTML).join('')}</div>`;
-    return `<section class="sh-sec sec-${slot}" id="sh-${slot}"><h3 class="sh-h"><span class="sh-hi">${SLOTI[slot]}</span>${label}<span class="sh-hn">${its.filter(x=>owned(x.id)).length}/${its.length}</span></h3><p class="sh-d">${SLOTD[slot]}</p>${body}</section>`};
+    return `<section class="sh-sec sec-${slot}" id="sh-${slot}"><h3 class="sh-h">${label}<span class="sh-hn">${its.filter(x=>owned(x.id)).length}/${its.length}</span></h3><p class="sh-d">${SLOTD[slot]}</p>${body}</section>`};
   return `<div class="shop">
-    <div class="sh-hero"><span class="sh-spark s1">✦</span><span class="sh-spark s2">✦</span><span class="sh-spark s3">✧</span><span class="sh-pile" aria-hidden="true">${PEP}${PEP}${PEP}</span>
+    <div class="sh-hero">
       <div class="sh-bal">${PEP}<b>${b}</b><small>pépites</small></div><p class="sh-tag">Gagne des pépites en partageant, dépense-les ici.</p></div>
-    <nav class="sh-nav">${Object.entries(SLOTN).map(([slot,l])=>`<a href="#sh-${slot}" class="nv-${slot}">${SLOTI[slot]} ${l}</a>`).join('')}</nav>
-    <section class="sh-sec sec-ms"><h3 class="sh-h"><span class="sh-hi">🎯</span>Missions du jour</h3>${missionsHTML()}</section>
+    <nav class="sh-nav">${Object.entries(SLOTN).map(([slot,l])=>`<a href="#sh-${slot}">${l}</a>`).join('')}</nav>
+    <section class="sh-sec sec-ms"><h3 class="sh-h">Missions du jour</h3>${missionsHTML()}</section>
     ${Object.entries(SLOTN).map(([slot,label])=>section(slot,label)).join('')}
     <details class="sh-how"><summary>Comment gagner des pépites ?</summary><ul>
       <li>${GAIN.work} ${PEP} par œuvre ajoutée à ta collection</li><li>${GAIN.rec} ${PEP} par recommandation, ${GAIN.recDone} ${PEP} quand un ami la finit</li>
@@ -1720,7 +1720,7 @@ function openSheet(id,refocus=true,opts={}){
     ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="gal"></button>`).join('')}</div>`:''}
     <div class="sh-acts2">
       ${SONG&&w.t==='m'&&!done?songTgl(id,SONG.sid):doneTgl(id,'data-done')}
-      <div class="sa-row"><button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button><div class="icogrp">${wantBtnL(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
+      <div class="sa-row"><button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button><div class="icogrp">${wantBtn(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
     </div>
     ${pick}
     ${tracksHTML(w)}${seriesHTML(w)}
@@ -1888,7 +1888,7 @@ function toggleDone(id){
   if(!confirm('Retirer cette carte de ta collection ?'))return;
   delete mine.done[id];delete mine.rate[id];keepWork(id);save();toast('Carte retirée');renderAll();
 }
-function toggleWant(id){const add=!mine.want[id];if(add)mine.want[id]=Date.now();else delete mine.want[id];keepWork(id);save();toast(add?'🔖 Gardé dans Ma liste':'Retiré de Ma liste');renderAll()}
+function toggleWant(id){const add=!mine.want[id];if(add)mine.want[id]=Date.now();else delete mine.want[id];keepWork(id);save();toast(add?'Gardé pour plus tard':'Retiré de ta liste');renderAll()}
 async function share(id,btn){
   const w=WK[id];if(!w)return;btn.disabled=true;
   const song=SONG&&SONG.alb===id&&recSong&&SONG.ti?{so:SONG.ti,sid:SONG.sid}:{};
@@ -1904,7 +1904,7 @@ let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on
 
 function renderAll(){
   if(uid)members[uid]={name:myName,data:mine};
-  renderFeed();renderSearch();renderColl();renderChal();renderSide();renderPep();renderWant();
+  renderFeed();renderSearch();renderColl();renderChal();renderSide();renderPep();
   if(sheetId&&$('#sheet').classList.contains('open'))refreshSheet();
 }
 let searchStarted=false;
@@ -1914,7 +1914,6 @@ function setTab(t){
   window.scrollTo(0,0);
   if(t==='coll')renderColl();
   if(t==='chal')renderChal();
-  if(t==='want')renderWant();
   if(t==='search'){if(!searchStarted){searchStarted=true;localSeed=Math.random();runSearch()}setTimeout(()=>$('#q').focus(),30)}
 }
 
@@ -2129,7 +2128,10 @@ function applyState(st){
 }
 // on ne redessine que si l'état a vraiment changé (le serveur répond 304 sinon)
 let lastState='';
-async function loadAll(force){try{const st=await call('GET','state'),k=JSON.stringify(st);if(!force&&k===lastState&&!saving&&!dirty)return;lastState=k;applyState(st)}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
+async function loadAll(force){const v0=localVer;try{const st=await call('GET','state');
+  // une modification faite pendant la requête (carte ajoutée, avis…) ne doit pas être écrasée par un état périmé
+  if(localVer!==v0||saving||dirty){setTimeout(()=>{if(!saving&&!dirty)loadAll()},1500);return}
+  const k=JSON.stringify(st);if(!force&&k===lastState)return;lastState=k;applyState(st)}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
 let poll=null;
 async function enterApp(loaded=false){
   hideGate();if(!loaded)await loadAll();
