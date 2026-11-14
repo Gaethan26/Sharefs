@@ -780,9 +780,9 @@ function renderColl(){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
     COLL.items=items;
     const sps=collList!=='want'?specialsOf(collWho):[];
-    const macc=(k,head,body,cls,st='')=>{const o=accOpen(k);return `<section class="crow acc mini ${cls}${o?' open':''}" data-acck="${k}"${st}><h3 class="acc-hh"><button class="acc-h" data-acch="${k}" aria-expanded="${o}"><span class="mh">${head}</span>${ACC_CH}</button></h3><div class="acc-b"${o?'':' hidden'}>${body}</div></section>`};
+    const macc=(k,head,body,cls,st='')=>{const o=accOpen(k);return `<section class="crow acc macc ${cls}${o?' open':''}" data-acck="${k}"${st}><h3 class="acc-hh"><button class="acc-h" data-acch="${k}" aria-expanded="${o}"><span class="mh">${head}</span>${ACC_CH}</button></h3><div class="acc-b"${o?'':' hidden'}>${body}</div></section>`};
     sh.innerHTML=grimClosedHTML(items.length)+(sps.length?macc('cc-sp',`<span class="sp-ic">✦</span>Cartes spéciales<span class="n">${sps.length}</span>`,`<div class="cards">${sps.map(sp=>`<button ${specialAttr(sp)} aria-label="${esc(sp.ti)}">${specialCard(sp)}<div class="ct">${esc(sp.ti)}</div><div class="cy">${esc(sp.sub)}</div></button>`).join('')}</div>`,'sp-row'):'')+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
-      return macc('cc-'+t,`<span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span>`,`<div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`,'t-'+t,` style="--tc:var(--${TVAR[t]})"`)}).join('');
+      return macc('cc-'+t,`<span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span>`,`<div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`,'cat-'+t,` style="--tc:var(--${TVAR[t]})"`)}).join('');
   }else{
     COLL.items=items;
     sh.innerHTML=shelfHTML(items,Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44),true);
