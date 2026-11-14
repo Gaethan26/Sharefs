@@ -12,7 +12,7 @@ const T={
   l:{n:'Livre',p:'Livres',done:'Lu',act:'J’ai lu',did:'a lu',fmt:x=>x+' pages'},
   j:{n:'Jeu vidéo',p:'Jeux vidéo',done:'Joué',act:'J’ai joué',did:'a joué à',fmt:()=>''},
   b:{n:'Jeu de société',p:'Jeux de société',done:'Joué',act:'J’ai joué',did:'a joué à',fmt:m=>m+' min'},
-  m:{n:'Musique',p:'Musique',done:'Écouté',act:'J’ai écouté',did:'a écouté',fmt:x=>x+' titres'}
+  m:{n:'Album',p:'Musique',done:'Écouté',act:'J’ai écouté',did:'a écouté',fmt:x=>x+' titres'}
 };
 const ALLT=['f','s','j','b','l','m'];
 let CATS={b:false};
@@ -67,7 +67,7 @@ let mine={done:{},want:{},works:{},rate:{},eggs:{}};
 let recs=[];
 let names={};
 const WK={};
-function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate','eggs','missions','shop','equip','tracks'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
+function normData(d){d=d&&typeof d==='object'&&!Array.isArray(d)?{...d}:{};for(const k of ['done','want','works','rate','eggs','missions','shop','equip','tracks','paid','eps'])if(!d[k]||Array.isArray(d[k]))d[k]={};delete d.shares;return d}
 function reg(w){
   if(!w||!w.id)return w;
   if(w.so||w.sid&&!w.alb){w={...w};delete w.so;delete w.sid}
@@ -78,14 +78,18 @@ function reg(w){
 const snap=w=>Object.fromEntries(Object.entries({id:w.id,t:w.t,ti:w.ti,y:w.y,c:w.c,img:w.img,g:(w.g||[]).slice(0,3),d:w.d,p:w.p}).filter(([,v])=>v!=null&&v!==''&&!(Array.isArray(v)&&!v.length)));
 
 let saving=false,dirty=false;
+let localVer=0;
 async function save(){
-  if(!uid)return;dirty=true;if(saving)return;saving=true;
+  if(!uid)return;localVer++;dirty=true;if(saving)return;saving=true;
   while(dirty){dirty=false;try{await call('PUT','me',{data:mine})}catch(e){toast(msg(e));break}}
   saving=false;
 }
 const others=()=>Object.keys(members).filter(k=>k!==uid);
 const nameOf=id=>id===uid?(myName||'Toi'):(names[id]||'Un ami');
-function avatar(id){const n=nameOf(id);return `<span class="av" aria-hidden="true">${esc((n[0]||'?').toUpperCase())}</span>`}
+const AVC=['#E0453A','#E3A900','#2F6FDB','#1C9662','#C2399D','#8A5A2B','#7A4BC8','#F28C1B','#0FA3A3','#D6336C'];
+function accColor(id){const c=avColor(id);if(c)return c;let h=0;for(const ch of String(id||''))h=(h*31+ch.charCodeAt(0))|0;return AVC[Math.abs(h)%AVC.length]}
+function avColor(id){const k=Object.keys(dataOf(id).equip||{}).find(k=>k.startsWith('dot.'));const it=k&&SHOP.find(x=>x.id===k);return it&&it.c||''}
+function avatar(id){const n=nameOf(id),c=avColor(id);return `<span class="av${c?' avc':''}"${c?` style="--avc:${c}"`:''} aria-hidden="true">${esc((n[0]||'?').toUpperCase())}</span>`}
 const dataOf=id=>id===uid?mine:(members[id]?.data||normData());
 
 /* ---------- Œuvres et cartes ---------- */
@@ -110,6 +114,7 @@ const TGLW={f:['Vu','🎬'],s:['Vu','📺'],l:['Lu','📔'],j:['Joué','🎮'],b
 const doneTgl=(id,attr)=>{const w=WK[id],on=isDone(id)||pendingDone===id,[l,e]=TGLW[w.t]||['Fini','✓'];
   return `<button class="tgl tgs${on?' on':''}${on&&id===tglPop?' pop':''}" role="switch" aria-checked="${on}" aria-label="${l}" ${attr}="${esc(id)}"><span class="tgs-trk" aria-hidden="true"><span class="tgs-ok">✓</span><span class="tgs-knob">${e}</span></span><span class="tgs-l">${l}</span></button>`};
 const PLANE='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>';
+const wantBtnL=id=>{const on=isWant(id);return `<button class="btn wantl${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}">${BM(on)}<span>${on?'Gardé':'Plus tard'}</span></button>`};
 const wantBtn=id=>{const on=isWant(id);return `<button class="btn icon${on?' saved':''}" data-want="${esc(id)}" aria-pressed="${on}" aria-label="${on?'Retirer de ma liste':'Garder pour plus tard'}" title="${on?'Dans ta liste':'Garder pour plus tard'}">${BM(on)}</button>`};
 const gem=r=>`<span class="rg r${r}"></span>`;
 const rarityTag=r=>`<span class="rtag r${r}">${GEM(r,12)}${RAR[r].n}</span>`;
@@ -133,6 +138,36 @@ function tracksHTML(w){
       return `<li${SONG&&SONG.alb===w.id&&SONG.sid===sid?' class="hl"':''}><button class="trk-b${on?' on':''}" data-trk="${esc(sid)}" aria-pressed="${on}"${done?' disabled':''}><span class="trk-n">${i+1}</span><span class="trk-t">${esc(ti)}</span><span class="trk-d">${du?fmtDur(du):''}</span><span class="trk-c" aria-hidden="true">✓</span></button></li>`}).join('')}</ol>
     ${done?'':`<button class="btn trk-all" data-albfull>🎧 J’ai écouté l’album en entier</button>`}</div>`;
 }
+/* ---------- Séries : suivi des saisons et des épisodes vus ---------- */
+const epKey=(id,n)=>id+':'+n;
+const epsOf=(id,n,who=uid)=>+(dataOf(who).eps?.[epKey(id,n)]||0);
+const epsAny=(id,who=uid)=>Object.keys(dataOf(who).eps||{}).some(k=>k.startsWith(id+':')&&dataOf(who).eps[k]>0);
+function epsWhere(id){const ks=Object.entries(mine.eps||{}).filter(([k,v])=>k.startsWith(id+':')&&v>0).map(([k,v])=>[+k.split(':').pop(),v]).sort((a,b)=>b[0]-a[0]);return ks[0]||null}
+let SEXP={};
+function seriesHTML(w){
+  const se=w.seas||[];if(w.t!=='s'||!se.length)return '';
+  const done=isDone(w.id),tot=se.reduce((a,z)=>a+z[1],0),seen=done?tot:se.reduce((a,[n,c])=>a+Math.min(c,epsOf(w.id,n)),0);
+  const cur=(se.find(([n,c])=>epsOf(w.id,n)<c)||se[se.length-1])[0];
+  if(SEXP[w.id]===undefined)SEXP[w.id]=done?-1:cur;
+  return `<div class="eps${done?' full':''}">
+    <div class="trk-h"><b>${done?'Série terminée':`${seen} / ${tot} épisodes vus`}</b><span class="trk-bar eps-bar" aria-hidden="true"><i style="width:${tot?seen/tot*100:0}%"></i></span></div>
+    ${done?'':'<p class="trk-tip">Touche le dernier épisode vu : ceux d’avant se cochent tout seuls.</p>'}
+    ${se.map(([n,c,name])=>{const v=done?c:Math.min(c,epsOf(w.id,n)),open=SEXP[w.id]===n;
+      return `<div class="sea${open?' open':''}${v>=c?' ok':''}"><button class="sea-h" data-sea="${n}" aria-expanded="${open}"><span class="sea-n">S${n}</span><span class="sea-t">${esc(name&&!/^(saison|season) ?\d+$/i.test(name)?name:'Saison '+n)}</span><span class="sea-c">${v>=c?'✓ ':''}${v}/${c}</span><span class="sea-bar"><i style="width:${v/c*100}%"></i></span></button>
+        ${open?`<div class="sea-b"><div class="ep-g">${Array.from({length:c},(_,i)=>`<button class="ep${i<v?' on':''}" data-ep="${n}|${i+1}" aria-pressed="${i<v}" aria-label="Épisode ${i+1}"${done?' disabled':''}>${i+1}</button>`).join('')}</div>
+          ${done?'':`<div class="sea-a"><button class="btn" data-epall="${n}|${v>=c?0:c}">${v>=c?'Tout décocher':'Saison vue en entier'}</button></div>`}</div>`:''}</div>`}).join('')}</div>`;
+}
+function setEps(id,n,k){
+  const w=WK[id];if(!w||isDone(id))return;
+  const cur=epsOf(id,n),v=k===cur?k-1:k;
+  if(v>0)mine.eps[epKey(id,n)]=v;else delete mine.eps[epKey(id,n)];
+  keepWork(id);save();
+  const se=w.seas||[],all=se.length&&se.every(([m,c])=>epsOf(id,m)>=c);
+  if(all){toast('Série terminée ! Choisis ta carte');toggleDone(id);return}
+  if(v>=(se.find(z=>z[0]===n)||[])[1]){const nx=se.find(([m,c])=>m>n&&epsOf(id,m)<c);if(nx)SEXP[id]=nx[0];toast(`Saison ${n} terminée 🎉`)}
+  refreshSheet();renderSearch();
+}
+
 async function toggleTrack(alb,sid){
   if(isDone(alb))return;
   const k=trkKey(alb,sid);if(mine.tracks[k])delete mine.tracks[k];else mine.tracks[k]=Date.now();
@@ -219,6 +254,7 @@ function renderResults(){
   if(!list.length&&!SR.loading){ul.innerHTML=`<li><div class="empty"><b>Aucune œuvre ne correspond.</b>Retire un filtre, essaie un autre titre ou ajoute-la toi-même.<br><button class="btn pri" data-manual="">Envoyer « ${esc($('#q').value.trim()||'une œuvre')} » à la main</button>${activeCount()?' <button class="btn" data-act="reset">Effacer les filtres</button>':''}</div></li>`;$('#resMore').innerHTML='';return}
   ul.innerHTML=list.map(w=>{
     const n=new Set(recsAbout(w.id).map(r=>r.from_id)).size,b=[];
+    const ew=w.t==='s'&&!isDone(w.id)&&epsWhere(w.id);if(ew)b.push(`<span class="bdg">📺 S${ew[0]} · É${ew[1]}</span>`);
     if(isDone(w.id))b.push(rarityTag(rateOf(w.id)));else if(w.t==='m'&&trkPart(w.id))b.push(`<span class="bdg">🎧 ${trkPart(w.id)} titre${trkPart(w.id)>1?'s':''} écouté${trkPart(w.id)>1?'s':''}</span>`);
     if(isWant(w.id))b.push(`<span class="bdg bm" title="Dans ta liste">${BM(true)}</span>`);
     if(F.forWho&&dataOf(F.forWho).want?.[w.id])b.push(`<span class="bdg rec bm">${BM(true)}${esc(who)}</span>`);
@@ -460,7 +496,7 @@ function renderChal(){
   const mineCh=challenges.filter(c=>c.to_id===uid||c.from_id===uid).map(c=>({c,s:chalState(c)}));
   const live=mineCh.filter(x=>x.s.st==='live'),done=mineCh.filter(x=>x.s.st!=='live'),list=chalTab==='live'?live:done;
   const myTurn=MATCHES.filter(m=>m.status==='live'&&m.myTurn).length,feN=(FET?.others||[]).filter(o=>o.has&&!o.found&&!o.guessedToday).length;
-  el.innerHTML=`${acc('d-match','⚔️ Genre tu l’as vu !?',matchZoneHTML(),myTurn?`<span class="acc-n">${myTurn} à toi</span>`:'')}
+  el.innerHTML=`${acc('d-match','<span class="acc-ic">⚔️</span>Genre tu l’as vu !?',matchZoneHTML(),myTurn?`<span class="acc-n">${myTurn} à toi</span>`:'')}
     ${acc('d-chal',`${SWORDS}Défis`,`<button class="cta" data-newchal><span><b>Lancer un défi</b><span>Jusqu’à 4 œuvres, 1 mois pour tout finir</span></span>${SWORDS}</button>
     <div class="row" style="margin:16px 0 12px">${chip(`En cours${live.length?` <span class="cnt">${live.length}</span>`:''}`,chalTab==='live','data-chtab="live"')}${chip(`Terminés${done.length?` <span class="cnt">${done.length}</span>`:''}`,chalTab==='done','data-chtab="done"')}</div>
     <div class="chals">${list.length?list.map(x=>chalCard(x.c,x.s)).join(''):`<div class="ch-empty">${SWORDS}<p>${chalTab==='live'?'Aucun défi en cours. Lance le premier !':'Aucun défi terminé pour l’instant.'}</p></div>`}</div>`,live.length?`<span class="acc-s">${live.length} en cours</span>`:'')}
@@ -744,8 +780,9 @@ function renderColl(){
     items.sort((a,b)=>b.r-a.r||b.ts-a.ts);
     COLL.items=items;
     const sps=collList!=='want'?specialsOf(collWho):[];
-    sh.innerHTML=grimClosedHTML(items.length)+(sps.length?`<section class="crow sp-row"><div class="crh"><span class="sp-ic">✦</span>Cartes spéciales<span class="n">${sps.length}</span></div><div class="cards">${sps.map(sp=>`<button ${specialAttr(sp)} aria-label="${esc(sp.ti)}">${specialCard(sp)}<div class="ct">${esc(sp.ti)}</div><div class="cy">${esc(sp.sub)}</div></button>`).join('')}</div></section>`:'')+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
-      return `<section class="crow"><div class="crh"><span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span></div><div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div></section>`}).join('');
+    const macc=(k,head,body,cls,st='')=>{const o=accOpen(k);return `<section class="crow acc mini ${cls}${o?' open':''}" data-acck="${k}"${st}><h3 class="acc-hh"><button class="acc-h" data-acch="${k}" aria-expanded="${o}"><span class="mh">${head}</span>${ACC_CH}</button></h3><div class="acc-b"${o?'':' hidden'}>${body}</div></section>`};
+    sh.innerHTML=grimClosedHTML(items.length)+(sps.length?macc('cc-sp',`<span class="sp-ic">✦</span>Cartes spéciales<span class="n">${sps.length}</span>`,`<div class="cards">${sps.map(sp=>`<button ${specialAttr(sp)} aria-label="${esc(sp.ti)}">${specialCard(sp)}<div class="ct">${esc(sp.ti)}</div><div class="cy">${esc(sp.sub)}</div></button>`).join('')}</div>`,'sp-row'):'')+TYPE_ORDER.map(t=>{const its=items.filter(x=>x.w.t===t);if(!its.length)return '';
+      return macc('cc-'+t,`<span class="tm t-${t}"></span>${T[t].p}<span class="n">${its.length}</span>`,`<div class="cards">${its.map(({w,r})=>`<button data-inspect="${esc(w.id)}" aria-label="${esc(w.ti)}">${card(w,r,(collList==='want'?'ghost ':'')+(w.id===justAdded?'new':''))}<div class="gt">${esc(w.ti)}</div><div class="gm">${[T[w.t].n,w.y].filter(Boolean).join(', ')}</div></button>`).join('')}</div>`,'t-'+t,` style="--tc:var(--${TVAR[t]})"`)}).join('');
   }else{
     COLL.items=items;
     sh.innerHTML=shelfHTML(items,Math.max(200,(sh.clientWidth||Math.min(innerWidth,560)-32)-44),true);
@@ -964,7 +1001,10 @@ function wsRun(q,local,render){
 // ---------- Liste des parties (onglet Défis) ----------
 function mtStatus(m){
   const n=esc(nameOf(m.op));
-  if(m.phase==='done')return m.winner===m.me?`Victoire 🏆 ${m.score.me}–${m.score.op}`:`Défaite ${m.score.me}–${m.score.op}`;
+  const bet=m.stake?` · ${m.phase==='done'?(m.winner===m.me?'+':'−'):''}${m.stake} ${PEP}`:'';
+  if(m.phase==='done')return (m.winner===m.me?`Victoire 🏆 ${m.score.me}–${m.score.op}`:`Défaite ${m.score.me}–${m.score.op}`)+bet;
+  if(m.stake&&!m.myTurn)return `Au tour de ${n}${bet}`;
+  if(m.stake)return ({rps:'Pierre, feuille, ciseaux !',tiebreak:'Égalité ! Manche décisive',pick:`Choisis 5 œuvres pour ${n}`,choose:'Choisis ton œuvre',quiz:'Réponds aux questions'}[m.phase]||'À toi !')+bet;
   if(!m.myTurn)return `Au tour de ${n}`;
   return {rps:'Pierre, feuille, ciseaux !',tiebreak:'Égalité ! Manche décisive',pick:`Choisis 5 œuvres pour ${n}`,choose:'Choisis ton œuvre',quiz:'Réponds aux questions'}[m.phase]||'À toi !';
 }
@@ -1008,7 +1048,26 @@ async function loadMatches(quiet){
   }catch(e){}}
 
 // ---------- Ouvrir, rafraîchir, jouer ----------
-async function newMatch(to,src){try{const r=await call('POST','matches',{to});openMatch(r.match.id,src,r.match)}catch(e){toast(msg(e))}}
+let MSTATS={};
+// mise : jusqu'à 250 pépites, le gagnant remporte la mise de l'autre
+const STK={to:'',v:0,src:null};
+function newMatch(to,src){
+  const live=MATCHES.find(m=>m.op===to&&m.status==='live');if(live){startMatch(to,0,src);return}
+  Object.assign(STK,{to,v:Math.min(50,Math.max(0,balance())),src});lastFocus=document.activeElement;sheetId='__stake';
+  $('#sheet').style.setProperty('--tc','#7A4BC8');renderStake();$('#scrim').classList.add('open');$('#sheet').classList.add('open');
+}
+function renderStake(){
+  const max=Math.max(0,Math.min(250,balance())),n=esc(nameOf(STK.to));STK.v=Math.min(STK.v,max);
+  $('#sheetIn').innerHTML=`<div class="grab"></div><div class="stk-h">${avatar(uid)}<span class="stk-vs">VS</span>${avatar(STK.to)}</div>
+    <h3 id="shTitle" class="stk-t">Défier ${n}</h3><p class="meta" style="text-align:center;margin:0 0 14px">Mets des pépites en jeu : le gagnant rafle la mise de l’autre.</p>
+    <div class="stk-v">${PEP}<b id="stkV">${STK.v}</b></div>
+    <input type="range" id="stkR" min="0" max="${max}" step="10" value="${STK.v}" aria-label="Mise en pépites" ${max?'':'disabled'} style="--pct:${max?STK.v/max*100:0}%">
+    <div class="wrap stk-q">${[0,50,100,250].map(x=>chip(x?`${x}`:'Sans mise',STK.v===x,`data-stk="${x}" ${x>max?'disabled':''}`)).join('')}</div>
+    ${max<250?`<p class="meta" style="text-align:center;margin:8px 0 0">Ton solde limite ta mise à ${max} ${PEP}.</p>`:''}
+    <button class="btn pri stk-go" data-stkgo style="width:100%;margin-top:16px;padding:14px">${STK.v?`Lancer le match · ${STK.v} ${PEP} en jeu`:'Lancer le match sans mise'}</button>`;
+}
+async function startMatch(to,stake,src){try{const r=await call('POST','matches',{to,stake});closeSheet();openMatch(r.match.id,src,r.match)}catch(e){toast(msg(e))}}
+document.addEventListener('input',e=>{if(e.target.id==='stkR'){STK.v=+e.target.value;$('#stkV').textContent=STK.v;e.target.style.setProperty('--pct',`${e.target.max>0?STK.v/e.target.max*100:0}%`);const g=$('[data-stkgo]');if(g)g.innerHTML=STK.v?`Lancer le match · ${STK.v} ${PEP} en jeu`:'Lancer le match sans mise';document.querySelectorAll('[data-stk]').forEach(c=>c.setAttribute('aria-pressed',+c.dataset.stk===STK.v))}});
 async function openMatch(id,src,first){
   MT_ID=id;MT=null;mtKey='';MTSEL.works=[];MTSEL.q='';MTSEL.choose=null;
   openFs('match',src);
@@ -1040,7 +1099,8 @@ function mtHead(v){
   const op=mtOpId(v),s=mtSc(v),n=esc(nameOf(op)),live=v.phase!=='done';
   const step=!live?'Fin du match':v.phase==='tiebreak'?`Manche décisive · ${v.tb?.[v.me]||0}–${v.tb?.[mtOpS(v)]||0} (premier à 2)`:v.turn?`Tour ${v.turn} sur 2`:'Qui commence ?';
   return `<div class="mt-score"><div class="mt-p${live&&v.myTurn?' act':''}">${avatar(uid)}<b>Toi</b>${titleTag(uid)}<span class="mt-s">${s.me}</span></div><span class="mt-vs">VS</span>
-    <div class="mt-p${live&&!v.myTurn?' act':''}">${avatar(op)}<b>${n}</b>${titleTag(op)}<span class="mt-s">${s.op}</span></div></div><div class="mt-step">${step}</div>`;
+    <div class="mt-p${live&&!v.myTurn?' act':''}">${avatar(op)}<b>${n}</b>${titleTag(op)}<span class="mt-s">${s.op}</span></div></div><div class="mt-step">${step}</div>
+    ${v.stake?`<div class="mt-bet">${PEP} ${live?`${v.stake} pépites en jeu : le gagnant prend tout`:v.winner===v.me?`Tu remportes ${v.stake} pépites !`:`${v.stake} pépites perdues`}</div>`:''}`;
 }
 function renderMatch(prev){
   const v=MT,body=$('#fsBody');if(!v||!body||$('#fs').dataset.kind!=='match')return;
@@ -1164,7 +1224,7 @@ function rpsReveal(last){
 
 // ---------- Clics ----------
 function matchClick(d,b){
-  if(d.mnew!==undefined){newMatch(d.mnew,b);return true}
+  if(d.mnew!==undefined){if(fsKind==='match'&&$('#fs').classList.contains('open'))closeFs();setTimeout(()=>newMatch(d.mnew,b),fsKind==='match'?300:0);return true}
   if(d.mopen){openMatch(d.mopen,b);return true}
   if(!MT)return false;
   if('mtrefresh' in d){b.disabled=true;b.textContent='…';refreshMatch();return true}
@@ -1245,41 +1305,67 @@ function earnedBreakdown(){
   const coms=comments.filter(c=>c.from_id===uid).length;
   const chal=challenges.filter(c=>c.to_id===uid&&chalState(c).st==='won').length;
   const fet=(FET?.counts||{})[uid]||0;
-  const mDone=MATCHES.filter(m=>m.status!=='live'),mWin=mDone.filter(m=>m.winner===m.me).length;
+  const mDone={length:MSTATS.played??MATCHES.filter(m=>m.status!=='live').length},mWin=MSTATS.won??MATCHES.filter(m=>m.status!=='live'&&m.winner===m.me).length;
   const rankIx=RANKS.filter(l=>works>=l[0]).length-1;
   const missions=Object.values(mine.missions||{}).reduce((a,b)=>a+(+b||0),0);
   const rows=[['Œuvres dans ta collection',works*GAIN.work],['Recommandations envoyées',myRecs.length*GAIN.rec],['Recos finies par tes amis',recDone*GAIN.recDone],
-    ['Commentaires',coms*GAIN.comment],['Défis relevés',chal*GAIN.chal],['Œuvres fétiches trouvées',fet*GAIN.fetish],['Matchs joués',mDone.length*GAIN.match],['Matchs gagnés',mWin*GAIN.matchWin],
+    ['Commentaires',coms*GAIN.comment],['Défis relevés',chal*GAIN.chal],['Œuvres fétiches trouvées',fet*GAIN.fetish],['Matchs joués',mDone.length*GAIN.match],['Mises des matchs',MSTATS.bets||0],['Matchs gagnés',mWin*GAIN.matchWin],
     ['Rangs atteints',Math.max(0,rankIx)*50],['Missions du jour',missions]];
   return {total:rows.reduce((a,r)=>a+r[1],0),rows};
 }
+// Boutique : prix volontairement élevés (une carotte sur la durée). Les cadres sont classés par rareté, donc par éclat.
+const T_D='Titre affiché à côté de ton nom';
 const SHOP=[
-  {id:'title.cine',slot:'title',name:'Cinéphile',price:120,desc:'Titre affiché à côté de ton nom'},
-  {id:'title.biblio',slot:'title',name:'Rat de bibliothèque',price:120,desc:'Titre affiché à côté de ton nom'},
-  {id:'title.gamer',slot:'title',name:'Manette d’or',price:120,desc:'Titre affiché à côté de ton nom'},
-  {id:'title.melo',slot:'title',name:'Mélomane',price:120,desc:'Titre affiché à côté de ton nom'},
-  {id:'title.critique',slot:'title',name:'Critique impitoyable',price:200,desc:'Titre affiché à côté de ton nom'},
-  {id:'title.frappe',slot:'title',name:'C’est d’la frappe',price:300,desc:'Titre affiché à côté de ton nom'},
-  {id:'frame.wood',slot:'frame',name:'Cadre bois',price:150,desc:'Toutes tes cartes prennent ce cadre'},
-  {id:'frame.ice',slot:'frame',name:'Cadre givre',price:220,desc:'Toutes tes cartes prennent ce cadre'},
-  {id:'frame.neon',slot:'frame',name:'Cadre néon',price:280,desc:'Toutes tes cartes prennent ce cadre'},
-  {id:'frame.gold',slot:'frame',name:'Cadre or',price:400,desc:'Toutes tes cartes prennent ce cadre'},
-  {id:'frame.rainbow',slot:'frame',name:'Cadre arc-en-ciel',price:600,desc:'Toutes tes cartes prennent ce cadre'},
-  {id:'back.stripes',slot:'back',name:'Dos rayé',price:100,desc:'Le dos de tes cartes à la révélation'},
-  {id:'back.stars',slot:'back',name:'Dos étoilé',price:160,desc:'Le dos de tes cartes à la révélation'},
-  {id:'back.cosmic',slot:'back',name:'Dos cosmique',price:260,desc:'Le dos de tes cartes à la révélation'},
-  {id:'cover.red',slot:'cover',name:'Grimoire cuir rouge',price:200,desc:'Couverture de ton grimoire'},
-  {id:'cover.emerald',slot:'cover',name:'Grimoire émeraude',price:200,desc:'Couverture de ton grimoire'},
-  {id:'cover.night',slot:'cover',name:'Grimoire nuit étoilée',price:350,desc:'Couverture de ton grimoire'},
-  // récompenses de prestige : gratuites, réservées aux rangs au-delà de Zidane
-  {id:'frame.ballon',slot:'frame',name:'Cadre Ballon d’Or',price:0,rank:150,desc:'Réservé au rang Ballon d’Or'},
-  {id:'title.panenka',slot:'title',name:'Maître de la Panenka',price:0,rank:200,desc:'Réservé au rang Panenka'},
-  {id:'cover.legend',slot:'cover',name:'Grimoire Légende',price:0,rank:300,desc:'Réservé au rang Légende vivante'},
-  {id:'title.goat',slot:'title',name:'GOAT',price:0,rank:500,desc:'Réservé au rang GOAT'},
+  {id:'title.curieux',slot:'title',name:'Curieux',price:300},
+  {id:'title.cine',slot:'title',name:'Cinéphile',price:500},
+  {id:'title.biblio',slot:'title',name:'Rat de bibliothèque',price:500},
+  {id:'title.gamer',slot:'title',name:'Manette d’or',price:500},
+  {id:'title.melo',slot:'title',name:'Mélomane',price:500},
+  {id:'title.binge',slot:'title',name:'Roi du binge',price:650},
+  {id:'title.plateau',slot:'title',name:'Maître du plateau',price:650},
+  {id:'title.critique',slot:'title',name:'Critique impitoyable',price:900},
+  {id:'title.oracle',slot:'title',name:'Oracle des recos',price:1200},
+  {id:'title.frappe',slot:'title',name:'C’est d’la frappe',price:1600},
+  {id:'title.fou',slot:'title',name:'Collectionneur fou',price:2200},
+  {id:'title.legende',slot:'title',name:'Légende du cercle',price:3000},
+  {id:'title.panenka',slot:'title',name:'Maître de la Panenka',price:0,rank:200},
+  {id:'title.goat',slot:'title',name:'GOAT',price:0,rank:500},
+  {id:'frame.slate',slot:'frame',tier:1,name:'Ardoise',price:400},
+  {id:'frame.wood',slot:'frame',tier:1,name:'Bois',price:500},
+  {id:'frame.mint',slot:'frame',tier:2,name:'Menthe',price:700},
+  {id:'frame.ice',slot:'frame',tier:2,name:'Givre',price:800},
+  {id:'frame.sapphire',slot:'frame',tier:3,name:'Saphir',price:1100},
+  {id:'frame.neon',slot:'frame',tier:3,name:'Néon',price:1300},
+  {id:'frame.amethyst',slot:'frame',tier:4,name:'Améthyste',price:1700},
+  {id:'frame.gold',slot:'frame',tier:4,name:'Or',price:2000},
+  {id:'frame.fire',slot:'frame',tier:4,name:'Flammes',price:2400},
+  {id:'frame.rainbow',slot:'frame',tier:5,name:'Arc-en-ciel',price:3000},
+  {id:'frame.holo',slot:'frame',tier:5,name:'Holographique',price:3800},
+  {id:'frame.galaxy',slot:'frame',tier:5,name:'Galaxie',price:4500},
+  {id:'frame.ballon',slot:'frame',tier:5,name:'Ballon d’Or',price:0,rank:150},
+  {id:'back.stripes',slot:'back',name:'Dos rayé',price:300},
+  {id:'back.checker',slot:'back',name:'Dos damier',price:450},
+  {id:'back.stars',slot:'back',name:'Dos étoilé',price:600},
+  {id:'back.waves',slot:'back',name:'Dos vagues',price:800},
+  {id:'back.cosmic',slot:'back',name:'Dos cosmique',price:1100},
+  {id:'back.gold',slot:'back',name:'Dos doré',price:1600},
+  {id:'cover.red',slot:'cover',name:'Cuir rouge',price:600},
+  {id:'cover.emerald',slot:'cover',name:'Émeraude',price:600},
+  {id:'cover.ocean',slot:'cover',name:'Océan',price:800},
+  {id:'cover.night',slot:'cover',name:'Nuit étoilée',price:1100},
+  {id:'cover.noir',slot:'cover',name:'Noir et or',price:1500},
+  {id:'cover.legend',slot:'cover',name:'Légende',price:0,rank:300},
+  ...[['red','Rouge','#E0453A'],['sun','Soleil','#E3A900'],['blue','Bleu','#2F6FDB'],['green','Vert','#1C9662'],['pink','Magenta','#C2399D'],['violet','Violet','#7A4BC8'],['orange','Orange','#F28C1B'],['teal','Lagon','#0FA3A3']]
+    .map(([k,n,c])=>({id:'dot.'+k,slot:'dot',name:n,price:150,c})),
+  {id:'dot.night',slot:'dot',name:'Minuit',price:250,c:'#18213A'},
+  {id:'dot.rainbow',slot:'dot',name:'Arc-en-ciel',price:900,c:'conic-gradient(#E0453A,#E3A900,#1C9662,#2F6FDB,#C2399D,#E0453A)'},
 ];
-const SLOTN={title:'Titres',frame:'Cadres de cartes',back:'Dos de cartes',cover:'Couvertures de grimoire'};
+const SLOTN={title:'Titres',frame:'Cadres de cartes',back:'Dos de cartes',cover:'Couvertures de grimoire',dot:'Pastilles'};
+const SLOTI={title:'🏷️',frame:'🖼️',back:'🃏',cover:'📖',dot:'🎨'};
 const owned=id=>!!(mine.shop||{})[id];
-const spent=()=>Object.keys(mine.shop||{}).reduce((a,id)=>a+(SHOP.find(x=>x.id===id)?.price||0),0);
+// prix payé au moment de l'achat (les anciens achats gardent l'ancien tarif)
+const OLDP={'title.cine':120,'title.biblio':120,'title.gamer':120,'title.melo':120,'title.critique':200,'title.frappe':300,'frame.wood':150,'frame.ice':220,'frame.neon':280,'frame.gold':400,'frame.rainbow':600,'back.stripes':100,'back.stars':160,'back.cosmic':260,'cover.red':200,'cover.emerald':200,'cover.night':350};
+const spent=()=>Object.keys(mine.shop||{}).reduce((a,id)=>a+((mine.paid||{})[id]??OLDP[id]??SHOP.find(x=>x.id===id)?.price??0),0);
 const balance=()=>earnedBreakdown().total-spent();
 const equipped=(slot,d=mine)=>{const k=Object.keys(d.equip||{}).find(k=>k.startsWith(slot+'.'));return k||''};
 function titleOf(id){const k=equipped('title',dataOf(id));const it=SHOP.find(x=>x.id===k);return it?it.name:''}
@@ -1344,38 +1430,44 @@ function renderPep(){
 // échantillon pour les aperçus : ta plus belle carte avec image
 function shopSample(){const id=Object.keys(mine.done).filter(id=>WK[id]?.img).sort((a,b)=>rateOf(b)-rateOf(a)||mine.done[b]-mine.done[a])[0];return id?WK[id]:{id:'x',t:'f',ti:'Ta carte'}}
 function shopPrev(it,sw){
-  if(it.slot==='title')return `<span class="sp-title">${avatar(uid)}<span><b>${esc(myName||'Toi')}</b><span class="ptitle">${esc(it.name)}</span></span></span>`;
-  if(it.slot==='frame')return `<span class="sp-card">${card(sw,4)}</span>`;
+  if(it.slot==='title')return `<span class="sp-title"><span class="sp-dot" style="--avc:${accColor(uid)}">${esc((myName||'?')[0].toUpperCase())}</span><b>${esc(myName||'Toi')}</b><span class="ptitle">${esc(it.name)}</span></span>`;
+  if(it.slot==='frame')return `<span class="sp-card">${card(sw,it.tier||4)}</span>`;
   if(it.slot==='back')return `<span class="sp-backs"><span class="cardback"></span><span class="cardback"></span></span>`;
+  if(it.slot==='dot')return `<span class="sp-dots"><span class="sp-dot big" style="--avc:${it.c}">${esc((myName||'?')[0].toUpperCase())}</span></span>`;
   return `<span class="sp-book"><span class="sp-pages"></span><span class="sp-cov"><i></i></span></span>`;
 }
-const SLOTD={title:'S’affiche à côté de ton nom, partout dans l’app.',frame:'Habille toutes tes cartes.',back:'Le dos de tes cartes au moment de la révélation.',cover:'La couverture de ton grimoire.'};
+const SLOTD={title:'S’affiche à côté de ton nom, partout dans l’app.',frame:'Habille toutes tes cartes. Plus le cadre est rare, plus il brille.',back:'Le dos de tes cartes au moment de la révélation.',cover:'La couverture de ton grimoire.',dot:'La couleur de ta pastille, vue par tout ton cercle.'};
 function shopHTML(){
   const b=balance(),n=Object.keys(mine.done).length,br=earnedBreakdown(),sw=shopSample();
-  const tier=p=>p>=400?' t-epic':p>=250?' t-rare':'';
-  return `<div class="shop"><div class="sh-bal">${PEP}<b>${b}</b><small>pépites</small></div>
+  const itemHTML=it=>{const slot=it.slot,has=owned(it.id),eq=equipped(slot)===it.id,locked=it.rank&&n<it.rank,miss=it.price-b;
+    const foot=locked?`<span class="si-need">🔒 Rang à ${it.rank} cartes</span>`
+      :has?`<button class="si-btn${eq?' eq':''}" data-equip="${it.id}">${eq?'✓ Équipé':'Équiper'}</button>`
+      :miss>0?`<button class="si-btn buy" disabled>${PEP}<b>${it.price}</b></button><span class="si-need">Encore ${miss}</span>`
+      :`<button class="si-btn buy" data-buy="${it.id}">${it.price?`${PEP}<b>${it.price}</b>`:'<b>Gratuit</b>'}</button>`;
+    return `<article class="si sl-${slot} ${it.id.replace('.','-')}${eq?' on':''}${has?' own':''}${locked?' locked':''}${it.tier?' tier'+it.tier:''}${it.rank?' t-prestige':''}">
+      <div class="si-prev" aria-hidden="true">${shopPrev(it,sw)}${eq?'<span class="si-tag">Équipé</span>':it.rank?'<span class="si-tag pr">Prestige</span>':''}${it.tier?`<span class="si-rar r${it.tier}">${GEM(it.tier,12)}${RAR[it.tier].n}</span>`:''}</div>
+      <div class="si-name">${esc(it.name)}</div><div class="si-foot">${foot}</div></article>`};
+  const section=(slot,label)=>{const its=SHOP.filter(x=>x.slot===slot);
+    const body=slot==='frame'?RN.map(t=>{const ft=its.filter(x=>x.tier===t);return ft.length?`<div class="sh-tier r${t}">${GEM(t,16)}<b>${RAR[t].n}</b><span>${RAR[t].s}</span></div><div class="sh-g">${ft.map(itemHTML).join('')}</div>`:''}).join('')
+      :`<div class="sh-g">${its.map(itemHTML).join('')}</div>`;
+    return `<section class="sh-sec sec-${slot}" id="sh-${slot}"><h3 class="sh-h"><span class="sh-hi">${SLOTI[slot]}</span>${label}<span class="sh-hn">${its.filter(x=>owned(x.id)).length}/${its.length}</span></h3><p class="sh-d">${SLOTD[slot]}</p>${body}</section>`};
+  return `<div class="shop">
+    <div class="sh-hero"><span class="sh-spark s1" aria-hidden="true">✦</span><span class="sh-spark s2" aria-hidden="true">✧</span>
+      <div class="sh-bal">${PEP}<b>${b}</b><small>pépites</small></div><p class="sh-tag">Gagne des pépites en partageant, dépense-les ici.</p></div>
     <nav class="sh-nav">${Object.entries(SLOTN).map(([slot,l])=>`<a href="#sh-${slot}">${l}</a>`).join('')}</nav>
-    <h3 class="sh-h">Missions du jour</h3>${missionsHTML()}
-    ${Object.entries(SLOTN).map(([slot,label])=>`<h3 class="sh-h" id="sh-${slot}">${label}</h3><p class="sh-d">${SLOTD[slot]}</p><div class="sh-g">${SHOP.filter(x=>x.slot===slot).map(it=>{
-      const has=owned(it.id),eq=equipped(slot)===it.id,locked=it.rank&&n<it.rank,miss=it.price-b;
-      const foot=locked?`<span class="si-need">🔒 Rang à ${it.rank} cartes</span>`
-        :has?`<button class="si-btn${eq?' eq':''}" data-equip="${it.id}">${eq?'✓ Équipé':'Équiper'}</button>`
-        :miss>0?`<button class="si-btn buy" disabled>${PEP}<b>${it.price}</b></button><span class="si-need">Encore ${miss}</span>`
-        :`<button class="si-btn buy" data-buy="${it.id}">${it.price?`${PEP}<b>${it.price}</b>`:'<b>Gratuit</b>'}</button>`;
-      return `<article class="si sl-${slot} ${it.id.replace('.','-')}${eq?' on':''}${has?' own':''}${locked?' locked':''}${it.rank?' t-prestige':tier(it.price)}">
-        <div class="si-prev" aria-hidden="true">${shopPrev(it,sw)}${eq?'<span class="si-tag">Équipé</span>':it.rank?'<span class="si-tag pr">Prestige</span>':''}</div>
-        <div class="si-name">${esc(it.name)}</div><div class="si-foot">${foot}</div></article>`}).join('')}</div>`).join('')}
+    <section class="sh-sec sec-ms"><h3 class="sh-h"><span class="sh-hi">🎯</span>Missions du jour</h3>${missionsHTML()}</section>
+    ${Object.entries(SLOTN).map(([slot,label])=>section(slot,label)).join('')}
     <details class="sh-how"><summary>Comment gagner des pépites ?</summary><ul>
       <li>${GAIN.work} ${PEP} par œuvre ajoutée à ta collection</li><li>${GAIN.rec} ${PEP} par recommandation, ${GAIN.recDone} ${PEP} quand un ami la finit</li>
       <li>${GAIN.comment} ${PEP} par commentaire, ${GAIN.chal} ${PEP} par défi relevé, ${GAIN.fetish} ${PEP} par œuvre fétiche trouvée</li>
-      <li>${GAIN.match} ${PEP} par match joué, +${GAIN.matchWin} ${PEP} en cas de victoire</li><li>50 ${PEP} à chaque nouveau rang, et les missions du jour</li></ul>
-      <div class="sh-br">${br.rows.filter(r=>r[1]).map(r=>`<span>${esc(r[0])}</span><b>+${r[1]}</b>`).join('')}<span>Dépensées</span><b>-${spent()}</b></div></details></div>`;
+      <li>${GAIN.match} ${PEP} par match joué, +${GAIN.matchWin} ${PEP} en cas de victoire, plus les mises gagnées</li><li>50 ${PEP} à chaque nouveau rang, et les missions du jour</li></ul>
+      <div class="sh-br">${br.rows.filter(r=>r[1]).map(r=>`<span>${esc(r[0])}</span><b>${r[1]>0?'+':''}${r[1]}</b>`).join('')}<span>Dépensées</span><b>-${spent()}</b></div></details></div>`;
 }
 function buyItem(id){
   const it=SHOP.find(x=>x.id===id);if(!it||owned(id))return;
   if(it.rank&&Object.keys(mine.done).length<it.rank)return;
   if(balance()<it.price){toast('Pas assez de pépites');return}
-  mine.shop=mine.shop||{};mine.shop[id]=Date.now();equipItem(id,true);toast(`${it.name} débloqué !`);confetti();
+  mine.shop=mine.shop||{};mine.shop[id]=Date.now();mine.paid=mine.paid||{};mine.paid[id]=it.price;equipItem(id,true);toast(`${it.name} débloqué !`);confetti();
 }
 function equipItem(id,force){
   const it=SHOP.find(x=>x.id===id);if(!it||!owned(id))return;
@@ -1396,8 +1488,12 @@ function gBuild(){
   const pp=gPer(),book=[{k:'toc'}];
   for(const t of TYPE_ORDER){const list=items.filter(x=>x.w.t===t),n=Math.max(1,Math.ceil(list.length/pp));
     for(let i=0;i<n;i++)book.push({k:'t',t,i,n,list:list.slice(i*pp,i*pp+pp),total:list.length})}
-  G.book=book;G.page=Math.min(G.page,book.length-1);
+  G.book=book;G.page=Math.min(G.page,book.length-1);GCACHE.clear();
 }
+// pages déjà construites gardées en mémoire : tourner une page ne recharge ni les images ni l'apparition des cartes
+const GCACHE=new Map();
+function gNode(p){let n=GCACHE.get(p);if(!n){n=document.createElement('div');n.className='gpin';n.innerHTML=gPageHTML(p);GCACHE.set(p,n);setTimeout(()=>n.classList.add('shown'),1200)}return n}
+function gMount(){const pg=$('#gpage');if(pg)pg.replaceChildren(gNode(G.page));[G.page-1,G.page+1].forEach(p=>{if(p>=0&&p<gPages())gNode(p)})}
 const gStart=t=>G.book.findIndex(p=>p.k==='t'&&p.t===t);
 const gTypeAt=p=>G.book[p]?.t||'';
 const G_CORNER='<svg viewBox="0 0 44 44" width="40" height="40" aria-hidden="true"><path d="M3 41V3h38" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 41V8h33" fill="none" stroke="currentColor" stroke-width=".8" opacity=".55"/><path d="M8 8l16 0A16 16 0 0 1 8 24z" fill="currentColor" opacity=".18"/><path d="M8 8L22.8 13.9M8 8L19.3 19.3M8 8L13.9 22.8" stroke="currentColor" stroke-width="1"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/></svg>';
@@ -1434,7 +1530,7 @@ function grimHTML(){
       <button class="gsort" data-gsort aria-label="Changer le tri">${G.sort==='rar'?'★ Rareté':'🕒 Récentes'}</button></div>
     <div class="gbook" id="gbook"><span class="gclasp" aria-hidden="true"></span><span class="gedge" aria-hidden="true"></span>
       <div class="gribs" role="tablist" aria-label="Sections">${`<button class="grib toc" data-ggo="0" aria-label="Sommaire">☰</button>`+TYPE_ORDER.map(t=>`<button class="grib" style="--tc:var(--${TVAR[t]});--tci:${TINK(t)}" data-ggo="${gStart(t)}" aria-label="${T[t].p}, ${cnt(t)} cartes" title="${T[t].p}">${ICON[t]}</button>`).join('')}</div>
-      <div class="gpage" id="gpage">${gPageHTML()}</div></div>
+      <div class="gpage" id="gpage"></div><span class="gfold" aria-hidden="true"></span></div>
     <div class="gscrub"><button data-gturn="-1" aria-label="Page précédente">‹</button>
       <input type="range" id="gRange" min="0" max="${gPages()-1}" value="${G.page}" aria-label="Aller à la page">
       <button data-gturn="1" aria-label="Page suivante">›</button></div>
@@ -1456,36 +1552,42 @@ function gGoto(p){
   const dir=p>G.page?1:-1;
   if(Math.abs(p-G.page)===1){turnPage(dir);return}
   const pg=$('#gpage');G.page=p;
-  if(!pg||RM){if(pg)pg.innerHTML=gPageHTML();gChrome();return}
+  if(!pg||RM){gMount();gChrome();return}
   pg.animate([{transform:'translateX(0)',opacity:1},{transform:`translateX(${-dir*24}px)`,opacity:0}],{duration:140,easing:'ease-in'}).onfinish=()=>{
-    pg.innerHTML=gPageHTML();gChrome();pg.animate([{transform:`translateX(${dir*24}px)`,opacity:0},{transform:'none',opacity:1}],{duration:200,easing:'ease-out'})};
+    gMount();gChrome();pg.animate([{transform:`translateX(${dir*24}px)`,opacity:0},{transform:'none',opacity:1}],{duration:200,easing:'ease-out'})};
 }
 function gRefresh(){const keepT=gTypeAt(G.page);gBuild();if(keepT){const s=gStart(keepT);if(s>=0)G.page=s}
-  $('#fsBody').innerHTML=grimHTML();bindGrim();gChrome()}
+  $('#fsBody').innerHTML=grimHTML();gMount();bindGrim();gChrome()}
 document.addEventListener('input',e=>{if(e.target.id==='gRange'){const p=+e.target.value;e.target.style.setProperty('--pct',`${gPages()>1?p/(gPages()-1)*100:0}%`);clearTimeout(gRangeT);gRangeT=setTimeout(()=>gGoto(p),90)}});
 let gRangeT=null;
 // Tourner les pages : la page suit le doigt, puis se pose ou revient
 function startTurn(dir){
   const book=$('#gbook'),pg=$('#gpage');if(!book||!pg)return null;
   const np=G.page+dir;if(np<0||np>=gPages())return null;
-  const cur=pg.innerHTML,nxt=gPageHTML(np),ov=document.createElement('div');
-  ov.className='gturn';ov.innerHTML=`<div class="gpage gface">${dir>0?cur:nxt}</div><div class="gback"></div><span class="gshade"></span>`;
-  book.appendChild(ov);if(dir>0)pg.innerHTML=nxt;
+  const cur=gNode(G.page),nxt=gNode(np),ov=document.createElement('div');
+  ov.className='gturn';ov.innerHTML=`<div class="gpage gface"></div><div class="gback"></div><span class="gshade"></span><span class="gcurl"></span>`;
+  ov.querySelector('.gface').appendChild(dir>0?cur:nxt);
+  book.appendChild(ov);if(dir>0)pg.replaceChildren(nxt);book.classList.add('turning');
   const t={ov,dir,np,cur,nxt,ang:dir>0?0:-180,p:0};setTurn(t,0);return t;
 }
-function setTurn(t,p){t.p=p;t.ang=t.dir>0?-180*p:-180*(1-p);t.ov.style.transform=`rotateY(${t.ang}deg)`;
+function setTurn(t,p){t.p=p;t.ang=t.dir>0?-180*p:-180*(1-p);const lift=Math.sin(Math.PI*Math.abs(t.ang)/180);
+  t.ov.style.transform=`rotateY(${t.ang}deg) translateZ(${(lift*14).toFixed(1)}px) skewY(${(t.dir*lift*-1.2).toFixed(2)}deg)`;
+  t.ov.querySelector('.gcurl').style.opacity=(lift*.9).toFixed(3);
   t.ov.querySelector('.gshade').style.opacity=(Math.sin(Math.PI*Math.abs(t.ang)/180)*.6).toFixed(3);
   const pg=$('#gpage');if(pg)pg.style.setProperty('--cast',(Math.sin(Math.PI*Math.abs(t.ang)/180)*.5).toFixed(3))}
 function endTurn(t,commit,dur=460){
   const to=t.dir>0?(commit?-180:0):(commit?0:-180),from=t.ang;
-  const done=()=>{if(t.dir>0){if(commit)G.page=t.np;else $('#gpage').innerHTML=t.cur}else if(commit){G.page=t.np;$('#gpage').innerHTML=t.nxt}
-    t.ov.remove();const pg=$('#gpage');if(pg)pg.style.setProperty('--cast',0);gChrome();if(commit&&navigator.vibrate)try{navigator.vibrate(8)}catch(e){}};
+  const done=()=>{if(t.dir>0){if(commit)G.page=t.np;else $('#gpage').replaceChildren(t.cur)}else if(commit){G.page=t.np;$('#gpage').replaceChildren(t.nxt)}
+    t.ov.remove();$('#gbook')?.classList.remove('turning');if(commit)[G.page-1,G.page+1].forEach(p=>{if(p>=0&&p<gPages())gNode(p)});const pg=$('#gpage');if(pg)pg.style.setProperty('--cast',0);gChrome();if(commit&&navigator.vibrate)try{navigator.vibrate(8)}catch(e){}};
   if(RM){done();return}
   const sh=t.ov.querySelector('.gshade');
-  t.ov.animate([{transform:`rotateY(${from}deg)`},{transform:`rotateY(${to}deg)`}],{duration:dur,easing:'cubic-bezier(.3,.7,.2,1)',fill:'forwards'}).onfinish=done;
+  const mid=(from+to)/2;
+  t.ov.animate([{transform:t.ov.style.transform},{transform:`rotateY(${mid}deg) translateZ(14px) skewY(${-t.dir*1.2}deg)`,offset:.5},{transform:`rotateY(${to}deg)`}],{duration:dur,easing:'cubic-bezier(.45,.05,.25,1)',fill:'forwards'}).onfinish=done;
+  const cu=t.ov.querySelector('.gcurl');cu.animate([{opacity:cu.style.opacity||0},{opacity:.9,offset:.5},{opacity:0}],{duration:dur,fill:'forwards'});
   sh.animate([{opacity:sh.style.opacity||0},{opacity:.6,offset:.5},{opacity:0}],{duration:dur,fill:'forwards'});
 }
-function turnPage(dir){const t=startTurn(dir);if(t)endTurn(t,true,680)}
+let gBusy=false;
+function turnPage(dir){if(gBusy)return;const t=startTurn(dir);if(!t)return;gBusy=true;endTurn(t,true,560);setTimeout(()=>gBusy=false,580)}
 let fsSrc=null,fsKind='';
 const clipOf=el=>{const r=el.getBoundingClientRect();return `inset(${Math.max(0,r.top)}px ${Math.max(0,innerWidth-r.right)}px ${Math.max(0,innerHeight-r.bottom)}px ${Math.max(0,r.left)}px round 14px)`};
 function openFs(kind,src){
@@ -1504,7 +1606,7 @@ function openFs(kind,src){
     const book=$('#gbook');if(book){const cv=document.createElement('div');cv.className='gcover';cv.innerHTML='<span class="gbk-t">Grimoire</span><span class="gbk-o"></span>';book.appendChild(cv);
       cv.animate([{transform:'rotateY(0)'},{transform:'rotateY(0)',offset:.35},{transform:'rotateY(-165deg)'}],{duration:1100,easing:'cubic-bezier(.5,0,.2,1)',fill:'forwards'}).onfinish=()=>cv.remove()}
   }
-  if(kind==='grim'){bindGrim();gChrome()}
+  if(kind==='grim'){gMount();bindGrim();gChrome()}
   setTimeout(()=>$('#fs .fs-x')?.focus({preventScroll:true}),120);
 }
 function closeFs(){
@@ -1518,9 +1620,10 @@ function bindGrim(){
   b.addEventListener('pointerdown',e=>{if(e.button>0||e.target.closest('.gribs'))return;st={x:e.clientX,y:e.clientY,t:null,w:b.clientWidth,pid:e.pointerId,onCard:!!e.target.closest('.gslotf')}});
   b.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
     if(!st.t){if(Math.abs(dx)<12||Math.abs(dx)<Math.abs(dy)*1.2)return;st.t=startTurn(dx<0?1:-1);if(!st.t){st=null;return}try{b.setPointerCapture(st.pid)}catch(err){}}
-    setTurn(st.t,Math.min(1,Math.max(0,(st.t.dir>0?-dx:dx)/(st.w*.85))))});
+    setTurn(st.t,Math.min(1,Math.max(0,(st.t.dir>0?-dx:dx)/(st.w*.7))));st.v=dx-(st.lx??dx);st.lx=dx});
   const up=e=>{if(!st)return;const s0=st;st=null;
-    if(s0.t){gNoClick=true;setTimeout(()=>gNoClick=false,60);endTurn(s0.t,s0.t.p>.3);return}
+    // un geste rapide suffit à tourner la page, même court
+    if(s0.t){gNoClick=true;setTimeout(()=>gNoClick=false,60);const flick=Math.abs(s0.v||0)>6&&Math.sign(s0.v)===(s0.t.dir>0?-1:1);endTurn(s0.t,s0.t.p>.25||flick,flick?380:460);return}
     if(!s0.onCard&&Math.abs(e.clientX-s0.x)<8&&Math.abs(e.clientY-s0.y)<8){const r=b.getBoundingClientRect(),x=e.clientX-r.left;if(x>r.width*.8)turnPage(1);else if(x<r.width*.2)turnPage(-1)}};
   b.addEventListener('pointerup',up);b.addEventListener('pointercancel',()=>{if(st&&st.t)endTurn(st.t,false);st=null});
 }
@@ -1598,16 +1701,16 @@ function openSheet(id,refocus=true,opts={}){
   const deal=pickDeal&&!done;pickDeal=false;
   const pick=done||pickOpen?`<div class="pick"><p>${done?'Ton avis':'T’en as pensé quoi ?'}</p><div class="deck${deal?' deal':''}">${RN.map(n=>`<button class="pc r${n}" style="--i:${n-1}" aria-pressed="${r===n}" data-rate="${n}" aria-label="${RAR[n].s}, carte ${RAR[n].n.toLowerCase()}"><span class="pin"><span class="pback"></span><span class="pface"><span class="pgem">${GEM(n,22)}</span><span class="ps">${RAR[n].s}</span><small>${RAR[n].n}</small></span></span></button>`).join('')}</div></div>`:'';
   $('#sheetIn').innerHTML=`<div class="grab"></div>
-    <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${T[w.t].n}</span>${SONG&&SONG.ti?`<div class="sh-song">♪ ${esc(SONG.ti)}</div>`:''}<h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
+    <div class="sh-top">${card(w,r)}<div style="min-width:0"><span class="meta">${SONG&&SONG.ti&&w.t==='m'?'Titre, sur l’album':T[w.t].n}</span>${SONG&&SONG.ti?`<div class="sh-song">♪ ${esc(SONG.ti)}</div>`:''}<h3 id="shTitle">${esc(w.ti)}</h3><span class="meta">${[w.c,w.y].filter(Boolean).map(esc).join(', ')}</span>${r?`<div class="badges" style="margin-top:8px">${rarityTag(r)}</div>`:''}</div></div>
     <dl class="facts">${facts.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${w.syn&&!(w.t==='m'&&(w.tl||[]).length)?`<p class="syn">${esc(w.syn)}</p>`:(!w.full?'<p class="meta">Chargement de la fiche…</p>':'')}
     ${(w.imgs||[]).length?`<div class="gal">${w.imgs.map((u,i)=>`<button data-gal="${i}" aria-label="Agrandir l’image ${i+1}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-err="gal"></button>`).join('')}</div>`:''}
     <div class="sh-acts2">
       ${SONG&&w.t==='m'&&!done?songTgl(id,SONG.sid):doneTgl(id,'data-done')}
-      <div class="sa-row"><button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button><div class="icogrp">${wantBtn(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
+      <div class="sa-row"><button class="btn recb big" id="recBtn" aria-expanded="${recOpen}">${PLANE}Recommander</button><div class="icogrp">${wantBtnL(id)}<button class="btn icon" data-chalwith="${esc(id)}" aria-label="Lancer un défi avec cette œuvre" title="Lancer un défi avec cette œuvre">${SWORDS}</button></div></div>
     </div>
     ${pick}
-    ${tracksHTML(w)}
+    ${tracksHTML(w)}${seriesHTML(w)}
     <div id="recForm" class="recf" ${recOpen?'':'hidden'}>
       ${SONG&&SONG.ti?`<div class="rh">Recommander</div><div class="wrap recwhat">${chip('♪ '+esc(short(SONG.ti)),recSong,'data-recwhat="1"')}${chip('L’album entier',!recSong,'data-recwhat="0"')}</div>`:''}
       <div class="rh">Recommander à</div>
@@ -1630,7 +1733,7 @@ function openSheet(id,refocus=true,opts={}){
       .finally(()=>{detailsLoading=null;if(sheetId===id&&$('#sheet').classList.contains('open'))refreshSheet()});
   }
 }
-function refreshSheet(){if(sheetId==='__mod'){renderMod();return}if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
+function refreshSheet(){if(sheetId==='__stake'){renderStake();return}if(sheetId==='__mod'){renderMod();return}if(sheetId==='__pick'){renderPicker();if(PK.mode!=='guess')pkSearch();return}if(sheetId==='__chal'){CH.q=$('#chq')?.value??CH.q;CH.note=$('#chNote')?.value??CH.note;renderChalForm();return}if(sheetId==='__manual'){MAN.title=$('#mTitle')?.value??MAN.title;MAN.note=$('#mNote')?.value??MAN.note;renderManual();return}const typing=document.activeElement===$('#recNote');openSheet(sheetId,false);if(typing){const t=$('#recNote');t.focus();t.setSelectionRange(t.value.length,t.value.length)}}
 function closeSheet(){if(!sheetId)return;sheetId=null;SONG=null;if(pendingDone&&!isDone(pendingDone)){pendingDone=null;tglPop=null;renderFeed()}pendingDone=null;$('#scrim').classList.remove('open');$('#sheet').classList.remove('open');lastFocus?.focus?.()}
 
 /* ---------- Œuvre ajoutée à la main ---------- */
@@ -1758,7 +1861,7 @@ function closeReveal(){
 }
 
 /* ---------- Actions ---------- */
-function keepWork(id){const w=WK[id];if(!w)return;if(isDone(id)||isWant(id)||trkPart(id))mine.works[id]=snap(w);else delete mine.works[id]}
+function keepWork(id){const w=WK[id];if(!w)return;if(isDone(id)||isWant(id)||trkPart(id)||epsAny(id))mine.works[id]=snap(w);else delete mine.works[id]}
 function setRate(id,n){
   const was=isDone(id);
   mine.rate[id]=n;
@@ -1772,7 +1875,7 @@ function toggleDone(id){
   if(!confirm('Retirer cette carte de ta collection ?'))return;
   delete mine.done[id];delete mine.rate[id];keepWork(id);save();toast('Carte retirée');renderAll();
 }
-function toggleWant(id){if(mine.want[id])delete mine.want[id];else mine.want[id]=Date.now();keepWork(id);save();renderAll()}
+function toggleWant(id){const add=!mine.want[id];if(add)mine.want[id]=Date.now();else delete mine.want[id];keepWork(id);save();toast(add?'Gardé pour plus tard':'Retiré de ta liste');renderAll()}
 async function share(id,btn){
   const w=WK[id];if(!w)return;btn.disabled=true;
   const song=SONG&&SONG.alb===id&&recSong&&SONG.ti?{so:SONG.ti,sid:SONG.sid}:{};
@@ -1864,6 +1967,8 @@ document.addEventListener('click',e=>{
   if('msend' in d){sendManual(b);return}
   if(d.open){openSheet(d.open,true,d.song?{song:d.song,so:d.so}:{});return}
   if(d.acch){accToggle(d.acch);return}
+  if(d.stk!==undefined){STK.v=+d.stk;renderStake();return}
+  if('stkgo' in d){b.disabled=true;startMatch(STK.to,STK.v,STK.src);return}
   if(d.mod){openMod(d.mod);return}
   if(d.modr){MOD.reason=d.modr;renderMod();return}
   if('modsend' in d){b.disabled=true;sendReport();return}
@@ -1872,6 +1977,9 @@ document.addEventListener('click',e=>{
   if('reload' in d){b.classList.remove('spin');void b.offsetWidth;b.classList.add('spin');localSeed=Math.random();runSearch();return}
   if(d.qtrk){const [a,sid]=d.qtrk.split('|');toggleTrack(a,sid);return}
   if(d.trk){toggleTrack(sheetId,d.trk);return}
+  if(d.sea){const n=+d.sea;SEXP[sheetId]=SEXP[sheetId]===n?-1:n;refreshSheet();return}
+  if(d.ep){const [n,k]=d.ep.split('|').map(Number);setEps(sheetId,n,k);return}
+  if(d.epall){const [n,k]=d.epall.split('|').map(Number);if(k)setEps(sheetId,n,k);else{delete mine.eps[epKey(sheetId,n)];keepWork(sheetId);save();refreshSheet()}return}
   if('albfull' in d){if(!isDone(sheetId)){SONG=null;toggleDone(sheetId)}return}
   if(d.recwhat!==undefined){recSong=d.recwhat==='1';refreshSheet();return}
   if(d.quickdone){if(isDone(d.quickdone))toggleDone(d.quickdone);else{pendingDone=tglPop=d.quickdone;b.classList.add('on','pop');setTimeout(()=>openSheet(d.quickdone,true,{pick:true}),260)}return}
@@ -2000,13 +2108,16 @@ function applyState(st){
   st.members.forEach(m=>{const d=normData(m.data);members[m.id]={name:m.name,data:d};names[m.id]=m.name;Object.values(d.works).forEach(reg)});
   if(members[uid]&&!saving&&!dirty){mine=members[uid].data;myName=members[uid].name}
   myCircles=st.circles;recs=st.recs||[];recs.forEach(x=>reg(x.work));
-  CIRCLES=st.circleMembers||{};CATS=st.catalogs||{b:false};setMatches(st.matches);FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
+  MSTATS=st.mstats||{};CIRCLES=st.circleMembers||{};CATS=st.catalogs||{b:false};setMatches(st.matches);FET=st.fetish||null;if(FET){if(FET.mine)reg(FET.mine);(FET.others||[]).forEach(o=>o.work&&reg(o.work));(FET.found||[]).forEach(f=>f.work&&reg(f.work))}
   BLOCKED=st.blocked||[];comments=st.comments||[];challenges=st.challenges||[];challenges.forEach(c=>(c.works||[]).forEach(reg));checkWins(lsGet('sharefs-wins',null)===null);
   renderAll();
 }
 // on ne redessine que si l'état a vraiment changé (le serveur répond 304 sinon)
 let lastState='';
-async function loadAll(force){try{const st=await call('GET','state'),k=JSON.stringify(st);if(!force&&k===lastState&&!saving&&!dirty)return;lastState=k;applyState(st)}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
+async function loadAll(force){const v0=localVer;try{const st=await call('GET','state');
+  // une modification faite pendant la requête (carte ajoutée, avis…) ne doit pas être écrasée par un état périmé
+  if(localVer!==v0||saving||dirty){setTimeout(()=>{if(!saving&&!dirty)loadAll()},1500);return}
+  const k=JSON.stringify(st);if(!force&&k===lastState)return;lastState=k;applyState(st)}catch(e){if(e.code!=='unauthorized')toast(msg(e))}}
 let poll=null;
 async function enterApp(loaded=false){
   hideGate();if(!loaded)await loadAll();
